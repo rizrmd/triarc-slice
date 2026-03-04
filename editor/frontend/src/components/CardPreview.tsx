@@ -29,6 +29,7 @@ export function CardPreview({ slug }: CardPreviewProps) {
             frame_image: typeof data.frame_image === 'string' ? data.frame_image : '',
             name_pos: data.name_pos || { x: 0, y: 0 },
             name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? data.name_scale : 40,
+            tint: typeof data.tint === 'string' ? data.tint : '',
           };
 
           const frameSrc = normalized.frame_image || frameImage;
@@ -156,7 +157,31 @@ export function CardPreview({ slug }: CardPreviewProps) {
       });
 
       if (frameImg) {
+        ctx.save();
+        if (config.tint) {
+          ctx.shadowColor = config.tint;
+          ctx.shadowBlur = 10;
+        }
         ctx.drawImage(frameImg, 0, 0, w, h);
+        ctx.restore();
+
+        if (config.tint) {
+          const scratchCtx = scratchCanvas.getContext('2d');
+          if (scratchCtx) {
+            scratchCanvas.width = w;
+            scratchCanvas.height = h;
+            scratchCtx.clearRect(0, 0, w, h);
+            scratchCtx.drawImage(frameImg, 0, 0, w, h);
+            scratchCtx.globalCompositeOperation = 'source-in';
+            scratchCtx.fillStyle = config.tint;
+            scratchCtx.fillRect(0, 0, w, h);
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'multiply';
+            ctx.drawImage(scratchCanvas, 0, 0, w, h);
+            ctx.restore();
+          }
+        }
       }
 
       drawLayer(fgImg, maskFgImg, {
