@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import type { HeroConfig, CharLayer, MaskLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers } from '@/types';
+import type { HeroConfig, CharLayer, MaskLayer, TextLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers } from '@/types';
 import frameImage from './assets/frame.webp';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,7 @@ export default function CardEditor() {
     card: true,
     'mask-fg': true,
     'char-fg': true,
+    name: true,
   });
   const [canvasZoom, setCanvasZoom] = useState(() => {
     if (typeof window === 'undefined') return 100;
@@ -48,37 +49,52 @@ export default function CardEditor() {
   const [uploadingCharLayer, setUploadingCharLayer] = useState<CharLayer | null>(null);
   const [maskVersion, setMaskVersion] = useState(0);
   const lastSavedMaskVersion = useRef(0);
+  const lastMaskSnapshotRef = useRef<{ 'mask-bg': string; 'mask-fg': string } | null>(null);
+  const lastMaskSnapshotVersionRef = useRef(-1);
   const [assetPickerTarget, setAssetPickerTarget] = useState<AssetPickerTarget>(null);
   // Asset items state is moved to AssetPicker, but we need apply logic here
   const [assetApplying, setAssetApplying] = useState(false);
   
-  const [cardBaseSize, setCardBaseSize] = useState({ width: 400, height: 600 });
+  const [cardBaseSize, setCardBaseSize] = useState({ width: 0, height: 0 });
   const cardFrameRef = useRef<HTMLDivElement | null>(null);
   const maskBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   
-  const [cardSize, setCardSize] = useState(cardBaseSize);
   const [brushSize, setBrushSize] = useState(20);
   const [brushOpacity, setBrushOpacity] = useState(90);
   const [brushHardness, setBrushHardness] = useState(100);
   const [brushMode, setBrushMode] = useState<'erase' | 'restore'>('erase');
   
-  const cardWidth = cardSize.width;
-  const cardHeight = cardSize.height;
+  const cardWidth = cardBaseSize.width;
+  const cardHeight = cardBaseSize.height;
 
   // ... Helper functions ...
   const cloneConfig = (source: HeroConfig): HeroConfig => ({
     ...source,
     char_bg_pos: { ...source.char_bg_pos },
     char_fg_pos: { ...source.char_fg_pos },
+    name_pos: { ...source.name_pos },
+    name_scale: source.name_scale,
+    full_name: source.full_name,
+    text_shadow_color: source.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
   });
   const isSameConfig = (left: HeroConfig, right: HeroConfig) => JSON.stringify(left) === JSON.stringify(right);
 
   const getMaskSnapshot = useCallback(() => {
+    if (lastMaskSnapshotVersionRef.current === maskVersion && lastMaskSnapshotRef.current) {
+      return lastMaskSnapshotRef.current;
+    }
+
     const bg = maskBgCanvasRef.current?.toDataURL('image/webp') || '';
     const fg = maskFgCanvasRef.current?.toDataURL('image/webp') || '';
-    return { 'mask-bg': bg, 'mask-fg': fg };
-  }, []);
+    const snapshot = { 'mask-bg': bg, 'mask-fg': fg };
+
+    lastMaskSnapshotRef.current = snapshot;
+    lastMaskSnapshotVersionRef.current = maskVersion;
+    return snapshot;
+  }, [maskVersion]);
+
+  const getMaskCanvasRef = (layer: MaskLayer) => (layer === 'mask-bg' ? maskBgCanvasRef : maskFgCanvasRef);
 
   const restoreMasks = useCallback((masks: { 'mask-bg': string; 'mask-fg': string }) => {
     const loadLayer = (layer: MaskLayer, src: string) => {
@@ -127,6 +143,9 @@ export default function CardEditor() {
           char_bg_scale: typeof data.char_bg_scale === 'number' && data.char_bg_scale > 0 ? data.char_bg_scale : 100,
           char_fg_scale: typeof data.char_fg_scale === 'number' && data.char_fg_scale > 0 ? data.char_fg_scale : 100,
           frame_image: typeof data.frame_image === 'string' ? data.frame_image : '',
+          name_pos: data.name_pos || { x: 0, y: 0 },
+          name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? Math.max(30, data.name_scale) : 40,
+          text_shadow_color: data.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
         };
 
         // Preload frame image to prevent layout shift
@@ -156,6 +175,7 @@ export default function CardEditor() {
           setRedoStack([]);
           setMaskVersion(0);
           lastSavedMaskVersion.current = 0;
+          lastMaskSnapshotVersionRef.current = -1;
           setLoading(false);
         });
       })
@@ -198,32 +218,51 @@ export default function CardEditor() {
   const activeFrameSrc = config?.frame_image || frameImage;
 
   useEffect(() => {
+    let mounted = true;
     const image = new window.Image();
-    image.onload = () => {
+    
+    console.log('[CardEditor] Starting frame image load:', activeFrameSrc);
+
+    const updateSize = () => {
+      if (!mounted) return;
+      console.log('[CardEditor] Frame image loaded:', { 
+        src: activeFrameSrc, 
+        width: image.naturalWidth, 
+        height: image.naturalHeight,
+        complete: image.complete 
+      });
       if (image.naturalWidth > 0 && image.naturalHeight > 0) {
         setCardBaseSize({ width: image.naturalWidth, height: image.naturalHeight });
       }
     };
-    image.src = activeFrameSrc;
-  }, [activeFrameSrc]);
 
-  useEffect(() => {
-    const frame = cardFrameRef.current;
-    if (!frame) return;
-    const syncCardSize = () => {
-      const width = frame.clientWidth;
-      const height = frame.clientHeight;
-      if (width > 0 && height > 0) {
-        setCardSize({ width, height });
-      }
+    image.src = activeFrameSrc;
+
+    // Use decode() for reliable "ready to draw" detection
+    image.decode()
+      .then(() => {
+        console.log('[CardEditor] Frame image decoded successfully');
+        updateSize();
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        console.error("Frame image decode failed:", activeFrameSrc, err);
+        // Fallback: try onload just in case decode failed but image is technically usable? 
+        // Or just rely on onload as a backup mechanism if decode rejects?
+        // Usually if decode fails, the image is bad.
+      });
+
+    // Keep onload as a backup for browsers where decode might behave strictly or differently
+    image.onload = () => {
+      console.log('[CardEditor] Frame image onload triggered');
+      updateSize();
     };
-    syncCardSize();
-    const observer = new ResizeObserver(syncCardSize);
-    observer.observe(frame);
+
     return () => {
-      observer.disconnect();
+      mounted = false;
+      image.onload = null;
     };
-  }, [cardBaseSize.width, cardBaseSize.height]);
+  }, [activeFrameSrc]);
 
   // ... Save logic ...
   const saveConfig = useCallback(
@@ -321,7 +360,7 @@ export default function CardEditor() {
   };
 
   // ... Layer manipulation logic ...
-  const getLayerState = (layer: CharLayer) => {
+  const getLayerState = (layer: CharLayer | TextLayer) => {
     if (!config) return { x: 0, y: 0, scale: 100 };
     if (layer === 'char-bg') {
       return {
@@ -330,14 +369,21 @@ export default function CardEditor() {
         scale: config.char_bg_scale,
       };
     }
+    if (layer === 'char-fg') {
+      return {
+        x: config.char_fg_pos.x,
+        y: config.char_fg_pos.y,
+        scale: config.char_fg_scale,
+      };
+    }
     return {
-      x: config.char_fg_pos.x,
-      y: config.char_fg_pos.y,
-      scale: config.char_fg_scale,
+      x: config.name_pos.x,
+      y: config.name_pos.y,
+      scale: config.name_scale,
     };
   };
 
-  const updateLayerPosition = (layer: CharLayer, dx: number, dy: number, trackHistory = true) => {
+  const updateLayerPosition = (layer: CharLayer | TextLayer, dx: number, dy: number, trackHistory = true) => {
     const updater = (prev: HeroConfig) => {
       if (layer === 'char-bg') {
         return {
@@ -348,11 +394,20 @@ export default function CardEditor() {
           },
         };
       }
+      if (layer === 'char-fg') {
+        return {
+          ...prev,
+          char_fg_pos: {
+            x: prev.char_fg_pos.x + dx,
+            y: prev.char_fg_pos.y + dy,
+          },
+        };
+      }
       return {
         ...prev,
-        char_fg_pos: {
-          x: prev.char_fg_pos.x + dx,
-          y: prev.char_fg_pos.y + dy,
+        name_pos: {
+          x: prev.name_pos.x + dx,
+          y: prev.name_pos.y + dy,
         },
       };
     };
@@ -363,8 +418,9 @@ export default function CardEditor() {
     }
   };
 
-  const updateLayerScale = (layer: CharLayer, scale: number) => {
-    const clamped = Math.max(40, Math.min(220, Math.round(scale)));
+  const updateLayerScale = (layer: CharLayer | TextLayer, scale: number) => {
+    const minScale = layer === 'name' ? 30 : 40;
+    const clamped = Math.max(minScale, Math.min(220, Math.round(scale)));
     commitConfig((prev) => {
       if (!prev) return prev;
       if (layer === 'char-bg') {
@@ -373,15 +429,22 @@ export default function CardEditor() {
           char_bg_scale: clamped,
         };
       }
+      if (layer === 'char-fg') {
+        return {
+          ...prev,
+          char_fg_scale: clamped,
+        };
+      }
       return {
         ...prev,
-        char_fg_scale: clamped,
+        name_scale: clamped,
       };
     });
   };
 
-  const applyLayerState = (layer: CharLayer, state: { x: number; y: number; scale: number }) => {
-    const clampedScale = Math.max(40, Math.min(220, Math.round(state.scale)));
+  const applyLayerState = (layer: CharLayer | TextLayer, state: { x: number; y: number; scale: number }) => {
+    const minScale = layer === 'name' ? 30 : 40;
+    const clampedScale = Math.max(minScale, Math.min(220, Math.round(state.scale)));
     commitConfig((prev) => {
       if (!prev) return prev;
       if (layer === 'char-bg') {
@@ -391,15 +454,22 @@ export default function CardEditor() {
           char_bg_scale: clampedScale,
         };
       }
+      if (layer === 'char-fg') {
+        return {
+          ...prev,
+          char_fg_pos: { x: Math.round(state.x), y: Math.round(state.y) },
+          char_fg_scale: clampedScale,
+        };
+      }
       return {
         ...prev,
-        char_fg_pos: { x: Math.round(state.x), y: Math.round(state.y) },
-        char_fg_scale: clampedScale,
+        name_pos: { x: Math.round(state.x), y: Math.round(state.y) },
+        name_scale: clampedScale,
       };
     });
   };
 
-  const applyLayerProperty = (layer: CharLayer, property: CharProperty, value: number) => {
+  const applyLayerProperty = (layer: CharLayer | TextLayer, property: CharProperty, value: number) => {
     if (property === 'scale') {
       updateLayerScale(layer, value);
       return;
@@ -416,26 +486,35 @@ export default function CardEditor() {
           },
         };
       }
+      if (layer === 'char-fg') {
+        return {
+          ...prev,
+          char_fg_pos: {
+            ...prev.char_fg_pos,
+            [property]: rounded,
+          },
+        };
+      }
       return {
         ...prev,
-        char_fg_pos: {
-          ...prev.char_fg_pos,
+        name_pos: {
+          ...prev.name_pos,
           [property]: rounded,
         },
       };
     });
   };
 
-  const copyAllLayerProperties = (layer: CharLayer) => {
+  const copyAllLayerProperties = (layer: CharLayer | TextLayer) => {
     setLayerClipboard(getLayerState(layer));
   };
 
-  const pasteAllLayerProperties = (layer: CharLayer) => {
+  const pasteAllLayerProperties = (layer: CharLayer | TextLayer) => {
     if (!layerClipboard) return;
     applyLayerState(layer, layerClipboard);
   };
 
-  const copySingleProperty = (layer: CharLayer, property: CharProperty) => {
+  const copySingleProperty = (layer: CharLayer | TextLayer, property: CharProperty) => {
     const layerState = getLayerState(layer);
     setPropertyClipboard({
       property,
@@ -443,7 +522,7 @@ export default function CardEditor() {
     });
   };
 
-  const pasteSingleProperty = (layer: CharLayer, property: CharProperty) => {
+  const pasteSingleProperty = (layer: CharLayer | TextLayer, property: CharProperty) => {
     if (!propertyClipboard || propertyClipboard.property !== property) return;
     applyLayerProperty(layer, property, propertyClipboard.value);
   };
@@ -454,12 +533,12 @@ export default function CardEditor() {
     scale: 100,
   });
 
-  const resetLayerProperty = (layer: CharLayer, property: CharProperty) => {
+  const resetLayerProperty = (layer: CharLayer | TextLayer, property: CharProperty) => {
     const defaultLayer = getDefaultLayerState();
     applyLayerProperty(layer, property, defaultLayer[property]);
   };
 
-  const resetAllLayerProperties = (layer: CharLayer) => {
+  const resetAllLayerProperties = (layer: CharLayer | TextLayer) => {
     applyLayerState(layer, getDefaultLayerState());
   };
 
@@ -472,12 +551,14 @@ export default function CardEditor() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space') setSpacePressed(true);
       const isMod = event.ctrlKey || event.metaKey;
-      const activeCharLayer: CharLayer | null =
+      const activeCharLayer: CharLayer | TextLayer | null =
         activeLayer === 'char-bg' || activeLayer === 'mask-bg'
           ? 'char-bg'
           : activeLayer === 'char-fg' || activeLayer === 'mask-fg'
             ? 'char-fg'
-            : null;
+            : activeLayer === 'name'
+              ? 'name'
+              : null;
       if (event.code === 'KeyS' && isMod) {
         event.preventDefault();
         handleSave(true);
@@ -499,13 +580,16 @@ export default function CardEditor() {
         event.preventDefault();
         if (activeCharLayer === 'char-bg') {
           setLayerClipboard({ x: config.char_bg_pos.x, y: config.char_bg_pos.y, scale: config.char_bg_scale });
-        } else {
+        } else if (activeCharLayer === 'char-fg') {
           setLayerClipboard({ x: config.char_fg_pos.x, y: config.char_fg_pos.y, scale: config.char_fg_scale });
+        } else {
+          setLayerClipboard({ x: config.name_pos.x, y: config.name_pos.y, scale: config.name_scale });
         }
       }
       if (event.code === 'KeyV' && isMod && activeCharLayer && layerClipboard) {
         event.preventDefault();
-        const clampedScale = Math.max(40, Math.min(220, Math.round(layerClipboard.scale)));
+        const minScale = activeCharLayer === 'name' ? 30 : 40;
+        const clampedScale = Math.max(minScale, Math.min(220, Math.round(layerClipboard.scale)));
         commitConfig((prev) => {
           if (!prev) return prev;
           if (activeCharLayer === 'char-bg') {
@@ -515,10 +599,17 @@ export default function CardEditor() {
               char_bg_scale: clampedScale,
             };
           }
+          if (activeCharLayer === 'char-fg') {
+            return {
+              ...prev,
+              char_fg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+              char_fg_scale: clampedScale,
+            };
+          }
           return {
             ...prev,
-            char_fg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
-            char_fg_scale: clampedScale,
+            name_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+            name_scale: clampedScale,
           };
         });
       }
@@ -533,10 +624,17 @@ export default function CardEditor() {
               char_bg_scale: initialConfig.char_bg_scale,
             };
           }
+          if (activeCharLayer === 'char-fg') {
+            return {
+              ...prev,
+              char_fg_pos: { x: initialConfig.char_fg_pos.x, y: initialConfig.char_fg_pos.y },
+              char_fg_scale: initialConfig.char_fg_scale,
+            };
+          }
           return {
             ...prev,
-            char_fg_pos: { x: initialConfig.char_fg_pos.x, y: initialConfig.char_fg_pos.y },
-            char_fg_scale: initialConfig.char_fg_scale,
+            name_pos: { x: initialConfig.name_pos.x, y: initialConfig.name_pos.y },
+            name_scale: initialConfig.name_scale,
           };
         });
       }
@@ -588,7 +686,7 @@ export default function CardEditor() {
   }, [slug, config, initialConfig, loading, saving, saveConfig, saveMasks, maskVersion]);
 
   // ... Mask logic ...
-  const getMaskCanvasRef = (layer: MaskLayer) => (layer === 'mask-bg' ? maskBgCanvasRef : maskFgCanvasRef);
+  // const getMaskCanvasRef = (layer: MaskLayer) => (layer === 'mask-bg' ? maskBgCanvasRef : maskFgCanvasRef);
 
   const clearMaskLayer = (layer: MaskLayer) => {
     if (config) {
@@ -602,29 +700,122 @@ export default function CardEditor() {
     setMaskVersion((v) => v + 1);
   };
 
+  const [serverMaskVersion, setServerMaskVersion] = useState(Date.now());
+  const [maskLoadState, setMaskLoadState] = useState<Record<MaskLayer, boolean>>({
+    'mask-bg': false,
+    'mask-fg': false,
+  });
+
   useEffect(() => {
-    if (!slug || !config) return;
-    const loadMaskLayer = (layer: MaskLayer) => {
+    setServerMaskVersion(Date.now());
+    // Reset mask load state on slug change to prevent flash of unmasked content
+    setMaskLoadState({ 'mask-bg': false, 'mask-fg': false });
+  }, [slug]);
+
+  useEffect(() => {
+    if (!slug) return;
+    let isCancelled = false;
+
+    const loadMaskLayer = (layer: MaskLayer, attempt = 0) => {
+      console.log(`[CardEditor] loadMaskLayer: ${layer} attempt=${attempt} width=${cardWidth}`);
+      // Check if layer is visible before trying to load
+      if (!visibleLayers[layer]) {
+        // If layer is hidden, we consider it "ready" (as in, we don't need to wait for it)
+        setMaskLoadState(prev => ({ ...prev, [layer]: true }));
+        return;
+      }
+
+      // If starting a new load, mark as not ready
+      if (attempt === 0) {
+        setMaskLoadState(prev => ({ ...prev, [layer]: false }));
+      }
+
       const canvas = getMaskCanvasRef(layer).current;
-      if (!canvas) return;
+      if (!canvas) {
+        console.warn(`[CardEditor] Canvas ref missing for ${layer}, retrying in 50ms (attempt ${attempt})`);
+        if (attempt < 5) {
+          setTimeout(() => {
+            if (!isCancelled) loadMaskLayer(layer, attempt + 1);
+          }, 50);
+        } else {
+           // If we can't find the canvas after 5 attempts, just mark it as loaded to show the image
+           // This prevents the image from being hidden forever if something weird happens with refs
+           console.error(`[CardEditor] Failed to find canvas ref for ${layer} after 5 attempts`);
+           setMaskLoadState(prev => ({ ...prev, [layer]: true }));
+        }
+        return;
+      }
+      
       canvas.width = Math.round(cardWidth);
       canvas.height = Math.round(cardHeight);
       const context = canvas.getContext('2d');
       if (!context) return;
+      
+      // Clear initially to avoid stale content during load
       context.clearRect(0, 0, canvas.width, canvas.height);
+      
       const image = new window.Image();
       image.onload = () => {
+        if (isCancelled) {
+            console.log(`[CardEditor] ${layer} load cancelled`);
+            return;
+        }
+        console.log(`[CardEditor] ${layer} loaded successfully`);
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        // Force a mask version update to ensure MaskedImage picks it up
+        setMaskVersion(v => v + 1);
+        setMaskLoadState(prev => ({ ...prev, [layer]: true }));
       };
       image.onerror = () => {
+        if (isCancelled) return;
+        console.error(`[CardEditor] ${layer} failed to load`);
         context.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Retry logic for rapid refresh scenarios
+        if (attempt < 3) {
+          const delay = 500 * Math.pow(2, attempt);
+          console.log(`[CardEditor] Retrying ${layer} in ${delay}ms`);
+          setTimeout(() => {
+            if (!isCancelled) loadMaskLayer(layer, attempt + 1);
+          }, delay);
+        } else {
+          // If failed after retries (e.g. 404 for new card), mark as ready (empty)
+          console.log(`[CardEditor] Giving up on ${layer}, marking as ready (empty)`);
+          setMaskLoadState(prev => ({ ...prev, [layer]: true }));
+        }
       };
-      image.src = `/cards/hero/${slug}/img/${layer}.webp?v=${Date.now()}`;
+      
+      const src = `/cards/hero/${slug}/img/${layer}.webp?v=${serverMaskVersion}`;
+      console.log(`[CardEditor] Loading mask src: ${src}`);
+      image.src = src;
     };
-    loadMaskLayer('mask-bg');
-    loadMaskLayer('mask-fg');
-  }, [slug, config, cardWidth, cardHeight]);
+
+    // If visible but no dimensions yet, mark as NOT ready to prevent unmasked flash
+    if (visibleLayers['mask-bg']) {
+      if (cardWidth > 0 && cardHeight > 0) {
+        loadMaskLayer('mask-bg');
+      } else {
+        setMaskLoadState(prev => ({ ...prev, 'mask-bg': false }));
+      }
+    } else {
+      setMaskLoadState(prev => ({ ...prev, 'mask-bg': true }));
+    }
+
+    if (visibleLayers['mask-fg']) {
+      if (cardWidth > 0 && cardHeight > 0) {
+        loadMaskLayer('mask-fg');
+      } else {
+        setMaskLoadState(prev => ({ ...prev, 'mask-fg': false }));
+      }
+    } else {
+      setMaskLoadState(prev => ({ ...prev, 'mask-fg': true }));
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [slug, cardWidth, cardHeight, serverMaskVersion, visibleLayers['mask-bg'], visibleLayers['mask-fg']]);
 
   const drawOnMaskLayer = (layer: MaskLayer, from: { x: number; y: number }, to: { x: number; y: number }) => {
     const canvas = getMaskCanvasRef(layer).current;
@@ -694,7 +885,7 @@ export default function CardEditor() {
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const handleLayerPointerDown = (layer: CharLayer, event: ReactPointerEvent<HTMLElement>) => {
+  const handleLayerPointerDown = (layer: CharLayer | TextLayer, event: ReactPointerEvent<HTMLElement>) => {
     if (activeLayer === 'canvas') return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (spacePressed) return;
@@ -956,8 +1147,15 @@ export default function CardEditor() {
     );
   }
 
-  const bgUrl = `/api/card-char/${slug}/char-bg?v=${charImageVersion['char-bg']}`;
-  const fgUrl = `/api/card-char/${slug}/char-fg?v=${charImageVersion['char-fg']}`;
+  const isMaskBgReady = !visibleLayers['mask-bg'] || maskLoadState['mask-bg'];
+  const isMaskFgReady = !visibleLayers['mask-fg'] || maskLoadState['mask-fg'];
+
+  const bgUrl = isMaskBgReady
+    ? `/api/card-char/${slug}/char-bg?v=${charImageVersion['char-bg']}`
+    : '';
+  const fgUrl = isMaskFgReady
+    ? `/api/card-char/${slug}/char-fg?v=${charImageVersion['char-fg']}`
+    : '';
 
   return (
     <div className="min-h-screen bg-background">

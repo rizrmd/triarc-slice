@@ -27,6 +27,8 @@ export function CardPreview({ slug }: CardPreviewProps) {
             char_bg_scale: typeof data.char_bg_scale === 'number' && data.char_bg_scale > 0 ? data.char_bg_scale : 100,
             char_fg_scale: typeof data.char_fg_scale === 'number' && data.char_fg_scale > 0 ? data.char_fg_scale : 100,
             frame_image: typeof data.frame_image === 'string' ? data.frame_image : '',
+            name_pos: data.name_pos || { x: 0, y: 0 },
+            name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? data.name_scale : 40,
           };
 
           const frameSrc = normalized.frame_image || frameImage;
@@ -162,6 +164,27 @@ export function CardPreview({ slug }: CardPreviewProps) {
         y: config.char_fg_pos.y,
         scale: config.char_fg_scale
       });
+
+      if (config.full_name) {
+        ctx.save();
+        ctx.fillStyle = 'white';
+        const fontSize = config.name_scale || 40;
+        ctx.font = `${fontSize}px "Vollkorn", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        const textX = w / 2 + (config.name_pos?.x || 0);
+        const textY = h / 2 + (config.name_pos?.y || 0);
+
+        // Draw shadow around text manually (stroke-like effect)
+        ctx.shadowColor = 'transparent'; // Disable standard shadow
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = config.text_shadow_color || 'rgba(0, 0, 0, 0.5)';
+        ctx.strokeText(config.full_name, textX, textY);
+        
+        ctx.fillText(config.full_name, textX, textY);
+        ctx.restore();
+      }
 
     });
 

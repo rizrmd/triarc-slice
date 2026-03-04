@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, type RefObject } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import type { HeroConfig, LayerId, VisibleLayers, CharLayer, MaskLayer } from '@/types';
+import type { HeroConfig, LayerId, VisibleLayers, CharLayer, MaskLayer, TextLayer } from '@/types';
 
 interface MaskedImageProps {
   src: string;
@@ -49,6 +49,7 @@ function MaskedImage({
       if (canvas && width > 0 && height > 0) {
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          ctx.globalCompositeOperation = 'source-over';
           ctx.clearRect(0, 0, width, height);
           
           if (img.complete && img.naturalWidth > 0) {
@@ -103,7 +104,7 @@ interface CardCanvasProps {
   
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
-  onLayerPointerDown: (layer: CharLayer, event: ReactPointerEvent<HTMLElement>) => void;
+  onLayerPointerDown: (layer: CharLayer | TextLayer, event: ReactPointerEvent<HTMLElement>) => void;
   onMaskPointerDown: (layer: MaskLayer, event: ReactPointerEvent<HTMLCanvasElement>) => void;
   onResizePointerDown: (
     layer: CharLayer,
@@ -324,6 +325,38 @@ export function CardCanvas({
                       touchAction: 'none',
                     }}
                   />
+                )}
+                {visibleLayers.name && (
+                  <div
+                    className={`absolute z-[25] whitespace-nowrap text-white ${
+                      activeLayer === 'name' ? 'cursor-move select-none' : 'cursor-default select-none'
+                    } ${
+                      activeLayer === 'mask-fg' || activeLayer === 'mask-bg' || spacePressed || canvasPanning
+                        ? 'pointer-events-none'
+                        : ''
+                    }`}
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      transform: `translate(calc(-50% + ${config.name_pos?.x ?? 0}px), calc(-50% + ${config.name_pos?.y ?? 0}px))`,
+                      fontSize: `${config.name_scale ?? 40}px`,
+                      fontFamily: '"Vollkorn", serif',
+                      lineHeight: 1,
+                      textShadow: `
+                        -1px -1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'},
+                        1px -1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'},
+                        -1px 1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'},
+                        1px 1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'}
+                      `,
+                    }}
+                    onPointerDown={(event) => onLayerPointerDown('name', event)}
+                    onClick={() => {
+                      if (activeLayer === 'canvas') return;
+                      setActiveLayer('name');
+                    }}
+                  >
+                    {config.full_name}
+                  </div>
                 )}
               </div>
               {visibleLayers['char-bg'] && activeLayer === 'char-bg' && (
