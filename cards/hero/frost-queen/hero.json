@@ -15,6 +15,6 @@
     "y": 188
   },
   "name_scale": 40,
-  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_color": "#05508a",
   "tint": "#ffffff"
 }
