@@ -1,0 +1,14 @@
+{
+  "full_name": "Frost Queen",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -6
+  },
+  "char_fg_pos": {
+    "x": 0,
+    "y": -6
+  },
+  "char_bg_scale": 100,
+  "char_fg_scale": 100,
+  "tint": "#fdffeb"
+}
