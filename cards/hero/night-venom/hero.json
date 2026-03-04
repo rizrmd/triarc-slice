@@ -10,5 +10,11 @@
   },
   "char_bg_scale": 100,
   "char_fg_scale": 100,
-  "tint": "#9afb93"
+  "name_pos": {
+    "x": 9,
+    "y": 187
+  },
+  "name_scale": 38,
+  "text_shadow_color": "#5e8000",
+  "tint": "#a9ffa3"
 }

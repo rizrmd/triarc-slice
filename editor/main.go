@@ -24,9 +24,15 @@ type HeroConfig struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"char_fg_pos"`
-	CharBgScale float64 `json:"char_bg_scale"`
-	CharFgScale float64 `json:"char_fg_scale"`
-	Tint        string  `json:"tint"`
+	CharBgScale     float64 `json:"char_bg_scale"`
+	CharFgScale     float64 `json:"char_fg_scale"`
+	NamePos         struct {
+		X int `json:"x"`
+		Y int `json:"y"`
+	} `json:"name_pos"`
+	NameScale       float64 `json:"name_scale"`
+	TextShadowColor string  `json:"text_shadow_color"`
+	Tint            string  `json:"tint"`
 }
 
 func resolvePath(path string) string {
@@ -135,12 +141,25 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(imgDir, "mask-bg.webp"), maskBgBytes, 0644); err != nil {
-		http.Error(w, "Failed to write mask-bg", http.StatusInternalServerError)
+	tempBg := filepath.Join(imgDir, "mask-bg.webp.tmp")
+	if err := os.WriteFile(tempBg, maskBgBytes, 0644); err != nil {
+		http.Error(w, "Failed to write temp mask-bg", http.StatusInternalServerError)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(imgDir, "mask-fg.webp"), maskFgBytes, 0644); err != nil {
-		http.Error(w, "Failed to write mask-fg", http.StatusInternalServerError)
+	if err := os.Rename(tempBg, filepath.Join(imgDir, "mask-bg.webp")); err != nil {
+		os.Remove(tempBg) // Clean up
+		http.Error(w, "Failed to save mask-bg", http.StatusInternalServerError)
+		return
+	}
+
+	tempFg := filepath.Join(imgDir, "mask-fg.webp.tmp")
+	if err := os.WriteFile(tempFg, maskFgBytes, 0644); err != nil {
+		http.Error(w, "Failed to write temp mask-fg", http.StatusInternalServerError)
+		return
+	}
+	if err := os.Rename(tempFg, filepath.Join(imgDir, "mask-fg.webp")); err != nil {
+		os.Remove(tempFg) // Clean up
+		http.Error(w, "Failed to save mask-fg", http.StatusInternalServerError)
 		return
 	}
 
