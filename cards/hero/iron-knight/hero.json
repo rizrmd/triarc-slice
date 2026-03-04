@@ -1,0 +1,21 @@
+{
+  "full_name": "Iron Knight",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": 10
+  },
+  "char_fg_pos": {
+    "x": 0,
+    "y": 10
+  },
+  "char_bg_scale": 108,
+  "char_fg_scale": 108,
+  "name_pos": {
+    "x": 0,
+    "y": 190
+  },
+  "name_scale": 42,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#db530a"
+}

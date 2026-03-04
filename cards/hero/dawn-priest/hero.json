@@ -1,20 +1,20 @@
 {
   "full_name": "Dawn Priest",
   "char_bg_pos": {
-    "x": 0,
-    "y": 0
+    "x": 12,
+    "y": 104
   },
   "char_fg_pos": {
-    "x": 0,
-    "y": 0
+    "x": 12,
+    "y": 104
   },
-  "char_bg_scale": 100,
-  "char_fg_scale": 100,
+  "char_bg_scale": 148,
+  "char_fg_scale": 148,
   "name_pos": {
     "x": 1,
-    "y": 185
+    "y": 188
   },
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
-  "tint": "#ffaa33"
+  "tint": "#ff9633"
 }
