@@ -1,0 +1,118 @@
+extends Node
+class_name LayoutManager
+
+# Layout configuration for different scenes
+# This could be moved to a JSON/Resource later
+const SCENES = {
+	"cave": {
+		"bg_path": "res://assets/places/cave.webp",
+		"bg_size": Vector2(1640, 2460),
+		"fit_mode": "cover", # cover or contain
+		"card_formations": {
+			1: [
+				{"nx": 0.50, "ny": 0.67, "scale": 1.1}
+			],
+			3: [
+				{"nx": 0.34, "ny": 0.70, "scale": 1.0}, # Left
+				{"nx": 0.50, "ny": 0.67, "scale": 1.1}, # Center (slightly larger/forward)
+				{"nx": 0.66, "ny": 0.70, "scale": 1.0}  # Right
+			],
+			4: [
+				{"nx": 0.25, "ny": 0.72, "scale": 0.9},
+				{"nx": 0.42, "ny": 0.68, "scale": 1.0},
+				{"nx": 0.58, "ny": 0.68, "scale": 1.0},
+				{"nx": 0.75, "ny": 0.72, "scale": 0.9}
+			],
+			5: [
+				{"nx": 0.20, "ny": 0.74, "scale": 0.85},
+				{"nx": 0.35, "ny": 0.70, "scale": 0.95},
+				{"nx": 0.50, "ny": 0.67, "scale": 1.05}, # Captain
+				{"nx": 0.65, "ny": 0.70, "scale": 0.95},
+				{"nx": 0.80, "ny": 0.74, "scale": 0.85}
+			]
+		}
+	}
+}
+
+# Apply layout to a background node and a list of card nodes
+static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, viewport_size: Vector2):
+	if not SCENES.has(scene_key):
+		push_error("Scene key not found: " + scene_key)
+		return
+
+	var config = SCENES[scene_key]
+	var count = cards.size()
+	
+	# 1. Setup Background
+	# -------------------
+	# We manually calculate cover/contain to get the exact offset for card placement
+	var bg_tex = load(config.bg_path)
+	if bg_node.texture != bg_tex:
+		bg_node.texture = bg_tex
+	
+	var bg_w = config.bg_size.x
+	var bg_h = config.bg_size.y
+	
+	var scale_x = viewport_size.x / bg_w
+	var scale_y = viewport_size.y / bg_h
+	var final_scale = 1.0
+	
+	if config.fit_mode == "cover":
+		final_scale = max(scale_x, scale_y)
+	else:
+		final_scale = min(scale_x, scale_y)
+		
+	# Apply transform to background
+	# We center it
+	var scaled_w = bg_w * final_scale
+	var scaled_h = bg_h * final_scale
+	var offset_x = (viewport_size.x - scaled_w) / 2.0
+	var offset_y = (viewport_size.y - scaled_h) / 2.0
+	
+	bg_node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg_node.position = Vector2(offset_x, offset_y)
+	bg_node.size = Vector2(scaled_w, scaled_h)
+	
+	# 2. Position Cards
+	# -----------------
+	if not config.card_formations.has(count):
+		push_warning("No formation found for card count: " + str(count))
+		# Fallback to simple line or return
+		return
+
+	var formation = config.card_formations[count]
+	
+	for i in range(count):
+		var card = cards[i]
+		var slot = formation[i]
+		
+		# Normalized position -> Screen position
+		# pos = offset + (normalized * scaled_size)
+		var screen_x = offset_x + (slot.nx * scaled_w)
+		# var screen_y = offset_y + (slot.ny * scaled_h)
+		
+		# Calculate Y from the center of the place-bg plus 120px
+		var bg_center_y = offset_y + (scaled_h * 0.5)
+		var screen_y = bg_center_y + 120
+		
+		# Apply position (assuming card anchor is center, if not we adjust)
+		# Card.gd usually centers content, but let's check if we need to offset by card size
+		# If card anchor is top-left (default control), we shift by size/2
+		# Let's assume we want the "feet" of the card at the Y position? 
+		# Or the center of the card? 
+		# Based on "below stairs", center seems safest for now, but usually feet is better for perspective.
+		# Let's stick to center for simplicity first.
+		
+		# Base card scale relative to screen height to keep consistent size across devices
+		# e.g. a card should be roughly 40% of screen height?
+		# Or relative to background scale? Relative to BG scale matches the scene best.
+		var card_base_scale = final_scale * 1.5 # Adjust multiplier as needed for visual size
+		
+		card.position = Vector2(screen_x, screen_y)
+		card.scale = Vector2(card_base_scale * slot.scale, card_base_scale * slot.scale)
+		
+		# Ensure Z-ordering (painters algorithm, center usually in front or based on Y)
+		# For this specific cave formation, we want center in front
+		# Simple heuristic: closer to bottom (higher Y) = front, but with manual override indices if needed
+		# For now, just z_index based on scale (larger = closer)
+		card.z_index = int(slot.scale * 10)

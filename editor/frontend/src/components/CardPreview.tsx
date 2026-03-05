@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HeroConfig } from '@/types';
-import frameImage from '../assets/frame.webp';
+import frameImage from '../assets/ui/hero-frame.webp';
 
 interface CardPreviewProps {
   slug: string;
@@ -32,7 +32,7 @@ export function CardPreview({ slug }: CardPreviewProps) {
             tint: typeof data.tint === 'string' ? data.tint : '',
           };
 
-          const frameSrc = normalized.frame_image || frameImage;
+          const frameSrc = frameImage;
           const img = new Image();
           img.src = frameSrc;
 
@@ -80,8 +80,11 @@ export function CardPreview({ slug }: CardPreviewProps) {
     const activeFrameSrc = config.frame_image || frameImage;
     const bgUrl = `/api/card-char/${slug}/char-bg`;
     const fgUrl = `/api/card-char/${slug}/char-fg`;
-    const maskBgUrl = `/cards/hero/${slug}/img/mask-bg.webp`;
-    const maskFgUrl = `/cards/hero/${slug}/img/mask-fg.webp`;
+    
+    // Add timestamp to bypass browser cache for static mask files
+    const timestamp = Date.now();
+    const maskBgUrl = `/cards/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
+    const maskFgUrl = `/cards/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
 
     const loadImg = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
@@ -97,6 +100,7 @@ export function CardPreview({ slug }: CardPreviewProps) {
 
     Promise.all([
       loadImg(activeFrameSrc),
+      loadImg(frameImage),
       loadImg(bgUrl),
       loadImg(fgUrl),
       loadImg(maskBgUrl),
@@ -104,19 +108,22 @@ export function CardPreview({ slug }: CardPreviewProps) {
     ]).then((results) => {
       if (!mounted) return;
 
-      const [frameImg, bgImg, fgImg, maskBgImg, maskFgImg] = results;
+      const [frameImg, defaultFrameImg, bgImg, fgImg, maskBgImg, maskFgImg] = results;
 
-      if (frameImg && frameImg.naturalWidth > 0 && frameImg.naturalHeight > 0) {
-        setBaseSize({ width: frameImg.naturalWidth, height: frameImg.naturalHeight });
-        canvas.width = frameImg.naturalWidth;
-        canvas.height = frameImg.naturalHeight;
-      } else {
-        canvas.width = baseSize.width;
-        canvas.height = baseSize.height;
+      const cardW = defaultFrameImg?.naturalWidth && defaultFrameImg.naturalWidth > 0 ? defaultFrameImg.naturalWidth : baseSize.width;
+      const cardH = defaultFrameImg?.naturalHeight && defaultFrameImg.naturalHeight > 0 ? defaultFrameImg.naturalHeight : baseSize.height;
+
+      if (defaultFrameImg && defaultFrameImg.naturalWidth > 0 && defaultFrameImg.naturalHeight > 0) {
+        setBaseSize({ width: defaultFrameImg.naturalWidth, height: defaultFrameImg.naturalHeight });
       }
+
+      canvas.width = cardW;
+      canvas.height = cardH;
 
       const w = canvas.width;
       const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
 
       ctx.clearRect(0, 0, w, h);
 
@@ -124,11 +131,11 @@ export function CardPreview({ slug }: CardPreviewProps) {
 
       const drawLayer = (img: HTMLImageElement | null, mask: HTMLImageElement | null, configPos: { x: number; y: number; scale: number }) => {
         if (!img) return;
-        const lw = w * (configPos.scale / 100);
-        const lh = h * (configPos.scale / 100);
+        const lw = cardW * (configPos.scale / 100);
+        const lh = cardH * (configPos.scale / 100);
 
-        const x = w / 2 + configPos.x - lw / 2;
-        const y = h / 2 + configPos.y - lh / 2;
+        const x = cx + configPos.x - lw / 2;
+        const y = cy + configPos.y - lh / 2;
 
         const scratchW = Math.max(1, Math.round(lw));
         const scratchH = Math.max(1, Math.round(lh));
@@ -157,28 +164,31 @@ export function CardPreview({ slug }: CardPreviewProps) {
       });
 
       if (frameImg) {
+        const fx = cx - cardW / 2;
+        const fy = cy - cardH / 2;
+        
         ctx.save();
         if (config.tint) {
           ctx.shadowColor = config.tint;
           ctx.shadowBlur = 10;
         }
-        ctx.drawImage(frameImg, 0, 0, w, h);
+        ctx.drawImage(frameImg, fx, fy, cardW, cardH);
         ctx.restore();
 
         if (config.tint) {
           const scratchCtx = scratchCanvas.getContext('2d');
           if (scratchCtx) {
-            scratchCanvas.width = w;
-            scratchCanvas.height = h;
-            scratchCtx.clearRect(0, 0, w, h);
-            scratchCtx.drawImage(frameImg, 0, 0, w, h);
+            scratchCanvas.width = cardW;
+            scratchCanvas.height = cardH;
+            scratchCtx.clearRect(0, 0, cardW, cardH);
+            scratchCtx.drawImage(frameImg, 0, 0, cardW, cardH);
             scratchCtx.globalCompositeOperation = 'source-in';
             scratchCtx.fillStyle = config.tint;
-            scratchCtx.fillRect(0, 0, w, h);
+            scratchCtx.fillRect(0, 0, cardW, cardH);
 
             ctx.save();
             ctx.globalCompositeOperation = 'multiply';
-            ctx.drawImage(scratchCanvas, 0, 0, w, h);
+            ctx.drawImage(scratchCanvas, fx, fy, cardW, cardH);
             ctx.restore();
           }
         }
@@ -198,8 +208,8 @@ export function CardPreview({ slug }: CardPreviewProps) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
-        const textX = w / 2 + (config.name_pos?.x || 0);
-        const textY = h / 2 + (config.name_pos?.y || 0);
+        const textX = cx + (config.name_pos?.x || 0);
+        const textY = cy + (config.name_pos?.y || 0);
 
         // Draw shadow around text manually (stroke-like effect)
         ctx.shadowColor = 'transparent'; // Disable standard shadow

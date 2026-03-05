@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import type { HeroConfig, CharLayer, MaskLayer, TextLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers } from '@/types';
-import frameImage from './assets/frame.webp';
+import frameImage from './assets/ui/hero-frame.webp';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -90,8 +91,8 @@ export default function HeroEditor() {
       return lastMaskSnapshotRef.current;
     }
 
-    const bg = maskBgCanvasRef.current?.toDataURL('image/webp') || '';
-    const fg = maskFgCanvasRef.current?.toDataURL('image/webp') || '';
+    const bg = maskBgCanvasRef.current?.toDataURL('image/png') || '';
+    const fg = maskFgCanvasRef.current?.toDataURL('image/png') || '';
     const snapshot = { 'mask-bg': bg, 'mask-fg': fg };
 
     lastMaskSnapshotRef.current = snapshot;
@@ -314,16 +315,19 @@ export default function HeroEditor() {
       const fgCanvas = maskFgCanvasRef.current;
       if (!bgCanvas || !fgCanvas) return Promise.resolve(false);
       const payload = {
-        mask_bg: bgCanvas.toDataURL('image/webp'),
-        mask_fg: fgCanvas.toDataURL('image/webp'),
+        mask_bg: bgCanvas.toDataURL('image/png'),
+        mask_fg: fgCanvas.toDataURL('image/png'),
       };
       return fetch(`/api/card-mask/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-        .then((res) => {
-          if (!res.ok) throw new Error('Failed to save masks');
+        .then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || 'Failed to save masks');
+          }
           return true;
         })
         .catch((err: Error) => {
@@ -933,7 +937,7 @@ export default function HeroEditor() {
     context.restore();
   };
 
-  const mapPointerToMaskCanvas = (canvas: HTMLCanvasElement, event: PointerEvent | ReactPointerEvent<HTMLCanvasElement>) => {
+  const mapPointerToMaskCanvas = (canvas: HTMLCanvasElement, event: PointerEvent | ReactPointerEvent<Element>) => {
     const rect = canvas.getBoundingClientRect();
     return {
       x: ((event.clientX - rect.left) / rect.width) * canvas.width,
@@ -941,7 +945,7 @@ export default function HeroEditor() {
     };
   };
 
-  const handleMaskPointerDown = (layer: MaskLayer, event: ReactPointerEvent<HTMLCanvasElement>) => {
+  const handleMaskPointerDown = (layer: MaskLayer, event: ReactPointerEvent<Element>) => {
     if (activeLayer === 'canvas') return;
     if (activeLayer !== layer) return;
     if (!isAllEditorImagesReady) return;
@@ -1114,6 +1118,12 @@ export default function HeroEditor() {
 
   const handleCanvasPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.defaultPrevented) return;
+
+    // Delegate to mask handler when in mask mode unless space is pressed
+    if ((activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && !spacePressed) {
+      handleMaskPointerDown(activeLayer, event);
+      return;
+    }
 
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();

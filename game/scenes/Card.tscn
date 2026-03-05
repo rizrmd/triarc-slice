@@ -9,7 +9,9 @@ anchors_preset = 0
 script = ExtResource("1_script")
 clip_contents = true
 
-[node name="CharBG" type="TextureRect" parent="."]
+[node name="MaskedGroup" type="CanvasGroup" parent="."]
+
+[node name="CharBG" type="TextureRect" parent="MaskedGroup"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5

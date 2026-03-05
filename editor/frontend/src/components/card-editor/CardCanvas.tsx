@@ -179,7 +179,11 @@ export function CardCanvas({
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
           className={`relative h-full w-full overflow-hidden select-none ${
-            canvasPanning ? 'cursor-grabbing' : 'cursor-grab'
+            canvasPanning
+              ? 'cursor-grabbing'
+              : (activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && !spacePressed
+              ? 'cursor-default'
+              : 'cursor-grab'
           }`}
         >
           <div
@@ -206,7 +210,7 @@ export function CardCanvas({
                   backgroundColor: '#1b1e25',
                 }}
               />
-              <div className="absolute inset-0 overflow-hidden">
+              <div className="absolute inset-0">
                 {visibleLayers['char-bg'] && (
                   <MaskedImage
                     src={bgUrl}
@@ -251,12 +255,14 @@ export function CardCanvas({
                   />
                 )}
                 {visibleLayers.card && (
-                  <div className="absolute inset-0 z-10 pointer-events-none">
+                  <div className="absolute inset-0 z-10 pointer-events-none isolate">
                     <img
                       src={activeFrameSrc}
                       alt="Frame"
                       className="h-full w-full object-contain"
-                      style={{ filter: `drop-shadow(0 0 10px ${config.tint})` }}
+                      style={{
+                        filter: config.tint ? `drop-shadow(0 0 10px ${config.tint})` : undefined,
+                      }}
                     />
                     <div
                       className="absolute inset-0"

@@ -2,11 +2,11 @@
   "full_name": "Frost Queen",
   "char_bg_pos": {
     "x": 0,
-    "y": -6
+    "y": -8
   },
   "char_fg_pos": {
-    "x": -1,
-    "y": -2
+    "x": 0,
+    "y": -8
   },
   "char_bg_scale": 100,
   "char_fg_scale": 100,
@@ -16,5 +16,8 @@
   },
   "name_scale": 40,
   "text_shadow_color": "#05508a",
-  "tint": "#ffffff"
+  "tint": "#ffffff",
+  "lore": "",
+  "stats": null,
+  "audio": null
 }

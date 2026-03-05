@@ -102,16 +102,21 @@ type CardMaskPayload struct {
 }
 
 func decodeMaskDataURL(value string) ([]byte, error) {
-	const prefix = "data:image/webp;base64,"
-	if !strings.HasPrefix(value, prefix) {
-		return nil, fmt.Errorf("invalid mask format")
+	// Support both WebP (preferred) and PNG (fallback)
+	if strings.HasPrefix(value, "data:image/webp;base64,") {
+		raw := strings.TrimPrefix(value, "data:image/webp;base64,")
+		return base64.StdEncoding.DecodeString(raw)
 	}
-	raw := strings.TrimPrefix(value, prefix)
-	decoded, err := base64.StdEncoding.DecodeString(raw)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode mask")
+	if strings.HasPrefix(value, "data:image/png;base64,") {
+		raw := strings.TrimPrefix(value, "data:image/png;base64,")
+		return base64.StdEncoding.DecodeString(raw)
 	}
-	return decoded, nil
+	// Generic fallback
+	if idx := strings.Index(value, ";base64,"); idx != -1 {
+		raw := value[idx+8:]
+		return base64.StdEncoding.DecodeString(raw)
+	}
+	return nil, fmt.Errorf("invalid mask format")
 }
 
 func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -130,20 +135,24 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Limit body size to 10MB to prevent DoS
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+
 	var payload CardMaskPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		log.Printf("Mask decode error: %v", err)
+		http.Error(w, "Invalid JSON body or payload too large", http.StatusBadRequest)
 		return
 	}
 
 	maskBgBytes, err := decodeMaskDataURL(payload.MaskBg)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "BG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	maskFgBytes, err := decodeMaskDataURL(payload.MaskFg)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "FG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -152,25 +161,27 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 		return
 	}
+
+	// Use saveAsWebP to ensure consistent format
 	tempBg := filepath.Join(imgDir, "mask-bg.webp.tmp")
-	if err := os.WriteFile(tempBg, maskBgBytes, 0644); err != nil {
-		http.Error(w, "Failed to write temp mask-bg", http.StatusInternalServerError)
+	if err := saveAsWebP(maskBgBytes, tempBg); err != nil {
+		http.Error(w, "Failed to save mask-bg: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if err := os.Rename(tempBg, filepath.Join(imgDir, "mask-bg.webp")); err != nil {
 		os.Remove(tempBg) // Clean up
-		http.Error(w, "Failed to save mask-bg", http.StatusInternalServerError)
+		http.Error(w, "Failed to commit mask-bg", http.StatusInternalServerError)
 		return
 	}
 
 	tempFg := filepath.Join(imgDir, "mask-fg.webp.tmp")
-	if err := os.WriteFile(tempFg, maskFgBytes, 0644); err != nil {
-		http.Error(w, "Failed to write temp mask-fg", http.StatusInternalServerError)
+	if err := saveAsWebP(maskFgBytes, tempFg); err != nil {
+		http.Error(w, "Failed to save mask-fg: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if err := os.Rename(tempFg, filepath.Join(imgDir, "mask-fg.webp")); err != nil {
 		os.Remove(tempFg) // Clean up
-		http.Error(w, "Failed to save mask-fg", http.StatusInternalServerError)
+		http.Error(w, "Failed to commit mask-fg", http.StatusInternalServerError)
 		return
 	}
 

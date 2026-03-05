@@ -1,16 +1,55 @@
 extends Control
 
-@onready var char_bg = $CharBG
+@onready var masked_group = $MaskedGroup
+@onready var char_bg = $MaskedGroup/CharBG
 @onready var frame = $Frame
 @onready var char_fg = $CharFG
 @onready var name_label = $NameLabel
 
 var mask_shader = preload("res://shaders/mask.gdshader")
+var group_mask_shader = preload("res://shaders/group_mask.gdshader")
+var multiply_shader = preload("res://shaders/multiply.gdshader")
+
+var _dragging = false
+var _drag_offset = Vector2()
+var _original_z_index = 0
+
+func _gui_input(event):
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				_dragging = true
+				_drag_offset = get_global_mouse_position() - global_position
+				_original_z_index = z_index
+				z_index = 100 # Bring to front
+				accept_event()
+			else:
+				_dragging = false
+				z_index = _original_z_index
+				accept_event()
+				
+	elif event is InputEventMouseMotion:
+		if _dragging:
+			global_position = get_global_mouse_position() - _drag_offset
+			accept_event()
 
 func _ready():
+	# Load Global Mask for the Group
+	var mask_tex = load_texture("res://assets/ui/hero-mask.webp")
+	if mask_tex:
+		var mat = ShaderMaterial.new()
+		mat.shader = group_mask_shader
+		mat.set_shader_parameter("mask_texture", mask_tex)
+		masked_group.material = mat
+	
 	# Default load logic removed
 	# To load a hero, call load_hero("slug") manually
-	pass
+
+func _process(_delta):
+	if masked_group.material:
+		var rect = get_global_rect()
+		masked_group.material.set_shader_parameter("mask_origin", rect.position)
+		masked_group.material.set_shader_parameter("mask_size", rect.size)
 
 func load_hero(slug: String):
 	print("Loading hero: ", slug)
@@ -32,6 +71,8 @@ func load_hero(slug: String):
 	
 	# 1. Load Frame first to establish base size
 	var frame_tex = load_texture("res://assets/ui/hero-frame.webp")
+	# mask setup removed
+
 	if data.has("frame_image") and data.frame_image != "":
 		# If it's a local path in assets, try to load it
 		# For now fallback to default
@@ -39,6 +80,8 @@ func load_hero(slug: String):
 		
 	if frame_tex:
 		frame.texture = frame_tex
+		frame.visible = true
+		
 		# Resize card container to match frame
 		custom_minimum_size = frame_tex.get_size()
 		size = frame_tex.get_size()
@@ -52,49 +95,75 @@ func load_hero(slug: String):
 	
 	# 2. Load and Position Layers
 	setup_layer(char_bg, "char-bg", slug, data.get("char_bg_pos", {}), data.get("char_bg_scale", 100), card_size, center)
+	
 	setup_layer(char_fg, "char-fg", slug, data.get("char_fg_pos", {}), data.get("char_fg_scale", 100), card_size, center)
+	char_fg.visible = true
 	
 	# 3. Name Label
 	if data.has("full_name"):
+		name_label.visible = true
 		name_label.text = data.full_name
 		
 		# Font Size
 		var font_size = data.get("name_scale", 40)
-		name_label.add_theme_font_size_override("font_size", int(font_size))
+		name_label.add_theme_font_size_override("font_size", font_size)
 		
-		# Shadow Color
-		# Use outline to match React strokeText(lineWidth=3)
-		var shadow_color = Color(0, 0, 0, 0.5)
-		if data.has("text_shadow_color"):
-			shadow_color = parse_color(data.text_shadow_color)
-			
+		# Shadow/Outline (Match Frontend "strokeText")
+		var shadow_color_str = data.get("text_shadow_color", "rgba(0, 0, 0, 0.5)")
+		var shadow_color = parse_color(shadow_color_str)
+		
+		# Disable standard drop shadow
+		name_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
+		
+		# Enable outline
 		name_label.add_theme_color_override("font_outline_color", shadow_color)
 		name_label.add_theme_constant_override("outline_size", 3)
-		name_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0))
-			
-		var name_pos = data.get("name_pos", {"x": 0, "y": 0})
-		var nx = name_pos.get("x", 0)
-		var ny = name_pos.get("y", 0)
 		
-		# React logic: textX = w/2 + pos.x
-		# We need to center the label pivot or adjust position by size/2
-		# Since label size depends on content and font size, we should reset size to 0 to let it auto-resize
-		name_label.size = Vector2.ZERO 
-		# Force update size to get correct dimensions for centering
-		var label_size = name_label.get_minimum_size()
-		name_label.size = label_size
+		# Position
+		var name_pos = data.get("name_pos", {})
+		var offset_x = name_pos.get("x", 0)
+		var offset_y = name_pos.get("y", 0)
 		
-		# Correction for visual centering to match Canvas 'middle' baseline
-		# Canvas 'middle' tends to be higher than Godot's bounding box center (which includes descent)
-		# Shift up by ~22% of font size to align visual centers (increased from 12%)
-		var correction_y = font_size * 0.22
-		name_label.position = center + Vector2(nx, ny) - label_size / 2 - Vector2(0, correction_y)
+		# Force size update to calculate correct centering
+		name_label.reset_size()
+		var label_size = name_label.get_combined_minimum_size()
 		
-	# 4. Tint
+		# Calculate target top-left position to center the text at (center + offset)
+		var target_center = center + Vector2(offset_x, offset_y)
+		var target_pos = target_center - (label_size / 2)
+		
+		# Use Top-Left preset to allow manual positioning without anchor interference
+		name_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		name_label.position = target_pos
+		
+	else:
+		name_label.visible = false
+	# Remove existing tint overlay if any
+	var existing_tint = frame.get_node_or_null("FrameTint")
+	if existing_tint:
+		existing_tint.queue_free()
+	
+	# Reset base frame color
+	frame.modulate = Color.WHITE
+
 	if data.has("tint") and data.tint != "":
-		# React uses multiply blend mode for tint
-		# Godot Modulate is multiply by default for colors
-		frame.modulate = parse_color(data.tint)
+		# Create Tint Overlay with Multiply Shader
+		var tint_overlay = TextureRect.new()
+		tint_overlay.name = "FrameTint"
+		tint_overlay.texture = frame.texture
+		tint_overlay.expand_mode = frame.expand_mode
+		tint_overlay.stretch_mode = frame.stretch_mode
+		tint_overlay.layout_mode = 1 # Anchors
+		tint_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+		
+		var mat = ShaderMaterial.new()
+		mat.shader = multiply_shader
+		tint_overlay.material = mat
+		
+		# Set tint color (passed as COLOR to shader)
+		tint_overlay.modulate = parse_color(data.tint)
+		
+		frame.add_child(tint_overlay)
 
 func setup_layer(node: TextureRect, layer_name: String, slug: String, pos_data: Dictionary, scale_percent: float, card_size: Vector2, center: Vector2):
 	# Load Image
