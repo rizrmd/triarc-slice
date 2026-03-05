@@ -5,11 +5,30 @@ var current_cards = []
 
 @onready var bg_texture = $Background # Requires TextureRect in scene
 
+const AVAILABLE_HEROES = [
+	"arc-strider", "dawn-priest", "flame-warlock", "frost-queen",
+	"iron-knight", "mystic-oracle", "night-venom", "shadow-assassin", "storm-ranger"
+]
+
 func _ready():
+	randomize()
+	
 	# Load cards
+	# 1. First is always Frost Queen
 	var card1 = create_card("frost-queen")
 	
-	current_cards = [card1]
+	# 2. Pick 2 other random heroes
+	var others = []
+	for hero in AVAILABLE_HEROES:
+		if hero != "frost-queen":
+			others.append(hero)
+	
+	others.shuffle()
+	
+	var card2 = create_card(others[0])
+	var card3 = create_card(others[1])
+	
+	current_cards = [card1, card2, card3]
 	
 	# Initial layout
 	call_deferred("update_layout")
@@ -31,5 +50,3 @@ func update_layout():
 	LayoutManager.apply_layout("cave", bg_texture, current_cards, viewport_size)
 
 # LayoutManager handles the complex positioning logic now
-
-

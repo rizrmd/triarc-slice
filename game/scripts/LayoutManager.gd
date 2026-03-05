@@ -12,10 +12,14 @@ const SCENES = {
 			1: [
 				{"nx": 0.50, "ny": 0.50, "scale": 1.0}
 			],
+			2: [
+				{"nx": 0.35, "ny": 0.60, "scale": 1.0},
+				{"nx": 0.65, "ny": 0.60, "scale": 1.0}
+			],
 			3: [
-				{"nx": 0.34, "ny": 0.70, "scale": 1.0}, # Left
-				{"nx": 0.50, "ny": 0.67, "scale": 1.1}, # Center (slightly larger/forward)
-				{"nx": 0.66, "ny": 0.70, "scale": 1.0}  # Right
+				{"nx": 0.22, "ny": 0.70, "scale": 1.0},
+				{"nx": 0.50, "ny": 0.70, "scale": 1.0},
+				{"nx": 0.78, "ny": 0.70, "scale": 1.0}
 			],
 			4: [
 				{"nx": 0.25, "ny": 0.72, "scale": 0.9},
