@@ -10,7 +10,7 @@ const SCENES = {
 		"fit_mode": "cover", # cover or contain
 		"card_formations": {
 			1: [
-				{"nx": 0.50, "ny": 0.67, "scale": 1.1}
+				{"nx": 0.50, "ny": 0.50, "scale": 1.0}
 			],
 			3: [
 				{"nx": 0.34, "ny": 0.70, "scale": 1.0}, # Left
@@ -89,11 +89,7 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		# Normalized position -> Screen position
 		# pos = offset + (normalized * scaled_size)
 		var screen_x = offset_x + (slot.nx * scaled_w)
-		# var screen_y = offset_y + (slot.ny * scaled_h)
-		
-		# Calculate Y from the center of the place-bg plus 120px
-		var bg_center_y = offset_y + (scaled_h * 0.5)
-		var screen_y = bg_center_y + 120
+		var screen_y = offset_y + (slot.ny * scaled_h)
 		
 		# Apply position (assuming card anchor is center, if not we adjust)
 		# Card.gd usually centers content, but let's check if we need to offset by card size
@@ -103,13 +99,23 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		# Based on "below stairs", center seems safest for now, but usually feet is better for perspective.
 		# Let's stick to center for simplicity first.
 		
-		# Base card scale relative to screen height to keep consistent size across devices
-		# e.g. a card should be roughly 40% of screen height?
-		# Or relative to background scale? Relative to BG scale matches the scene best.
-		var card_base_scale = final_scale * 1.5 # Adjust multiplier as needed for visual size
+		# Base card scale: 1/3 of screen width (minus padding)
+		var padding = 48.0
+		var target_base_width = (viewport_size.x - padding) / 3.0
 		
-		card.position = Vector2(screen_x, screen_y)
-		card.scale = Vector2(card_base_scale * slot.scale, card_base_scale * slot.scale)
+		# We need the unscaled card width to calculate the scale factor
+		var ref_width = card.size.x
+		if ref_width <= 0: ref_width = 750.0 # Fallback
+		
+		var card_base_scale = target_base_width / ref_width
+		
+		var scale_factor = card_base_scale * slot.scale
+		card.scale = Vector2(scale_factor, scale_factor)
+		
+		# Center the card on the target position
+		# Subtract half the scaled size to center the card at the target coordinates
+		var card_size = card.size
+		card.position = Vector2(screen_x, screen_y) - (card_size * scale_factor / 2.0)
 		
 		# Ensure Z-ordering (painters algorithm, center usually in front or based on Y)
 		# For this specific cave formation, we want center in front

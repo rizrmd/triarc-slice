@@ -36,8 +36,20 @@ func main() {
 
 	// Check if .godot folder exists (imports done?)
 	dotGodotPath := filepath.Join(gameDir, ".godot")
+	cachePath := filepath.Join(dotGodotPath, "global_script_class_cache.cfg")
+	importedPath := filepath.Join(dotGodotPath, "imported")
+
+	needsImport := false
 	if _, err := os.Stat(dotGodotPath); os.IsNotExist(err) {
-		fmt.Println("First time setup: Importing assets (this may take a moment)...")
+		needsImport = true
+	} else if _, err := os.Stat(cachePath); os.IsNotExist(err) {
+		needsImport = true
+	} else if _, err := os.Stat(importedPath); os.IsNotExist(err) {
+		needsImport = true
+	}
+
+	if needsImport {
+		fmt.Println("First time setup or cache invalid: Importing assets (this may take a moment)...")
 		
 		// Run headless import
 		cmd := exec.Command(godotExe, "--headless", "--editor", "--quit")
