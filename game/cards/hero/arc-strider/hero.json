@@ -2,20 +2,24 @@
   "full_name": "Arc Strider",
   "frame_image": "/assets/ui/hero-frame.webp",
   "char_bg_pos": {
-    "x": 18,
-    "y": 80
+    "x": -23,
+    "y": 280
   },
   "char_fg_pos": {
-    "x": 18,
-    "y": 80
+    "x": -23,
+    "y": 280
   },
-  "char_bg_scale": 133,
-  "char_fg_scale": 133,
+  "char_bg_scale": 220,
+  "char_fg_scale": 220,
   "name_pos": {
-    "x": 0,
-    "y": 190
+    "x": 1,
+    "y": 92
   },
-  "name_scale": 46,
+  "name_scale": 57,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
-  "tint": "#76bcf9"
+  "tint": "#76bcf9",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
 }

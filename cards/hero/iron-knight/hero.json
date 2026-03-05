@@ -2,20 +2,24 @@
   "full_name": "Iron Knight",
   "frame_image": "/assets/ui/hero-frame.webp",
   "char_bg_pos": {
-    "x": 0,
-    "y": 10
+    "x": 1,
+    "y": 97
   },
   "char_fg_pos": {
-    "x": 0,
-    "y": 10
+    "x": 1,
+    "y": 97
   },
-  "char_bg_scale": 108,
-  "char_fg_scale": 108,
+  "char_bg_scale": 143,
+  "char_fg_scale": 143,
   "name_pos": {
     "x": 0,
-    "y": 190
+    "y": 92
   },
-  "name_scale": 42,
+  "name_scale": 57,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
-  "tint": "#db530a"
+  "tint": "#db530a",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
 }

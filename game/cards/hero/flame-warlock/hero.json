@@ -2,20 +2,24 @@
   "full_name": "Flame Warlock",
   "frame_image": "/assets/ui/hero-frame.webp",
   "char_bg_pos": {
-    "x": 0,
-    "y": 0
+    "x": 11,
+    "y": 106
   },
   "char_fg_pos": {
-    "x": 0,
-    "y": 0
+    "x": 11,
+    "y": 106
   },
-  "char_bg_scale": 100,
-  "char_fg_scale": 100,
+  "char_bg_scale": 152,
+  "char_fg_scale": 152,
   "name_pos": {
     "x": 0,
-    "y": 190
+    "y": 92
   },
-  "name_scale": 44,
+  "name_scale": 57,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
-  "tint": "#ff570f"
+  "tint": "#ff570f",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
 }

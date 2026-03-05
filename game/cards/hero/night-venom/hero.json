@@ -1,20 +1,24 @@
 {
   "full_name": "Night Venom",
   "char_bg_pos": {
-    "x": 0,
-    "y": 0
+    "x": -9,
+    "y": 106
   },
   "char_fg_pos": {
-    "x": 0,
-    "y": 0
+    "x": -9,
+    "y": 106
   },
-  "char_bg_scale": 100,
-  "char_fg_scale": 100,
+  "char_bg_scale": 146,
+  "char_fg_scale": 146,
   "name_pos": {
     "x": 9,
-    "y": 187
+    "y": 91
   },
-  "name_scale": 38,
+  "name_scale": 57,
   "text_shadow_color": "#4b6600",
-  "tint": "#a9ffa3"
+  "tint": "#a9ffa3",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
 }
