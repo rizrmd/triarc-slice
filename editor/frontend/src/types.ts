@@ -18,6 +18,10 @@ export interface HeroConfig {
   name_scale: number;
   text_shadow_color: string;
   tint: string;
+  lore?: string;
+  stats?: Record<string, any>;
+  audio?: Record<string, string>;
+  pose?: Record<string, any>;
 }
 
 export type CharLayer = 'char-bg' | 'char-fg';

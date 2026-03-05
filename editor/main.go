@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
@@ -11,6 +16,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/chai2010/webp"
 )
 
 type HeroConfig struct {
@@ -33,6 +40,10 @@ type HeroConfig struct {
 	NameScale       float64 `json:"name_scale"`
 	TextShadowColor string  `json:"text_shadow_color"`
 	Tint            string  `json:"tint"`
+	Lore            string                 `json:"lore"`
+	Stats           map[string]interface{} `json:"stats"`
+	Audio           map[string]string      `json:"audio"`
+	Pose            map[string]interface{} `json:"pose"`
 }
 
 func resolvePath(path string) string {
@@ -203,12 +214,51 @@ func parseCardCharSelectPath(path string) (string, string, bool) {
 
 func readPreferredCharImage(slug string, layer string) ([]byte, error) {
 	heroDir := filepath.Join(resolvePath("./cards"), "hero")
-	customPath := filepath.Join(heroDir, slug, "img", layer+".upload")
-	if data, err := os.ReadFile(customPath); err == nil {
-		return data, nil
+	imgDir := filepath.Join(heroDir, slug, "img")
+
+	// Priority order: webp (standard), then legacy overrides
+	// Since we now convert everything to webp, checking webp first is most efficient.
+	// But to support legacy/manual files, we can check others too.
+	exts := []string{".webp", ".upload", ".gif", ".png", ".jpg", ".jpeg"}
+
+	for _, ext := range exts {
+		path := filepath.Join(imgDir, layer+ext)
+		if data, err := os.ReadFile(path); err == nil {
+			return data, nil
+		}
 	}
-	defaultPath := filepath.Join(heroDir, slug, "img", layer+".webp")
-	return os.ReadFile(defaultPath)
+
+	return nil, os.ErrNotExist
+}
+
+func saveAsWebP(data []byte, targetPath string) error {
+	contentType := http.DetectContentType(data)
+
+	// If it's already WebP, just save it
+	if contentType == "image/webp" {
+		return os.WriteFile(targetPath, data, 0644)
+	}
+
+	// Decode the image
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to decode image: %v", err)
+	}
+
+	// Create output file
+	out, err := os.Create(targetPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %v", err)
+	}
+	defer out.Close()
+
+	// Encode as WebP
+	// Lossless: false, Quality: 90 is a good default
+	if err := webp.Encode(out, img, &webp.Options{Lossless: false, Quality: 90}); err != nil {
+		return fmt.Errorf("failed to encode webp: %v", err)
+	}
+
+	return nil
 }
 
 func cardCharHandler(w http.ResponseWriter, r *http.Request) {
@@ -255,23 +305,27 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Empty file", http.StatusBadRequest)
 			return
 		}
-		contentType := http.DetectContentType(data)
-		switch contentType {
-		case "image/webp", "image/png", "image/jpeg", "image/gif":
-		default:
-			http.Error(w, "Unsupported image type", http.StatusBadRequest)
-			return
-		}
+
 		imgDir := filepath.Join(resolvePath("./cards"), "hero", slug, "img")
 		if err := os.MkdirAll(imgDir, 0755); err != nil {
 			http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 			return
 		}
-		target := filepath.Join(imgDir, layer+".upload")
-		if err := os.WriteFile(target, data, 0644); err != nil {
-			http.Error(w, "Failed to save image", http.StatusInternalServerError)
+
+		// Always save as .webp
+		target := filepath.Join(imgDir, layer+".webp")
+		if err := saveAsWebP(data, target); err != nil {
+			log.Printf("Save WebP error: %v", err)
+			http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// Cleanup conflicting overrides
+		cleanupExts := []string{".upload", ".gif", ".png", ".jpg", ".jpeg"}
+		for _, e := range cleanupExts {
+			_ = os.Remove(filepath.Join(imgDir, layer+e))
+		}
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 	default:
@@ -437,11 +491,21 @@ func cardCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 		return
 	}
-	target := filepath.Join(imgDir, layer+".upload")
-	if err := os.WriteFile(target, data, 0644); err != nil {
-		http.Error(w, "Failed to save image", http.StatusInternalServerError)
+
+	// Always save as .webp
+	target := filepath.Join(imgDir, layer+".webp")
+	if err := saveAsWebP(data, target); err != nil {
+		log.Printf("Save WebP error: %v", err)
+		http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Cleanup conflicting overrides
+	cleanupExts := []string{".upload", ".gif", ".png", ".jpg", ".jpeg"}
+	for _, e := range cleanupExts {
+		_ = os.Remove(filepath.Join(imgDir, layer+e))
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 }
