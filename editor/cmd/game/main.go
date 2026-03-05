@@ -34,6 +34,8 @@ func main() {
 
 	fmt.Printf("Found Godot: %s\n", godotExe)
 
+	setupLinks(gameDir)
+
 	// Always ensure assets are up to date
 	fmt.Println("Verifying project assets...")
 	
@@ -154,4 +156,57 @@ func findGodot() string {
 func pressEnterToExit() {
 	fmt.Println("\nPress Enter to exit...")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
+func setupLinks(gameDir string) {
+	absGameDir, err := filepath.Abs(gameDir)
+	if err != nil {
+		fmt.Printf("Warning: Failed to resolve absolute path for game directory: %v\n", err)
+		return
+	}
+
+	rootDir := filepath.Dir(absGameDir)
+	dirsToLink := []string{"assets", "cards"}
+
+	for _, dirName := range dirsToLink {
+		sourcePath := filepath.Join(rootDir, dirName)
+		linkPath := filepath.Join(absGameDir, dirName)
+
+		info, err := os.Lstat(linkPath)
+		if err == nil {
+			// Check if it's a git symlink placeholder (regular file) on Windows
+			if runtime.GOOS == "windows" && info.Mode().IsRegular() {
+				fmt.Printf("Replacing git symlink placeholder with junction: %s\n", linkPath)
+				if err := os.Remove(linkPath); err != nil {
+					fmt.Printf("Error removing placeholder: %v\n", err)
+					continue
+				}
+			} else {
+				// Already exists and is not a placeholder file, skip
+				continue
+			}
+		}
+
+		fmt.Printf("Creating link: %s -> %s\n", linkPath, sourcePath)
+		createLink(sourcePath, linkPath)
+	}
+}
+
+func createLink(source, target string) {
+	if runtime.GOOS == "windows" {
+		// Use mklink /J for directory junction
+		// syntax: mklink /J <Link> <Target>
+		cmd := exec.Command("cmd", "/c", "mklink", "/J", target, source)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			fmt.Printf("Error creating junction: %v\n", err)
+		}
+	} else {
+		// Use os.Symlink for Unix
+		// os.Symlink(oldname, newname)
+		if err := os.Symlink(source, target); err != nil {
+			fmt.Printf("Error creating symlink: %v\n", err)
+		}
+	}
 }
