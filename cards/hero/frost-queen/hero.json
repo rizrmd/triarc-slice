@@ -1,23 +1,24 @@
 {
   "full_name": "Frost Queen",
   "char_bg_pos": {
-    "x": 0,
-    "y": -8
+    "x": -20,
+    "y": 161
   },
   "char_fg_pos": {
-    "x": 0,
-    "y": -8
+    "x": -20,
+    "y": 161
   },
-  "char_bg_scale": 100,
-  "char_fg_scale": 100,
+  "char_bg_scale": 185,
+  "char_fg_scale": 185,
   "name_pos": {
-    "x": 12,
-    "y": 188
+    "x": 7,
+    "y": 182
   },
-  "name_scale": 40,
+  "name_scale": 52,
   "text_shadow_color": "#05508a",
   "tint": "#ffffff",
   "lore": "",
   "stats": null,
-  "audio": null
+  "audio": null,
+  "pose": null
 }

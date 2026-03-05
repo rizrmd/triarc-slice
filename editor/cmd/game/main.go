@@ -34,37 +34,20 @@ func main() {
 
 	fmt.Printf("Found Godot: %s\n", godotExe)
 
-	// Check if .godot folder exists (imports done?)
-	dotGodotPath := filepath.Join(gameDir, ".godot")
-	cachePath := filepath.Join(dotGodotPath, "global_script_class_cache.cfg")
-	importedPath := filepath.Join(dotGodotPath, "imported")
-
-	needsImport := false
-	if _, err := os.Stat(dotGodotPath); os.IsNotExist(err) {
-		needsImport = true
-	} else if _, err := os.Stat(cachePath); os.IsNotExist(err) {
-		needsImport = true
-	} else if _, err := os.Stat(importedPath); os.IsNotExist(err) {
-		needsImport = true
-	}
-
-	if needsImport {
-		fmt.Println("First time setup or cache invalid: Importing assets (this may take a moment)...")
-		
-		// Run headless import
-		cmd := exec.Command(godotExe, "--headless", "--editor", "--quit")
-		cmd.Dir = gameDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		
-		if err := cmd.Run(); err != nil {
-			fmt.Printf("Warning: Import process exited with error: %v\n", err)
-			// Don't exit, try running anyway
-		} else {
-			fmt.Println("Assets imported successfully.")
-		}
+	// Always ensure assets are up to date
+	fmt.Println("Verifying project assets...")
+	
+	// Run headless import
+	// Use --path explicitly instead of setting Dir for clarity, though both work
+	cmd := exec.Command(godotExe, "--headless", "--path", gameDir, "--editor", "--quit")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Warning: Asset verification exited with error: %v\n", err)
+		// Don't exit, try running anyway
 	} else {
-		fmt.Println("Assets seem initialized.")
+		fmt.Println("Assets verification completed.")
 	}
 
 	fmt.Println("Launching Game...")
