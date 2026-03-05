@@ -91,29 +91,64 @@ func findGodot() string {
 		candidates := []string{
 			"/Applications/Godot.app/Contents/MacOS/Godot",
 			"/Applications/Godot_mono.app/Contents/MacOS/Godot",
-			// Add common versioned names if needed
 		}
+		
+		// Check user applications
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			candidates = append(candidates, 
+				filepath.Join(homeDir, "Applications/Godot.app/Contents/MacOS/Godot"),
+				filepath.Join(homeDir, "Applications/Godot_mono.app/Contents/MacOS/Godot"),
+			)
+		}
+
 		for _, c := range candidates {
 			if _, err := os.Stat(c); err == nil {
 				return c
 			}
 		}
+		
 		// Try to find any Godot*.app in /Applications
 		matches, _ := filepath.Glob("/Applications/Godot*.app/Contents/MacOS/Godot")
 		if len(matches) > 0 {
 			return matches[0]
 		}
+		
+		// Try to find any Godot*.app in ~/Applications
+		if homeDir != "" {
+			matches, _ = filepath.Glob(filepath.Join(homeDir, "Applications/Godot*.app/Contents/MacOS/Godot"))
+			if len(matches) > 0 {
+				return matches[0]
+			}
+		}
 
 	case "windows":
-		// TODO: Add Windows registry check or Program Files search if needed
-		// For now just check standard install paths
-		candidates := []string{
-			"C:\\Program Files\\Godot\\Godot_v4.2.1-stable_win64.exe", // Example
-			// It's hard to guess exact version on Windows without PATH
+		// Common installation directories
+		programFiles := os.Getenv("ProgramFiles")
+		if programFiles == "" {
+			programFiles = "C:\\Program Files"
 		}
-		for _, c := range candidates {
-			if _, err := os.Stat(c); err == nil {
-				return c
+		programFilesX86 := os.Getenv("ProgramFiles(x86)")
+		if programFilesX86 == "" {
+			programFilesX86 = "C:\\Program Files (x86)"
+		}
+		
+		searchPaths := []string{
+			filepath.Join(programFiles, "Godot"),
+			filepath.Join(programFilesX86, "Godot"),
+			"C:\\Godot",
+		}
+
+		for _, dir := range searchPaths {
+			// Check for exact "godot.exe"
+			if _, err := os.Stat(filepath.Join(dir, "godot.exe")); err == nil {
+				return filepath.Join(dir, "godot.exe")
+			}
+			// Check for versioned executables like "Godot_v4.2.1-stable_win64.exe"
+			matches, _ := filepath.Glob(filepath.Join(dir, "Godot_v*.exe"))
+			if len(matches) > 0 {
+				// Return the first match, or maybe the latest version if we were fancy
+				return matches[0]
 			}
 		}
 	}
