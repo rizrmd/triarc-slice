@@ -1,0 +1,20 @@
+{
+  "full_name": "Night Venom",
+  "char_bg_pos": {
+    "x": 0,
+    "y": 0
+  },
+  "char_fg_pos": {
+    "x": 0,
+    "y": 0
+  },
+  "char_bg_scale": 100,
+  "char_fg_scale": 100,
+  "name_pos": {
+    "x": 9,
+    "y": 187
+  },
+  "name_scale": 38,
+  "text_shadow_color": "#4b6600",
+  "tint": "#a9ffa3"
+}

@@ -1,0 +1,21 @@
+{
+  "full_name": "Arc Strider",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 18,
+    "y": 80
+  },
+  "char_fg_pos": {
+    "x": 18,
+    "y": 80
+  },
+  "char_bg_scale": 133,
+  "char_fg_scale": 133,
+  "name_pos": {
+    "x": 0,
+    "y": 190
+  },
+  "name_scale": 46,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#76bcf9"
+}

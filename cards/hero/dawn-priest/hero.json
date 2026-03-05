@@ -1,12 +1,12 @@
 {
   "full_name": "Dawn Priest",
   "char_bg_pos": {
-    "x": 12,
-    "y": 104
+    "x": 50,
+    "y": 87
   },
   "char_fg_pos": {
-    "x": 12,
-    "y": 104
+    "x": 50,
+    "y": 87
   },
   "char_bg_scale": 148,
   "char_fg_scale": 148,

@@ -1,0 +1,21 @@
+{
+  "full_name": "Storm Ranger",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 38,
+    "y": 143
+  },
+  "char_fg_pos": {
+    "x": 38,
+    "y": 143
+  },
+  "char_bg_scale": 155,
+  "char_fg_scale": 155,
+  "name_pos": {
+    "x": 0,
+    "y": 189
+  },
+  "name_scale": 40,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#75a3ff"
+}
