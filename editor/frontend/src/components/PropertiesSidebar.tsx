@@ -66,6 +66,35 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [] }
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const handleSizeDragStart = (e: React.MouseEvent) => {
+    if (selectedBox.locked) return;
+    startXRef.current = e.clientX;
+    // Current size percent
+    startValRef.current = (selectedBox.width / 1080) * 100;
+    document.body.style.cursor = 'ew-resize';
+    
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+       const diff = moveEvent.clientX - startXRef.current;
+       // Sensitivity: 1px drag = 0.1% change
+       const newPercent = Math.max(1, startValRef.current + diff * 0.1);
+       const newW = (newPercent / 100) * 1080;
+       const ratio = selectedBox.height / selectedBox.width;
+       onUpdate(selectedBox.id, { 
+         width: Math.round(newW), 
+         height: Math.round(newW * ratio) 
+       });
+    };
+    
+    const handleMouseUp = () => {
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const handleCopy = (key: keyof Box, value: any) => {
     navigator.clipboard.writeText(String(value));
     setCopiedProp(key);
@@ -188,32 +217,40 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [] }
         </div>
 
           <div className="space-y-3">
-            {/* Godot Coordinates (Normalized) - Hidden for now
-            <div className="p-2 bg-muted/30 rounded border border-dashed">
-              <div className="text-[10px] font-bold text-muted-foreground mb-2 uppercase tracking-wider">Godot Coordinates (Normalized)</div>
-              {['nx', 'ny'].map((p) => {
-                const prop = p as 'nx' | 'ny';
-                return (
-                <div key={prop} className="flex items-center gap-2 mb-2 last:mb-0">
-                  <Label 
-                    className="w-8 capitalize text-xs font-mono text-blue-400"
-                  >
-                    {prop}
-                  </Label>
-                  <Input 
-                    type="number" 
-                    step="0.0001"
-                    value={selectedBox[prop] !== undefined ? selectedBox[prop] : ''} 
-                    onChange={(e) => onUpdate(selectedBox.id, { [prop]: parseFloat(e.target.value) || 0 })}
-                    className="h-7 text-xs font-mono bg-background"
-                    disabled={selectedBox.locked}
-                  />
+            {/* Special Size Control for Heroes */}
+            {selectedBox.id.startsWith('hero') && (
+              <div className="flex items-center gap-2 mb-2">
+                <Label 
+                  className={`w-16 text-xs font-bold text-blue-500 select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-400'}`}
+                  onMouseDown={handleSizeDragStart}
+                >
+                  Size %
+                </Label>
+                <Input 
+                  type="number" 
+                  step="0.1"
+                  value={((selectedBox.width / 1080) * 100).toFixed(1)} 
+                  onChange={(e) => {
+                     const val = parseFloat(e.target.value);
+                     if (!isNaN(val) && val > 0) {
+                        const newW = (val / 100) * 1080;
+                        const ratio = selectedBox.height / selectedBox.width;
+                        onUpdate(selectedBox.id, { 
+                          width: Math.round(newW), 
+                          height: Math.round(newW * ratio) 
+                        });
+                     }
+                  }}
+                  className="h-8 text-xs font-bold bg-blue-500/10 border-blue-500/30"
+                  disabled={selectedBox.locked}
+                />
+                <div className="w-16 text-[10px] text-muted-foreground">
+                   of screen width
                 </div>
-              )})}
-            </div>
-            */}
+              </div>
+            )}
 
-            {['x', 'y', 'width', 'height'].map((p) => {
+            {(selectedBox.id.startsWith('hero') ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
             const prop = p as 'x' | 'y' | 'width' | 'height';
             return (
             <div key={prop} className="flex items-center gap-2">

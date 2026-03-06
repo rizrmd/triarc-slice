@@ -46,30 +46,56 @@ func _scan_heroes():
 func _load_initial_cards():
 	if available_heroes.is_empty(): return
 
-	# 1. First is always Frost Queen if available, otherwise random
-	var first_hero = "frost-queen"
-	if not available_heroes.has(first_hero):
-		first_hero = available_heroes[0]
+	var layout_count = LayoutManager.get_layout_hero_count()
+	if layout_count <= 0: layout_count = 3
+	
+	var config = LayoutManager.get_hero_config(layout_count)
+	if config.is_empty():
+		# Fallback if config not found
+		config = []
+		for i in range(layout_count): config.append({})
+	
+	var chosen_heroes = []
+	var used_heroes = []
+	
+	# Pre-fill used heroes from fixed slots to avoid duplicates later
+	for i in range(layout_count):
+		if i < config.size():
+			var slot = config[i]
+			var slug = slot.get("cardSlug", "")
+			if slug != "" and available_heroes.has(slug):
+				used_heroes.append(slug)
+
+	for i in range(layout_count):
+		var slug = ""
+		if i < config.size():
+			var slot = config[i]
+			slug = slot.get("cardSlug", "")
 		
-	var card1 = create_card(first_hero)
+		# If slug is defined in JSON and available, use it
+		if slug != "" and available_heroes.has(slug):
+			chosen_heroes.append(slug)
+		else:
+			# Need to pick a random one
+			# Try to pick one not already used
+			var candidates = []
+			for h in available_heroes:
+				if not used_heroes.has(h):
+					candidates.append(h)
+			
+			if candidates.is_empty():
+				# If ran out of unique heroes, just pick any random
+				candidates = available_heroes
+				
+			if not candidates.is_empty():
+				var picked = candidates.pick_random()
+				chosen_heroes.append(picked)
+				used_heroes.append(picked)
 	
-	# 2. Pick 2 other random heroes
-	var others = []
-	for hero in available_heroes:
-		if hero != first_hero:
-			others.append(hero)
-	
-	others.shuffle()
-	
-	# Handle cases with fewer than 3 heroes total
-	var cards = [card1]
-	
-	if others.size() >= 1:
-		cards.append(create_card(others[0]))
-	if others.size() >= 2:
-		cards.append(create_card(others[1]))
-	
-	current_cards = cards
+	current_cards = []
+	for slug in chosen_heroes:
+		var card = create_card(slug)
+		current_cards.append(card)
 
 func create_card(hero_slug):
 	var card = card_scene.instantiate()

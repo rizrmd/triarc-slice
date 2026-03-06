@@ -91,21 +91,34 @@ static func _ensure_layout_loaded():
 			var count = heroes.size()
 			var formation = []
 			
-			# Base width calculation for scale: (1080 - 48) / 3 = 344
-			var base_width = 344.0
+			# Standardized Layout Calculation
+			# -------------------------------
+			# Position (nx, ny): Relative to the Background Image (to strictly adhere to artwork features like stairs)
+			# Size (nw, nh): Relative to the Screen Size (to ensure UI consistency across aspect ratios)
+			
+			# Reference Viewport for Normalization
+			var ref_viewport_w = 1080.0
+			var ref_viewport_h = 1920.0
 			
 			for h in heroes:
 				var nx = h.get("nx", 0.5)
 				var ny = h.get("ny", 0.5)
-				var w = h.get("width", base_width)
 				
-				# Calculate scale relative to base_width
-				var s = w / base_width
+				# Width/Height in JSON are pixels in the 1080x1920 Reference Viewport
+				var w = h.get("width", 344.0)
+				var height = h.get("height", 516.0) 
+				
+				# Normalize Size relative to Reference Viewport Width (1080)
+				# We use WIDTH as the primary size driver for this portrait game
+				var size_norm = w / ref_viewport_w
+				
+				var card_slug = h.get("cardSlug", "")
 				
 				formation.append({
 					"nx": nx,
 					"ny": ny,
-					"scale": s
+					"size_norm": size_norm,
+					"cardSlug": card_slug
 				})
 			
 			# Update the formation for this count
@@ -172,37 +185,61 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		var screen_x = offset_x + (slot.nx * scaled_w)
 		var screen_y = offset_y + (slot.ny * scaled_h)
 		
-		# Apply position (assuming card anchor is center, if not we adjust)
-		# Card.gd usually centers content, but let's check if we need to offset by card size
-		# If card anchor is top-left (default control), we shift by size/2
-		# Let's assume we want the "feet" of the card at the Y position? 
-		# Or the center of the card? 
-		# Based on "below stairs", center seems safest for now, but usually feet is better for perspective.
-		# Let's stick to center for simplicity first.
+		# Calculate Scale to match editor visual (Screen Relative)
+		# We use width relative to viewport width
+		var target_w = 0.0
 		
-		# Base card scale: 1/3 of screen width (minus padding)
-		var padding = 48.0
-		var target_base_width = (viewport_size.x - padding) / 3.0
+		if slot.has("size_norm"):
+			# New path (from JSON)
+			target_w = slot.size_norm * viewport_size.x
+		elif slot.has("nw"):
+			# Intermediate path
+			target_w = slot.nw * viewport_size.x
+		else:
+			# Legacy path
+			var base_w = (viewport_size.x - 48.0) / 3.0
+			target_w = base_w * slot.get("scale", 1.0)
+			
+		var ref_size = card.size
+		if ref_size.x <= 0: ref_size = Vector2(750, 1050)
 		
-		# We need the unscaled card width to calculate the scale factor
-		var ref_width = card.size.x
-		if ref_width <= 0: ref_width = 750.0 # Fallback
+		# Calculate scale based on width
+		var final_card_scale = target_w / ref_size.x
 		
-		var card_base_scale = target_base_width / ref_width
-		
-		var scale_factor = card_base_scale * slot.scale
-		card.scale = Vector2(scale_factor, scale_factor)
+		card.scale = Vector2(final_card_scale, final_card_scale)
 		
 		# Center the card on the target position
-		# Subtract half the scaled size to center the card at the target coordinates
 		var card_size = card.size
-		card.position = Vector2(screen_x, screen_y) - (card_size * scale_factor / 2.0)
+		card.position = Vector2(screen_x, screen_y) - (card_size * final_card_scale / 2.0)
 		
-		# Ensure Z-ordering (painters algorithm, center usually in front or based on Y)
-		# For this specific cave formation, we want center in front
-		# Simple heuristic: closer to bottom (higher Y) = front, but with manual override indices if needed
-		# For now, just z_index based on scale (larger = closer)
-		card.z_index = int(slot.scale * 10)
+		# Z-index
+		card.z_index = i # Simple index based z-ordering
+		if slot.has("scale"): # Legacy
+			card.z_index = int(slot.scale * 10)
+
+static func get_hero_config(count: int) -> Array:
+	_ensure_layout_loaded()
+	if _scenes.has("cave") and _scenes["cave"]["card_formations"].has(count):
+		return _scenes["cave"]["card_formations"][count]
+	return []
+
+static func get_layout_hero_count() -> int:
+	_ensure_layout_loaded()
+	# Return the count that was loaded from JSON (the one we printed)
+	# We can check which keys exist in card_formations that were likely added from JSON
+	# Since we only add ONE entry based on JSON heroes, we can just find it.
+	# But wait, we might have default hardcoded ones too.
+	# The JSON loader logic:
+	# if heroes.size() > 0: ... _scenes["cave"]["card_formations"][count] = formation
+	
+	if _layout_data.has("boxes"):
+		var count = 0
+		for i in range(1, 6):
+			if _layout_data.boxes.has("hero" + str(i)):
+				count += 1
+		return count
+	return 3 # Default fallback
+
 
 static func get_box(box_id: String) -> Dictionary:
 	_ensure_layout_loaded()

@@ -471,7 +471,44 @@ export default function GameLayoutEditor() {
                    
                    {box.cardSlug && (
                      <div className="absolute inset-0 pointer-events-none">
-                       <CardPreview slug={box.cardSlug} transparent />
+                       <CardPreview 
+                         slug={box.cardSlug} 
+                         transparent 
+                         onAspectRatioLoaded={(ratio) => {
+                            if (!box.locked) {
+                               const currentRatio = box.height / box.width;
+                               // Only update if difference is significant (> 1%)
+                               if (Math.abs(currentRatio - ratio) > 0.01) {
+                                  // Avoid state updates if component unmounted or data changed
+                                  setTimeout(() => {
+                                      setLayout(prev => {
+                                         if (!prev) return null;
+                                         const currentBox = prev.boxes[box.id];
+                                         if (!currentBox) return prev;
+                                         
+                                         const targetHeight = Math.round(currentBox.width * ratio);
+                                         if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
+                                         
+                                         // Also update normalized coords
+                                         const { nx, ny } = toNormalized(currentBox.x, currentBox.y, currentBox.width, targetHeight);
+                                         
+                                         return {
+                                            ...prev,
+                                            boxes: {
+                                               ...prev.boxes,
+                                               [box.id]: {
+                                                  ...currentBox,
+                                                  height: targetHeight,
+                                                  nx, ny
+                                               }
+                                            }
+                                         };
+                                      });
+                                  }, 0);
+                               }
+                            }
+                         }}
+                       />
                      </div>
                    )}
                  </Rnd>

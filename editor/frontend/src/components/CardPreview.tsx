@@ -5,13 +5,21 @@ import frameImage from '../assets/ui/hero-frame.webp';
 interface CardPreviewProps {
   slug: string;
   transparent?: boolean;
+  onAspectRatioLoaded?: (ratio: number) => void;
 }
 
-export function CardPreview({ slug, transparent }: CardPreviewProps) {
+export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPreviewProps) {
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [baseSize, setBaseSize] = useState({ width: 400, height: 600 });
+  
+  // Notify parent of aspect ratio changes
+  useEffect(() => {
+    if (baseSize.width > 0 && baseSize.height > 0 && onAspectRatioLoaded) {
+      onAspectRatioLoaded(baseSize.height / baseSize.width);
+    }
+  }, [baseSize.width, baseSize.height, onAspectRatioLoaded]);
 
   // Fetch config and preload frame
   useEffect(() => {

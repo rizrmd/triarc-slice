@@ -49,12 +49,12 @@
       "height": 100,
       "id": "action5",
       "label": "Action 5",
-      "nx": 0.15625,
-      "ny": 0.16666666666666666,
+      "nx": 0.2359375,
+      "ny": 0.1765625,
       "pivot": "center",
       "width": 100,
-      "x": 50,
-      "y": 270
+      "x": 152,
+      "y": 289
     },
     "battery": {
       "height": 59,
@@ -68,15 +68,15 @@
       "y": 18
     },
     "clock": {
-      "height": 100,
+      "height": 127,
       "id": "clock",
       "label": "Clock",
       "nx": 0.15625,
-      "ny": 0.22395833333333334,
+      "ny": 0.23151041666666666,
       "pivot": "top-left",
       "width": 100,
       "x": 50,
-      "y": 380
+      "y": 381
     },
     "enemy1": {
       "height": 100,
@@ -134,28 +134,28 @@
       "y": 1029
     },
     "hero2": {
-      "cardSlug": "arc-strider",
-      "height": 325,
+      "cardSlug": "arcane-paladin",
+      "height": 482,
       "id": "hero2",
       "label": "Hero 2",
-      "nx": 0.461328125,
-      "ny": 0.5216145833333333,
+      "nx": 0.536328125,
+      "ny": 0.8083333333333333,
       "pivot": "center",
       "width": 315,
-      "x": 333,
-      "y": 839
+      "x": 429,
+      "y": 1311
     },
     "hero3": {
-      "cardSlug": "necromancer",
-      "height": 391,
+      "cardSlug": "dawn-priest",
+      "height": 564,
       "id": "hero3",
       "label": "Hero 3",
-      "nx": 0.650390625,
-      "ny": 0.4940104166666667,
+      "nx": 0.776953125,
+      "ny": 0.740625,
       "pivot": "center",
       "width": 369,
-      "x": 548,
-      "y": 753
+      "x": 710,
+      "y": 1140
     },
     "mana": {
       "height": 100,
