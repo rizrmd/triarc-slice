@@ -2,8 +2,7 @@ extends Node
 class_name LayoutManager
 
 # Layout configuration for different scenes
-# This could be moved to a JSON/Resource later
-const SCENES = {
+static var _scenes = {
 	"cave": {
 		"bg_path": "res://assets/places/cave.webp",
 		"bg_size": Vector2(1640, 2460),
@@ -38,13 +37,91 @@ const SCENES = {
 	}
 }
 
+static var _layout_loaded = false
+static var _layout_data = {}
+
+static func _ensure_layout_loaded():
+	if _layout_loaded: return
+	_layout_loaded = true
+	
+	var path = "res://data/game-layout.json"
+	if not FileAccess.file_exists(path):
+		print("Layout file not found: ", path)
+		return
+		
+	var file = FileAccess.open(path, FileAccess.READ)
+	var content = file.get_as_text()
+	var json = JSON.new()
+	var error = json.parse(content)
+	
+	if error != OK:
+		print("JSON Parse Error in layout: ", json.get_error_message())
+		return
+		
+	var data = json.data
+	_layout_data = data
+	
+	# Update background
+	if data.has("background"):
+		# Assuming standard path or resolving it
+		var bg_name = data.background
+		# If it's just filename, assume assets/places/
+		if not bg_name.begins_with("res://"):
+			bg_name = "res://assets/places/" + bg_name
+		
+		# Ensure "cave" key exists or create new if needed. 
+		# For now we update "cave" since Main.gd uses it.
+		if not _scenes.has("cave"):
+			_scenes["cave"] = { "card_formations": {} }
+			
+		_scenes["cave"]["bg_path"] = bg_name
+		
+	# Update card formations based on heroes found
+	if data.has("boxes"):
+		var boxes = data.boxes
+		var heroes = []
+		
+		# Find all heroes: hero1, hero2, ...
+		for i in range(1, 6):
+			var key = "hero" + str(i)
+			if boxes.has(key):
+				heroes.append(boxes[key])
+		
+		if heroes.size() > 0:
+			var count = heroes.size()
+			var formation = []
+			
+			# Base width calculation for scale: (1080 - 48) / 3 = 344
+			var base_width = 344.0
+			
+			for h in heroes:
+				var nx = h.get("nx", 0.5)
+				var ny = h.get("ny", 0.5)
+				var w = h.get("width", base_width)
+				
+				# Calculate scale relative to base_width
+				var s = w / base_width
+				
+				formation.append({
+					"nx": nx,
+					"ny": ny,
+					"scale": s
+				})
+			
+			# Update the formation for this count
+			# Note: We overwrite the existing formation for this specific count
+			_scenes["cave"]["card_formations"][count] = formation
+			print("Updated layout for ", count, " cards from JSON")
+
 # Apply layout to a background node and a list of card nodes
 static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, viewport_size: Vector2):
-	if not SCENES.has(scene_key):
+	_ensure_layout_loaded()
+	
+	if not _scenes.has(scene_key):
 		push_error("Scene key not found: " + scene_key)
 		return
 
-	var config = SCENES[scene_key]
+	var config = _scenes[scene_key]
 	var count = cards.size()
 	
 	# 1. Setup Background
@@ -126,3 +203,9 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		# Simple heuristic: closer to bottom (higher Y) = front, but with manual override indices if needed
 		# For now, just z_index based on scale (larger = closer)
 		card.z_index = int(slot.scale * 10)
+
+static func get_box(box_id: String) -> Dictionary:
+	_ensure_layout_loaded()
+	if _layout_data.has("boxes") and _layout_data.boxes.has(box_id):
+		return _layout_data.boxes[box_id]
+	return {}

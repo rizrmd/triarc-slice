@@ -4,9 +4,10 @@ import frameImage from '../assets/ui/hero-frame.webp';
 
 interface CardPreviewProps {
   slug: string;
+  transparent?: boolean;
 }
 
-export function CardPreview({ slug }: CardPreviewProps) {
+export function CardPreview({ slug, transparent }: CardPreviewProps) {
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -83,8 +84,8 @@ export function CardPreview({ slug }: CardPreviewProps) {
     
     // Add timestamp to bypass browser cache for static mask files
     const timestamp = Date.now();
-    const maskBgUrl = `/cards/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
-    const maskFgUrl = `/cards/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
+    const maskBgUrl = `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
+    const maskFgUrl = `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
 
     const loadImg = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
@@ -110,11 +111,12 @@ export function CardPreview({ slug }: CardPreviewProps) {
 
       const [frameImg, defaultFrameImg, bgImg, fgImg, maskBgImg, maskFgImg] = results;
 
-      const cardW = defaultFrameImg?.naturalWidth && defaultFrameImg.naturalWidth > 0 ? defaultFrameImg.naturalWidth : baseSize.width;
-      const cardH = defaultFrameImg?.naturalHeight && defaultFrameImg.naturalHeight > 0 ? defaultFrameImg.naturalHeight : baseSize.height;
+      const activeFrame = frameImg && frameImg.naturalWidth > 0 ? frameImg : defaultFrameImg;
+      const cardW = activeFrame?.naturalWidth && activeFrame.naturalWidth > 0 ? activeFrame.naturalWidth : baseSize.width;
+      const cardH = activeFrame?.naturalHeight && activeFrame.naturalHeight > 0 ? activeFrame.naturalHeight : baseSize.height;
 
-      if (defaultFrameImg && defaultFrameImg.naturalWidth > 0 && defaultFrameImg.naturalHeight > 0) {
-        setBaseSize({ width: defaultFrameImg.naturalWidth, height: defaultFrameImg.naturalHeight });
+      if (activeFrame && activeFrame.naturalWidth > 0 && activeFrame.naturalHeight > 0) {
+        setBaseSize({ width: activeFrame.naturalWidth, height: activeFrame.naturalHeight });
       }
 
       canvas.width = cardW;
@@ -231,13 +233,15 @@ export function CardPreview({ slug }: CardPreviewProps) {
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden bg-[#1b1e25] flex items-center justify-center"
+      className={`relative h-full w-full overflow-hidden ${transparent ? 'bg-transparent' : 'bg-[#1b1e25]'} flex items-center justify-center`}
     >
       <canvas
         ref={canvasRef}
         style={{
-          width: '100%',
-          height: '100%',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          width: 'auto',
+          height: 'auto',
           objectFit: 'contain'
         }}
       />

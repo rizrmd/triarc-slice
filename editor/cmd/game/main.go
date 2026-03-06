@@ -166,7 +166,7 @@ func setupLinks(gameDir string) {
 	}
 
 	rootDir := filepath.Dir(absGameDir)
-	dirsToLink := []string{"assets", "cards"}
+	dirsToLink := []string{"assets", "data"}
 
 	for _, dirName := range dirsToLink {
 		sourcePath := filepath.Join(rootDir, dirName)

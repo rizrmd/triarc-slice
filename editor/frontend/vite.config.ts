@@ -22,7 +22,7 @@ export default defineConfig({
         target: "http://localhost:8080",
         changeOrigin: true,
       },
-      "/cards": {
+      "/data": {
         target: "http://localhost:8080",
         changeOrigin: true,
       },

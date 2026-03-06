@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CardPreview } from '@/components/CardPreview';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Sparkles, Plus } from 'lucide-react';
-import { CardPreview } from '@/components/CardPreview';
+import { Layout, Loader2, Plus, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 export default function CardList() {
   const [cards, setCards] = useState<string[]>([]);
@@ -14,6 +14,7 @@ export default function CardList() {
   const [isCreating, setIsCreating] = useState(false);
   const [newHeroName, setNewHeroName] = useState('');
   const [creatingLoading, setCreatingLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetch('/api/cards')
@@ -73,6 +74,10 @@ export default function CardList() {
     }
   };
 
+  const filteredCards = cards.filter(slug =>
+    slug.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -85,23 +90,40 @@ export default function CardList() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8 md:py-10">
+    <>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8 md:py-10 min-h-screen">
         <header className="flex flex-col gap-4 rounded-2xl border bg-card p-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight md:text-3xl flex gap-4">
-              <Sparkles className="h-3.5 w-3.5" />
               Hero Card Studio
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <Badge variant="secondary" className="w-fit text-xs">
-              {cards.length} Hero
-            </Badge>
-            <Button size="sm" onClick={() => setIsCreating(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Hero Baru
-            </Button>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="relative w-full sm:w-auto">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Cari hero..."
+                className="pl-8 w-full sm:w-[200px] lg:w-[300px]"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
+                {filteredCards.length} Hero
+              </Badge>
+              <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
+                <Link to="/game-layout">
+                  <Layout className="mr-2 h-4 w-4" />
+                  Game Layout
+                </Link>
+              </Button>
+              <Button size="sm" onClick={() => setIsCreating(true)} className="whitespace-nowrap">
+                <Plus className="mr-2 h-4 w-4" />
+                Hero Baru
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -119,29 +141,19 @@ export default function CardList() {
             </CardContent>
           </Card>
         ) : (
-          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {cards.map((slug) => (
-              <Link key={slug} to={`/edit/${slug}`} className="group block">
-                <Card className="overflow-hidden rounded-2xl border transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-lg">
-                  <div className="relative aspect-[2/3] w-full bg-[#1b1e25] overflow-hidden">
-                    <div className="absolute inset-0 transition-transform duration-300 group-hover:scale-105 origin-center">
-                      <CardPreview slug={slug} />
-                    </div>
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className="absolute bottom-3 left-3 right-3 translate-y-2 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-                      <div className="rounded-md bg-white/10 backdrop-blur-md border border-white/20 p-2 text-xs text-white">
-                        <p className="font-medium capitalize">{slug.replace(/-/g, ' ')}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <CardHeader className="pb-3 pt-3">
-                    <CardTitle className="capitalize text-base">{slug.replace(/-/g, ' ')}</CardTitle>
-                    <CardDescription className="text-xs">Edit posisi & tint</CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
-            ))}
+          <section className="p-4 overflow-auto w-full flex-1 h-full relative bg-[#1c1e24] rounded-lg">
+            <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
+              {filteredCards.map((slug) => (
+                <Link key={slug} to={`/edit/${slug}`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
+                  <CardPreview slug={slug} />
+                </Link>
+              ))}
+              {filteredCards.length === 0 && searchQuery && (
+                <div className="col-span-full py-10 text-center text-muted-foreground w-full">
+                  Tidak ada hero yang cocok dengan pencarian "{searchQuery}"
+                </div>
+              )}
+            </div>
           </section>
         )}
       </div>
@@ -185,6 +197,6 @@ export default function CardList() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

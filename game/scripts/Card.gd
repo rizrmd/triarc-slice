@@ -1,5 +1,7 @@
 extends Control
 
+signal double_clicked(card)
+
 @onready var masked_group = $MaskedGroup
 @onready var char_bg = $MaskedGroup/CharBG
 @onready var frame = $Frame
@@ -17,6 +19,11 @@ var _original_z_index = 0
 func _gui_input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.double_click:
+				double_clicked.emit(self)
+				accept_event()
+				return
+
 			if event.pressed:
 				_dragging = true
 				_drag_offset = get_global_mouse_position() - global_position
@@ -53,7 +60,7 @@ func _process(_delta):
 
 func load_hero(slug: String):
 	print("Loading hero: ", slug)
-	var json_path = "res://cards/hero/" + slug + "/hero.json"
+	var json_path = "res://data/hero/" + slug + "/hero.json"
 	if not FileAccess.file_exists(json_path):
 		print("Error: JSON not found at ", json_path)
 		return
@@ -168,7 +175,7 @@ func load_hero(slug: String):
 func setup_layer(node: TextureRect, layer_name: String, slug: String, pos_data: Dictionary, scale_percent: float, card_size: Vector2, center: Vector2):
 	# Load Image
 	# Priority: upload/custom extensions, then default .webp
-	var base_path = "res://cards/hero/" + slug + "/img/" + layer_name
+	var base_path = "res://data/hero/" + slug + "/img/" + layer_name
 	var tex_path = ""
 
 	var exts = [".upload", ".gif", ".png", ".jpg", ".jpeg"]
@@ -190,7 +197,7 @@ func setup_layer(node: TextureRect, layer_name: String, slug: String, pos_data: 
 		return
 
 	# Load Mask
-	var mask_path = "res://cards/hero/" + slug + "/img/" + layer_name.replace("char", "mask") + ".webp"
+	var mask_path = "res://data/hero/" + slug + "/img/" + layer_name.replace("char", "mask") + ".webp"
 	var mask_tex = load_texture(mask_path)
 	
 	if mask_tex:

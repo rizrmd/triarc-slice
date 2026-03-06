@@ -74,9 +74,9 @@ func main() {
 	http.Handle("/", fs)
 
 	// Serve card assets
-	// Since the binary is in root, we can serve directly from cards/
-	cardsDir := resolvePath("./cards")
-	http.Handle("/cards/", http.StripPrefix("/cards/", http.FileServer(http.Dir(cardsDir))))
+	// Since the binary is in root, we can serve directly from data/
+	cardsDir := resolvePath("./data")
+	http.Handle("/data/", http.StripPrefix("/data/", http.FileServer(http.Dir(cardsDir))))
 
 	// API endpoints
 	http.HandleFunc("/api/cards", listCardsHandler)
@@ -85,6 +85,7 @@ func main() {
 	http.HandleFunc("/api/card-char/", cardCharHandler)
 	http.HandleFunc("/api/card-char-select/", cardCharSelectHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
+	http.HandleFunc("/api/game-layout", gameLayoutHandler)
 	http.HandleFunc("/api/assets/", assetsListHandler)
 	assetsDir := resolvePath("./assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
@@ -156,7 +157,7 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imgDir := filepath.Join(resolvePath("./cards"), "hero", slug, "img")
+	imgDir := filepath.Join(resolvePath("./data"), "hero", slug, "img")
 	if err := os.MkdirAll(imgDir, 0755); err != nil {
 		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 		return
@@ -224,7 +225,7 @@ func parseCardCharSelectPath(path string) (string, string, bool) {
 }
 
 func readPreferredCharImage(slug string, layer string) ([]byte, error) {
-	heroDir := filepath.Join(resolvePath("./cards"), "hero")
+	heroDir := filepath.Join(resolvePath("./data"), "hero")
 	imgDir := filepath.Join(heroDir, slug, "img")
 
 	// Priority order: webp (standard), then legacy overrides
@@ -317,7 +318,7 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		imgDir := filepath.Join(resolvePath("./cards"), "hero", slug, "img")
+		imgDir := filepath.Join(resolvePath("./data"), "hero", slug, "img")
 		if err := os.MkdirAll(imgDir, 0755); err != nil {
 			http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 			return
@@ -339,6 +340,60 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func gameLayoutHandler(w http.ResponseWriter, r *http.Request) {
+	layoutPath := filepath.Join(resolvePath("./data"), "game-layout.json")
+
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(layoutPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// Return default layout if not found
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte("{}"))
+				return
+			}
+			http.Error(w, "Failed to read layout data", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+
+	case http.MethodPost:
+		var layout interface{}
+		if err := json.NewDecoder(r.Body).Decode(&layout); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		// Ensure directory exists
+		if err := os.MkdirAll(filepath.Dir(layoutPath), 0755); err != nil {
+			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
+			return
+		}
+
+		file, err := os.Create(layoutPath)
+		if err != nil {
+			http.Error(w, "Failed to open file for writing", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(layout); err != nil {
+			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -385,7 +440,7 @@ func renameCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	heroDir := filepath.Join(resolvePath("./cards"), "hero")
+	heroDir := filepath.Join(resolvePath("./data"), "hero")
 	oldPath := filepath.Join(heroDir, payload.OldSlug)
 	newPath := filepath.Join(heroDir, newSlug)
 
@@ -497,7 +552,7 @@ func cardCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to read source image", http.StatusInternalServerError)
 		return
 	}
-	imgDir := filepath.Join(resolvePath("./cards"), "hero", slug, "img")
+	imgDir := filepath.Join(resolvePath("./data"), "hero", slug, "img")
 	if err := os.MkdirAll(imgDir, 0755); err != nil {
 		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
 		return
@@ -562,6 +617,9 @@ func assetsListHandler(w http.ResponseWriter, r *http.Request) {
 	case "ui":
 		baseDir = filepath.Join(assetsDir, "ui")
 		publicPrefix = "/assets/ui"
+	case "places":
+		baseDir = filepath.Join(assetsDir, "places")
+		publicPrefix = "/assets/places"
 	default:
 		http.Error(w, "Invalid asset category", http.StatusBadRequest)
 		return
@@ -586,7 +644,7 @@ func listCardsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cardsDir := filepath.Join(resolvePath("./cards"), "hero")
+	cardsDir := filepath.Join(resolvePath("./data"), "hero")
 	entries, err := os.ReadDir(cardsDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -623,7 +681,7 @@ func cardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cardPath := filepath.Join(resolvePath("./cards"), "hero", slug, "hero.json")
+	cardPath := filepath.Join(resolvePath("./data"), "hero", slug, "hero.json")
 
 	switch r.Method {
 	case http.MethodGet:

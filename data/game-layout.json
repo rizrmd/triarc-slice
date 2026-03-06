@@ -1,0 +1,194 @@
+{
+  "background": "cave.webp",
+  "boxes": {
+    "action1": {
+      "height": 127,
+      "id": "action1",
+      "label": "Action 1",
+      "nx": 0.19921875,
+      "ny": 0.7325520833333333,
+      "pivot": "center",
+      "width": 132,
+      "x": 89,
+      "y": 1343
+    },
+    "action2": {
+      "height": 100,
+      "id": "action2",
+      "label": "Action 2",
+      "nx": 0.328125,
+      "ny": 0.109375,
+      "pivot": "center",
+      "width": 100,
+      "x": 270,
+      "y": 160
+    },
+    "action3": {
+      "height": 100,
+      "id": "action3",
+      "label": "Action 3",
+      "nx": 0.425,
+      "ny": 0.109375,
+      "pivot": "center",
+      "width": 100,
+      "x": 394,
+      "y": 160
+    },
+    "action4": {
+      "height": 96,
+      "id": "action4",
+      "label": "Action 4",
+      "nx": 0.3421875,
+      "ny": 0.7291666666666666,
+      "pivot": "center",
+      "width": 136,
+      "x": 270,
+      "y": 1352
+    },
+    "action5": {
+      "height": 100,
+      "id": "action5",
+      "label": "Action 5",
+      "nx": 0.15625,
+      "ny": 0.16666666666666666,
+      "pivot": "center",
+      "width": 100,
+      "x": 50,
+      "y": 270
+    },
+    "battery": {
+      "height": 59,
+      "id": "battery",
+      "label": "Battery",
+      "nx": 0.73828125,
+      "ny": 0.024739583333333332,
+      "pivot": "top-left",
+      "width": 84,
+      "x": 803,
+      "y": 18
+    },
+    "clock": {
+      "height": 100,
+      "id": "clock",
+      "label": "Clock",
+      "nx": 0.15625,
+      "ny": 0.22395833333333334,
+      "pivot": "top-left",
+      "width": 100,
+      "x": 50,
+      "y": 380
+    },
+    "enemy1": {
+      "height": 100,
+      "id": "enemy1",
+      "label": "Enemy 1",
+      "nx": 0.15625,
+      "ny": 0.052083333333333336,
+      "pivot": "center",
+      "width": 100,
+      "x": 50,
+      "y": 50
+    },
+    "enemy2": {
+      "height": 100,
+      "id": "enemy2",
+      "label": "Enemy 2",
+      "nx": 0.2421875,
+      "ny": 0.052083333333333336,
+      "pivot": "center",
+      "width": 100,
+      "x": 160,
+      "y": 50
+    },
+    "enemy3": {
+      "height": 100,
+      "id": "enemy3",
+      "label": "Enemy 3",
+      "nx": 0.328125,
+      "ny": 0.052083333333333336,
+      "pivot": "center",
+      "width": 100,
+      "x": 270,
+      "y": 50
+    },
+    "health": {
+      "height": 100,
+      "id": "health",
+      "label": "Health Bar",
+      "nx": 0.159375,
+      "ny": 0.9536458333333333,
+      "pivot": "bottom-left",
+      "width": 166,
+      "x": 21,
+      "y": 1781
+    },
+    "hero1": {
+      "height": 100,
+      "id": "hero1",
+      "label": "Hero 1",
+      "nx": 0.240234375,
+      "ny": 0.5619791666666667,
+      "pivot": "center",
+      "width": 105,
+      "x": 155,
+      "y": 1029
+    },
+    "hero2": {
+      "cardSlug": "arc-strider",
+      "height": 325,
+      "id": "hero2",
+      "label": "Hero 2",
+      "nx": 0.461328125,
+      "ny": 0.5216145833333333,
+      "pivot": "center",
+      "width": 315,
+      "x": 333,
+      "y": 839
+    },
+    "hero3": {
+      "cardSlug": "necromancer",
+      "height": 391,
+      "id": "hero3",
+      "label": "Hero 3",
+      "nx": 0.650390625,
+      "ny": 0.4940104166666667,
+      "pivot": "center",
+      "width": 369,
+      "x": 548,
+      "y": 753
+    },
+    "mana": {
+      "height": 100,
+      "id": "mana",
+      "label": "Mana Bar",
+      "nx": 0.511328125,
+      "ny": 0.9572916666666667,
+      "pivot": "bottom-center",
+      "width": 295,
+      "x": 407,
+      "y": 1788
+    },
+    "reroll": {
+      "height": 100,
+      "id": "reroll",
+      "label": "RE-ROLL",
+      "nx": 0.8546875,
+      "ny": 0.9578125,
+      "pivot": "bottom-right",
+      "width": 100,
+      "x": 944,
+      "y": 1789
+    },
+    "settings": {
+      "height": 33,
+      "id": "settings",
+      "label": "Settings",
+      "nx": 0.82109375,
+      "ny": 0.021614583333333333,
+      "pivot": "top-left",
+      "width": 38,
+      "x": 932,
+      "y": 25
+    }
+  }
+}

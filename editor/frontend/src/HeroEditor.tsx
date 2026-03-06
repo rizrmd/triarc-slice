@@ -814,7 +814,7 @@ export default function HeroEditor() {
         }
       };
       
-      const src = `/cards/hero/${slug}/img/${layer}.webp?v=${serverMaskVersion}`;
+      const src = `/data/hero/${slug}/img/${layer}.webp?v=${serverMaskVersion}`;
       console.log(`[CardEditor] Loading mask src: ${src}`);
       image.src = src;
     };
