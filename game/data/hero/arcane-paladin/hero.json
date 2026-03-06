@@ -1,0 +1,25 @@
+{
+  "full_name": "Arcane Paladin",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -39,
+    "y": 258
+  },
+  "char_fg_pos": {
+    "x": -39,
+    "y": 258
+  },
+  "char_bg_scale": 204,
+  "char_fg_scale": 204,
+  "name_pos": {
+    "x": 0,
+    "y": 84
+  },
+  "name_scale": 51,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#c7c7c7",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
+}

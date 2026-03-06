@@ -1,0 +1,25 @@
+{
+  "full_name": "Spellblade Empress",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -20,
+    "y": 228
+  },
+  "char_fg_pos": {
+    "x": -20,
+    "y": 228
+  },
+  "char_bg_scale": 194,
+  "char_fg_scale": 194,
+  "name_pos": {
+    "x": 0,
+    "y": 85
+  },
+  "name_scale": 43,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#bf90f9",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
+}

@@ -1,0 +1,24 @@
+{
+  "full_name": "Tyrant Overlord",
+  "char_bg_pos": {
+    "x": -31,
+    "y": 231
+  },
+  "char_fg_pos": {
+    "x": -31,
+    "y": 231
+  },
+  "char_bg_scale": 192,
+  "char_fg_scale": 192,
+  "name_pos": {
+    "x": 0,
+    "y": 92
+  },
+  "name_scale": 51,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#ff570f",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
+}

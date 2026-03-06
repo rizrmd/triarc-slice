@@ -1,0 +1,25 @@
+{
+  "full_name": "Wind Monk",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -30,
+    "y": 271
+  },
+  "char_fg_pos": {
+    "x": -30,
+    "y": 271
+  },
+  "char_bg_scale": 195,
+  "char_fg_scale": 195,
+  "name_pos": {
+    "x": 0,
+    "y": 92
+  },
+  "name_scale": 53,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#f2ff3d",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
+}

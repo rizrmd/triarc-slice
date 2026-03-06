@@ -1,0 +1,25 @@
+{
+  "full_name": "Gunslinger",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -10,
+    "y": 247
+  },
+  "char_fg_pos": {
+    "x": -10,
+    "y": 247
+  },
+  "char_bg_scale": 185,
+  "char_fg_scale": 185,
+  "name_pos": {
+    "x": 0,
+    "y": 90
+  },
+  "name_scale": 56,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#e69157",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
+}

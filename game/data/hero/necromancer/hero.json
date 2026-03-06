@@ -1,0 +1,25 @@
+{
+  "full_name": "Necromancer",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -29,
+    "y": 243
+  },
+  "char_fg_pos": {
+    "x": -29,
+    "y": 243
+  },
+  "char_bg_scale": 208,
+  "char_fg_scale": 208,
+  "name_pos": {
+    "x": 0,
+    "y": 88
+  },
+  "name_scale": 56,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#f4f755",
+  "lore": "",
+  "stats": null,
+  "audio": null,
+  "pose": null
+}
