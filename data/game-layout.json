@@ -2,15 +2,15 @@
   "background": "cave.webp",
   "boxes": {
     "action1": {
-      "height": 127,
+      "height": 140,
       "id": "action1",
       "label": "Action 1",
-      "nx": 0.19921875,
-      "ny": 0.7325520833333333,
+      "nx": 0.18046875,
+      "ny": 0.7614583333333333,
       "pivot": "center",
-      "width": 132,
-      "x": 89,
-      "y": 1343
+      "width": 140,
+      "x": 61,
+      "y": 1392
     },
     "action2": {
       "height": 100,
@@ -38,12 +38,12 @@
       "height": 96,
       "id": "action4",
       "label": "Action 4",
-      "nx": 0.3421875,
-      "ny": 0.7291666666666666,
+      "nx": 0.32109375,
+      "ny": 0.7432291666666667,
       "pivot": "center",
       "width": 136,
-      "x": 270,
-      "y": 1352
+      "x": 243,
+      "y": 1379
     },
     "action5": {
       "height": 100,
@@ -123,39 +123,40 @@
       "y": 1781
     },
     "hero1": {
-      "height": 100,
+      "cardSlug": "earth-warden",
+      "height": 495,
       "id": "hero1",
       "label": "Hero 1",
-      "nx": 0.240234375,
-      "ny": 0.5619791666666667,
+      "nx": 0.24375,
+      "ny": 0.58359375,
       "pivot": "center",
-      "width": 105,
-      "x": 155,
-      "y": 1029
+      "width": 324,
+      "x": 50,
+      "y": 873
     },
     "hero2": {
       "cardSlug": "arcane-paladin",
-      "height": 482,
+      "height": 495,
       "id": "hero2",
       "label": "Hero 2",
-      "nx": 0.537109375,
-      "ny": 0.8359375,
+      "nx": 0.5078125,
+      "ny": 0.5825520833333333,
       "pivot": "center",
-      "width": 315,
-      "x": 430,
-      "y": 1364
+      "width": 324,
+      "x": 388,
+      "y": 871
     },
     "hero3": {
       "cardSlug": "dawn-priest",
-      "height": 49,
+      "height": 495,
       "id": "hero3",
       "label": "Hero 3",
-      "nx": 0.65703125,
-      "ny": 0.4393229166666667,
+      "nx": 0.771875,
+      "ny": 0.5825520833333333,
       "pivot": "center",
-      "width": 32,
-      "x": 725,
-      "y": 819
+      "width": 324,
+      "x": 726,
+      "y": 871
     },
     "mana": {
       "height": 100,
@@ -188,7 +189,7 @@
       "pivot": "top-left",
       "width": 38,
       "x": 1004,
-      "y": 31
+      "y": 12
     }
   }
 }

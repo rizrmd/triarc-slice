@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Copy, Clipboard, X, Lock, Unlock } from "lucide-react";
+import { Copy, Clipboard, X, Lock, Unlock, Move, Maximize } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 interface Box {
@@ -170,8 +170,18 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopyAll = () => {
-    const { x, y, width, height, pivot, cardSlug } = selectedBox;
-    setFullBoxClipboard({ x, y, width, height, pivot, cardSlug });
+    const { x, y, width, height, pivot, cardSlug, asset } = selectedBox;
+    setFullBoxClipboard({ x, y, width, height, pivot, cardSlug, asset });
+  };
+
+  const handleCopyPosition = () => {
+    const { x, y } = selectedBox;
+    setFullBoxClipboard({ x, y });
+  };
+
+  const handleCopySize = () => {
+    const { width, height } = selectedBox;
+    setFullBoxClipboard({ width, height });
   };
 
   const handlePasteAll = () => {
@@ -207,11 +217,24 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           <div className="text-xs text-muted-foreground font-mono mt-1">{selectedBox.id}</div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Button 
             variant="outline" 
             size="sm" 
-            className="flex-1"
+            onClick={handleCopyPosition}
+          >
+            <Move className="mr-2 h-3 w-3" /> Copy Pos
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleCopySize}
+          >
+            <Maximize className="mr-2 h-3 w-3" /> Copy Size
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
             onClick={handleCopyAll}
           >
             <Copy className="mr-2 h-3 w-3" /> Copy All
@@ -219,11 +242,10 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           <Button 
             variant="outline" 
             size="sm" 
-            className="flex-1"
             onClick={handlePasteAll}
             disabled={!fullBoxClipboard || selectedBox.locked}
           >
-            <Clipboard className="mr-2 h-3 w-3" /> Paste All
+            <Clipboard className="mr-2 h-3 w-3" /> Paste
           </Button>
         </div>
 

@@ -170,11 +170,11 @@ export default function HeroEditor() {
           name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? Math.max(30, data.name_scale) : 40,
           text_shadow_color: data.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
           hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
-          hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 100,
+          hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 250,
           hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : 100,
           hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : 100,
           hp_bar_hue: typeof data.hp_bar_hue === 'number' ? data.hp_bar_hue : 0,
-          hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 20,
+          hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 31,
         };
 
         // Preload frame image to prevent layout shift
@@ -407,7 +407,7 @@ export default function HeroEditor() {
 
   // ... Layer manipulation logic ...
   const getLayerState = (layer: CharLayer | TextLayer | BarLayer) => {
-    if (!config) return { x: 0, y: 0, scale: layer === 'hp-bar' ? 100 : 100 };
+    if (!config) return { x: 0, y: 0, scale: layer === 'hp-bar' ? 250 : 100 };
     if (layer === 'char-bg') {
       return {
         x: config.char_bg_pos.x,
@@ -614,7 +614,7 @@ export default function HeroEditor() {
   const getDefaultLayerState = (layer?: CharLayer | TextLayer | BarLayer) => ({
     x: 0,
     y: 0,
-    scale: layer === 'hp-bar' ? 100 : 100,
+    scale: layer === 'hp-bar' ? 250 : 100,
   });
 
   const resetLayerProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {

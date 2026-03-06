@@ -10,7 +10,7 @@ interface BarProps {
   className?: string;
 }
 
-export function Bar({ current, max, hue = 0, fontSize = 20, className = '' }: BarProps) {
+export function Bar({ current, max, hue = 0, fontSize = 31, className = '' }: BarProps) {
   const percentage = Math.max(0, Math.min(100, (current / max) * 100));
 
   return (

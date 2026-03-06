@@ -13,11 +13,20 @@
   "char_fg_scale": 194,
   "name_pos": {
     "x": 0,
-    "y": 85
+    "y": 88
   },
   "name_scale": 43,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#bf90f9",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 145
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 100,
+  "hp_bar_max": 100,
+  "hp_bar_hue": 0,
+  "hp_bar_font_size": 31,
   "lore": "",
   "stats": null,
   "audio": null,

@@ -549,7 +549,7 @@ export function LayerControls({
     const current = config.hp_bar_current;
     const max = config.hp_bar_max;
     const hue = config.hp_bar_hue;
-    const fontSize = config.hp_bar_font_size || 20;
+    const fontSize = config.hp_bar_font_size || 31;
 
     return (
       <section className="space-y-4">

@@ -43,11 +43,11 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPrev
             name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? data.name_scale : 40,
             tint: typeof data.tint === 'string' ? data.tint : '',
             hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
-            hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 100,
+            hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 250,
             hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : 100,
             hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : 100,
             hp_bar_hue: typeof data.hp_bar_hue === 'number' ? data.hp_bar_hue : 0,
-            hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 20,
+            hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 31,
           };
 
           const frameSrc = frameImage;
