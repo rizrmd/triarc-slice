@@ -147,15 +147,15 @@
     },
     "hero3": {
       "cardSlug": "dawn-priest",
-      "height": 564,
+      "height": 49,
       "id": "hero3",
       "label": "Hero 3",
-      "nx": 0.776953125,
-      "ny": 0.740625,
+      "nx": 0.65703125,
+      "ny": 0.4393229166666667,
       "pivot": "center",
-      "width": 369,
-      "x": 710,
-      "y": 1140
+      "width": 32,
+      "x": 725,
+      "y": 819
     },
     "mana": {
       "height": 100,
@@ -180,7 +180,7 @@
       "y": 1789
     },
     "settings": {
-      "height": 33,
+      "height": 71,
       "id": "settings",
       "label": "Settings",
       "nx": 0.87734375,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, type RefObject } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import type { HeroConfig, LayerId, VisibleLayers, CharLayer, MaskLayer, TextLayer } from '@/types';
+import type { HeroConfig, LayerId, VisibleLayers, CharLayer, MaskLayer, TextLayer, BarLayer } from '@/types';
+import { Bar } from '../Bar';
 
 interface MaskedImageProps {
   src: string;
@@ -104,10 +105,10 @@ interface CardCanvasProps {
   
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
-  onLayerPointerDown: (layer: CharLayer | TextLayer, event: ReactPointerEvent<HTMLElement>) => void;
+  onLayerPointerDown: (layer: CharLayer | TextLayer | BarLayer, event: ReactPointerEvent<HTMLElement>) => void;
   onMaskPointerDown: (layer: MaskLayer, event: ReactPointerEvent<HTMLCanvasElement>) => void;
   onResizePointerDown: (
-    layer: CharLayer,
+    layer: CharLayer | BarLayer,
     corner: 'nw' | 'ne' | 'sw' | 'se',
     event: ReactPointerEvent<HTMLButtonElement>
   ) => void;
@@ -362,6 +363,38 @@ export function CardCanvas({
                     }}
                   >
                     {config.full_name}
+                  </div>
+                )}
+                {visibleLayers['hp-bar'] && (
+                  <div
+                    className={`absolute z-[28] ${
+                      activeLayer === 'hp-bar' ? 'cursor-move' : 'cursor-default'
+                    } ${
+                      activeLayer === 'mask-fg' || activeLayer === 'mask-bg' || spacePressed || canvasPanning
+                        ? 'pointer-events-none'
+                        : ''
+                    }`}
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      // Transform position only, size is handled by width/height directly
+                      transform: `translate(calc(-50% + ${config.hp_bar_pos?.x ?? 0}px), calc(-50% + ${config.hp_bar_pos?.y ?? 0}px))`,
+                      width: `${(config.hp_bar_scale / 100) * 33}%`, // Scale relative to card width (reference: 33% of card width at scale 100)
+                      height: 'auto', 
+                    }}
+                    onPointerDown={(event) => onLayerPointerDown('hp-bar', event)}
+                    onClick={() => {
+                      if (activeLayer === 'canvas') return;
+                      setActiveLayer('hp-bar');
+                    }}
+                  >
+                    <Bar
+                      current={config.hp_bar_current}
+                      max={config.hp_bar_max}
+                      hue={config.hp_bar_hue}
+                      fontSize={config.hp_bar_font_size}
+                      className="h-auto w-full"
+                    />
                   </div>
                 )}
               </div>

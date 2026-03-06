@@ -40,7 +40,16 @@ type HeroConfig struct {
 	NameScale       float64 `json:"name_scale"`
 	TextShadowColor string  `json:"text_shadow_color"`
 	Tint            string  `json:"tint"`
-	Lore            string                 `json:"lore"`
+	HpBarPos        struct {
+		X int `json:"x"`
+		Y int `json:"y"`
+	} `json:"hp_bar_pos"`
+	HpBarScale   float64 `json:"hp_bar_scale"`
+	HpBarCurrent int     `json:"hp_bar_current"`
+	HpBarMax     int     `json:"hp_bar_max"`
+	HpBarHue     float64 `json:"hp_bar_hue"`
+	HpBarFontSize float64 `json:"hp_bar_font_size,omitempty"`
+	Lore         string                 `json:"lore"`
 	Stats           map[string]interface{} `json:"stats"`
 	Audio           map[string]string      `json:"audio"`
 	Pose            map[string]interface{} `json:"pose"`

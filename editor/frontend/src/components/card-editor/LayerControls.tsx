@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ensureHexColor } from '@/lib/utils';
-import type { HeroConfig, LayerId, CharLayer, MaskLayer, TextLayer, CharProperty, AssetPickerTarget } from '@/types';
+import type { HeroConfig, LayerId, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, AssetPickerTarget } from '@/types';
 
 interface LayerControlsProps {
   activeLayer: LayerId;
@@ -17,14 +17,14 @@ interface LayerControlsProps {
   setAssetPickerTarget: (target: AssetPickerTarget) => void;
   
   // Char Layer Props
-  copyAllLayerProperties: (layer: CharLayer | TextLayer) => void;
-  pasteAllLayerProperties: (layer: CharLayer | TextLayer) => void;
-  resetAllLayerProperties: (layer: CharLayer | TextLayer) => void;
-  copySingleProperty: (layer: CharLayer | TextLayer, property: CharProperty) => void;
-  pasteSingleProperty: (layer: CharLayer | TextLayer, property: CharProperty) => void;
-  resetLayerProperty: (layer: CharLayer | TextLayer, property: CharProperty) => void;
-  applyLayerProperty: (layer: CharLayer | TextLayer, property: CharProperty, value: number) => void;
-  updateLayerScale: (layer: CharLayer | TextLayer, scale: number) => void;
+  copyAllLayerProperties: (layer: CharLayer | TextLayer | BarLayer) => void;
+  pasteAllLayerProperties: (layer: CharLayer | TextLayer | BarLayer) => void;
+  resetAllLayerProperties: (layer: CharLayer | TextLayer | BarLayer) => void;
+  copySingleProperty: (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => void;
+  pasteSingleProperty: (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => void;
+  resetLayerProperty: (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => void;
+  applyLayerProperty: (layer: CharLayer | TextLayer | BarLayer, property: CharProperty, value: number) => void;
+  updateLayerScale: (layer: CharLayer | TextLayer | BarLayer, scale: number) => void;
   handleCharUpload: (layer: CharLayer, file: File | null) => void;
   uploadingCharLayer: CharLayer | null;
   layerClipboard: { x: number; y: number; scale: number } | null;
@@ -297,7 +297,7 @@ export function LayerControls({
           <Slider
             value={[scale]}
             min={40}
-            max={220}
+            max={300}
             step={1}
             onValueChange={([value]) => updateLayerScale(layer, value)}
           />
@@ -482,7 +482,7 @@ export function LayerControls({
           <Slider
             value={[scale]}
             min={30}
-            max={200}
+            max={300}
             step={1}
             onValueChange={([value]) => updateLayerScale(layer, value)}
           />
@@ -537,6 +537,242 @@ export function LayerControls({
               className="font-mono uppercase"
             />
           </div>
+        </div>
+      </section>
+    );
+  };
+
+  const renderHpBarControls = () => {
+    const layer = 'hp-bar';
+    const pos = config.hp_bar_pos;
+    const scale = config.hp_bar_scale;
+    const current = config.hp_bar_current;
+    const max = config.hp_bar_max;
+    const hue = config.hp_bar_hue;
+    const fontSize = config.hp_bar_font_size || 20;
+
+    return (
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={() => copyAllLayerProperties(layer)}
+            aria-label={`Copy ${layer}`}
+            title="Copy"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={() => pasteAllLayerProperties(layer)}
+            disabled={!layerClipboard}
+            aria-label={`Paste ${layer}`}
+            title="Paste"
+          >
+            <ClipboardPaste className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => resetAllLayerProperties(layer)}
+            aria-label={`Reset ${layer}`}
+            title="Reset"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <Label>X (center)</Label>
+            <span className="font-mono text-muted-foreground">{pos.x}px</span>
+          </div>
+          <Slider
+            value={[pos.x]}
+            min={-200}
+            max={200}
+            step={1}
+            onValueChange={([value]) => applyLayerProperty(layer, 'x', value)}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => copySingleProperty(layer, 'x')}
+              aria-label={`Copy X ${layer}`}
+              title="Copy X"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => pasteSingleProperty(layer, 'x')}
+              disabled={propertyClipboard?.property !== 'x'}
+              aria-label={`Paste X ${layer}`}
+              title="Paste X"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => resetLayerProperty(layer, 'x')}
+              aria-label={`Reset X ${layer}`}
+              title="Reset X"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <Label>Y (center)</Label>
+            <span className="font-mono text-muted-foreground">{pos.y}px</span>
+          </div>
+          <Slider
+            value={[pos.y]}
+            min={-200}
+            max={200}
+            step={1}
+            onValueChange={([value]) => applyLayerProperty(layer, 'y', value)}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => copySingleProperty(layer, 'y')}
+              aria-label={`Copy Y ${layer}`}
+              title="Copy Y"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => pasteSingleProperty(layer, 'y')}
+              disabled={propertyClipboard?.property !== 'y'}
+              aria-label={`Paste Y ${layer}`}
+              title="Paste Y"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => resetLayerProperty(layer, 'y')}
+              aria-label={`Reset Y ${layer}`}
+              title="Reset Y"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <Label>Scale</Label>
+            <span className="font-mono text-muted-foreground">{scale}%</span>
+          </div>
+          <Slider
+            value={[scale]}
+            min={30}
+            max={300}
+            step={1}
+            onValueChange={([value]) => updateLayerScale(layer, value)}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => copySingleProperty(layer, 'scale')}
+              aria-label={`Copy Scale ${layer}`}
+              title="Copy Scale"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => pasteSingleProperty(layer, 'scale')}
+              disabled={propertyClipboard?.property !== 'scale'}
+              aria-label={`Paste Scale ${layer}`}
+              title="Paste Scale"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => resetLayerProperty(layer, 'scale')}
+              aria-label={`Reset Scale ${layer}`}
+              title="Reset Scale"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                <Label>Current Value</Label>
+                <Input 
+                    type="number" 
+                    value={current} 
+                    onChange={(e) => commitConfig(prev => ({ ...prev, hp_bar_current: parseInt(e.target.value) || 0 }))}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label>Max Value</Label>
+                <Input 
+                    type="number" 
+                    value={max} 
+                    onChange={(e) => commitConfig(prev => ({ ...prev, hp_bar_max: parseInt(e.target.value) || 0 }))}
+                />
+            </div>
+        </div>
+
+        <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+                <Label>Hue</Label>
+                <span className="font-mono text-muted-foreground">{hue}°</span>
+            </div>
+            <Slider
+                value={[hue]}
+                min={0}
+                max={360}
+                step={1}
+                onValueChange={([value]) => commitConfig(prev => ({ ...prev, hp_bar_hue: value }))}
+            />
+        </div>
+
+        <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+                <Label>Font Size</Label>
+                <span className="font-mono text-muted-foreground">{fontSize}px</span>
+            </div>
+            <Slider
+                value={[fontSize]}
+                min={10}
+                max={100}
+                step={1}
+                onValueChange={([value]) => commitConfig(prev => ({ ...prev, hp_bar_font_size: value }))}
+            />
         </div>
       </section>
     );
@@ -609,6 +845,8 @@ export function LayerControls({
           )}
 
           {activeLayer === 'name' && renderNameControls()}
+
+          {activeLayer === 'hp-bar' && renderHpBarControls()}
 
           {(activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && (
             <section className="space-y-3">

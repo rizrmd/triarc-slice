@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Layers, Sparkles, Type } from 'lucide-react';
+import { Image, Layers, Sparkles, Type, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -66,6 +66,7 @@ export function LayerList({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
+        {renderLayerItem('hp-bar', 'HP Bar', Activity)}
         {renderLayerItem('name', 'Name', Type)}
         {renderLayerItem('char-fg', 'char-fg', Sparkles)}
         {renderLayerItem('mask-fg', 'mask-fg', Image)}

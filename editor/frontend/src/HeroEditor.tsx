@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import type { HeroConfig, CharLayer, MaskLayer, TextLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers } from '@/types';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import type { HeroConfig, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers } from '@/types';
 import frameImage from './assets/ui/hero-frame.webp';
 
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { HeroPoseTab } from '@/components/card-editor/HeroPoseTab';
 
 export default function HeroEditor() {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const [initialConfig, setInitialConfig] = useState<HeroConfig | null>(null);
   const [undoStack, setUndoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string } }[]>([]);
@@ -35,6 +36,7 @@ export default function HeroEditor() {
     'mask-fg': true,
     'char-fg': true,
     name: true,
+    'hp-bar': true,
   });
   const [canvasZoom, setCanvasZoom] = useState(() => {
     if (typeof window === 'undefined') return 100;
@@ -83,8 +85,23 @@ export default function HeroEditor() {
     name_scale: source.name_scale,
     full_name: source.full_name,
     text_shadow_color: source.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
+    hp_bar_pos: { ...source.hp_bar_pos },
+    hp_bar_scale: source.hp_bar_scale,
+    hp_bar_current: source.hp_bar_current,
+    hp_bar_max: source.hp_bar_max,
+    hp_bar_hue: source.hp_bar_hue,
+    hp_bar_font_size: source.hp_bar_font_size,
   });
-  const isSameConfig = (left: HeroConfig, right: HeroConfig) => JSON.stringify(left) === JSON.stringify(right);
+  const isSameConfig = (left: HeroConfig, right: HeroConfig) => {
+    // Explicit checks for hp_bar properties to ensure reliable change detection
+    if (left.hp_bar_hue !== right.hp_bar_hue) return false;
+    if (left.hp_bar_font_size !== right.hp_bar_font_size) return false;
+    if (left.hp_bar_scale !== right.hp_bar_scale) return false;
+    if (left.hp_bar_pos.x !== right.hp_bar_pos.x) return false;
+    if (left.hp_bar_pos.y !== right.hp_bar_pos.y) return false;
+    
+    return JSON.stringify(left) === JSON.stringify(right);
+  };
 
   const getMaskSnapshot = useCallback(() => {
     if (lastMaskSnapshotVersionRef.current === maskVersion && lastMaskSnapshotRef.current) {
@@ -152,6 +169,12 @@ export default function HeroEditor() {
           name_pos: data.name_pos || { x: 0, y: 0 },
           name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? Math.max(30, data.name_scale) : 40,
           text_shadow_color: data.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
+          hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
+          hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 100,
+          hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : 100,
+          hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : 100,
+          hp_bar_hue: typeof data.hp_bar_hue === 'number' ? data.hp_bar_hue : 0,
+          hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 20,
         };
 
         // Preload frame image to prevent layout shift
@@ -207,7 +230,7 @@ export default function HeroEditor() {
       })
       .then((data) => {
         if (data.newSlug && data.newSlug !== slug) {
-          window.location.hash = `/edit/${data.newSlug}`;
+          navigate(`/edit/${data.newSlug}`, { replace: true });
         } else {
           setConfig((prev) => (prev ? { ...prev, full_name: newName } : prev));
           setInitialConfig((prev) => (prev ? { ...prev, full_name: newName } : prev));
@@ -383,8 +406,8 @@ export default function HeroEditor() {
   };
 
   // ... Layer manipulation logic ...
-  const getLayerState = (layer: CharLayer | TextLayer) => {
-    if (!config) return { x: 0, y: 0, scale: 100 };
+  const getLayerState = (layer: CharLayer | TextLayer | BarLayer) => {
+    if (!config) return { x: 0, y: 0, scale: layer === 'hp-bar' ? 100 : 100 };
     if (layer === 'char-bg') {
       return {
         x: config.char_bg_pos.x,
@@ -399,6 +422,13 @@ export default function HeroEditor() {
         scale: config.char_fg_scale,
       };
     }
+    if (layer === 'hp-bar') {
+      return {
+        x: config.hp_bar_pos.x,
+        y: config.hp_bar_pos.y,
+        scale: config.hp_bar_scale,
+      };
+    }
     return {
       x: config.name_pos.x,
       y: config.name_pos.y,
@@ -406,7 +436,7 @@ export default function HeroEditor() {
     };
   };
 
-  const updateLayerPosition = (layer: CharLayer | TextLayer, dx: number, dy: number, trackHistory = true) => {
+  const updateLayerPosition = (layer: CharLayer | TextLayer | BarLayer, dx: number, dy: number, trackHistory = true) => {
     const updater = (prev: HeroConfig) => {
       if (layer === 'char-bg') {
         return {
@@ -426,6 +456,15 @@ export default function HeroEditor() {
           },
         };
       }
+      if (layer === 'hp-bar') {
+        return {
+          ...prev,
+          hp_bar_pos: {
+            x: prev.hp_bar_pos.x + dx,
+            y: prev.hp_bar_pos.y + dy,
+          },
+        };
+      }
       return {
         ...prev,
         name_pos: {
@@ -441,9 +480,9 @@ export default function HeroEditor() {
     }
   };
 
-  const updateLayerScale = (layer: CharLayer | TextLayer, scale: number) => {
+  const updateLayerScale = (layer: CharLayer | TextLayer | BarLayer, scale: number) => {
     const minScale = layer === 'name' ? 30 : 40;
-    const clamped = Math.max(minScale, Math.min(220, Math.round(scale)));
+    const clamped = Math.max(minScale, Math.min(300, Math.round(scale)));
     commitConfig((prev) => {
       if (!prev) return prev;
       if (layer === 'char-bg') {
@@ -458,6 +497,12 @@ export default function HeroEditor() {
           char_fg_scale: clamped,
         };
       }
+      if (layer === 'hp-bar') {
+        return {
+          ...prev,
+          hp_bar_scale: clamped,
+        };
+      }
       return {
         ...prev,
         name_scale: clamped,
@@ -465,9 +510,9 @@ export default function HeroEditor() {
     });
   };
 
-  const applyLayerState = (layer: CharLayer | TextLayer, state: { x: number; y: number; scale: number }) => {
+  const applyLayerState = (layer: CharLayer | TextLayer | BarLayer, state: { x: number; y: number; scale: number }) => {
     const minScale = layer === 'name' ? 30 : 40;
-    const clampedScale = Math.max(minScale, Math.min(220, Math.round(state.scale)));
+    const clampedScale = Math.max(minScale, Math.min(300, Math.round(state.scale)));
     commitConfig((prev) => {
       if (!prev) return prev;
       if (layer === 'char-bg') {
@@ -484,6 +529,13 @@ export default function HeroEditor() {
           char_fg_scale: clampedScale,
         };
       }
+      if (layer === 'hp-bar') {
+        return {
+          ...prev,
+          hp_bar_pos: { x: Math.round(state.x), y: Math.round(state.y) },
+          hp_bar_scale: clampedScale,
+        };
+      }
       return {
         ...prev,
         name_pos: { x: Math.round(state.x), y: Math.round(state.y) },
@@ -492,7 +544,7 @@ export default function HeroEditor() {
     });
   };
 
-  const applyLayerProperty = (layer: CharLayer | TextLayer, property: CharProperty, value: number) => {
+  const applyLayerProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty, value: number) => {
     if (property === 'scale') {
       updateLayerScale(layer, value);
       return;
@@ -518,6 +570,15 @@ export default function HeroEditor() {
           },
         };
       }
+      if (layer === 'hp-bar') {
+        return {
+          ...prev,
+          hp_bar_pos: {
+            ...prev.hp_bar_pos,
+            [property]: rounded,
+          },
+        };
+      }
       return {
         ...prev,
         name_pos: {
@@ -528,16 +589,16 @@ export default function HeroEditor() {
     });
   };
 
-  const copyAllLayerProperties = (layer: CharLayer | TextLayer) => {
+  const copyAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer) => {
     setLayerClipboard(getLayerState(layer));
   };
 
-  const pasteAllLayerProperties = (layer: CharLayer | TextLayer) => {
+  const pasteAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer) => {
     if (!layerClipboard) return;
     applyLayerState(layer, layerClipboard);
   };
 
-  const copySingleProperty = (layer: CharLayer | TextLayer, property: CharProperty) => {
+  const copySingleProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {
     const layerState = getLayerState(layer);
     setPropertyClipboard({
       property,
@@ -545,24 +606,24 @@ export default function HeroEditor() {
     });
   };
 
-  const pasteSingleProperty = (layer: CharLayer | TextLayer, property: CharProperty) => {
+  const pasteSingleProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {
     if (!propertyClipboard || propertyClipboard.property !== property) return;
     applyLayerProperty(layer, property, propertyClipboard.value);
   };
 
-  const getDefaultLayerState = () => ({
+  const getDefaultLayerState = (layer?: CharLayer | TextLayer | BarLayer) => ({
     x: 0,
     y: 0,
-    scale: 100,
+    scale: layer === 'hp-bar' ? 100 : 100,
   });
 
-  const resetLayerProperty = (layer: CharLayer | TextLayer, property: CharProperty) => {
-    const defaultLayer = getDefaultLayerState();
+  const resetLayerProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {
+    const defaultLayer = getDefaultLayerState(layer);
     applyLayerProperty(layer, property, defaultLayer[property]);
   };
 
-  const resetAllLayerProperties = (layer: CharLayer | TextLayer) => {
-    applyLayerState(layer, getDefaultLayerState());
+  const resetAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer) => {
+    applyLayerState(layer, getDefaultLayerState(layer));
   };
 
   // ... Keyboard shortcuts ...
@@ -574,14 +635,16 @@ export default function HeroEditor() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.code === 'Space') setSpacePressed(true);
       const isMod = event.ctrlKey || event.metaKey;
-      const activeCharLayer: CharLayer | TextLayer | null =
+      const activeCharLayer: CharLayer | TextLayer | BarLayer | null =
         activeLayer === 'char-bg' || activeLayer === 'mask-bg'
           ? 'char-bg'
           : activeLayer === 'char-fg' || activeLayer === 'mask-fg'
             ? 'char-fg'
             : activeLayer === 'name'
               ? 'name'
-              : null;
+              : activeLayer === 'hp-bar'
+                ? 'hp-bar'
+                : null;
       if (event.code === 'KeyS' && isMod) {
         event.preventDefault();
         handleSave(true);
@@ -605,6 +668,8 @@ export default function HeroEditor() {
           setLayerClipboard({ x: config.char_bg_pos.x, y: config.char_bg_pos.y, scale: config.char_bg_scale });
         } else if (activeCharLayer === 'char-fg') {
           setLayerClipboard({ x: config.char_fg_pos.x, y: config.char_fg_pos.y, scale: config.char_fg_scale });
+        } else if (activeCharLayer === 'hp-bar') {
+          setLayerClipboard({ x: config.hp_bar_pos.x, y: config.hp_bar_pos.y, scale: config.hp_bar_scale });
         } else {
           setLayerClipboard({ x: config.name_pos.x, y: config.name_pos.y, scale: config.name_scale });
         }
@@ -612,7 +677,7 @@ export default function HeroEditor() {
       if (event.code === 'KeyV' && isMod && activeCharLayer && layerClipboard) {
         event.preventDefault();
         const minScale = activeCharLayer === 'name' ? 30 : 40;
-        const clampedScale = Math.max(minScale, Math.min(220, Math.round(layerClipboard.scale)));
+        const clampedScale = Math.max(minScale, Math.min(300, Math.round(layerClipboard.scale)));
         commitConfig((prev) => {
           if (!prev) return prev;
           if (activeCharLayer === 'char-bg') {
@@ -627,6 +692,13 @@ export default function HeroEditor() {
               ...prev,
               char_fg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
               char_fg_scale: clampedScale,
+            };
+          }
+          if (activeCharLayer === 'hp-bar') {
+            return {
+              ...prev,
+              hp_bar_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+              hp_bar_scale: clampedScale,
             };
           }
           return {
@@ -652,6 +724,13 @@ export default function HeroEditor() {
               ...prev,
               char_fg_pos: { x: initialConfig.char_fg_pos.x, y: initialConfig.char_fg_pos.y },
               char_fg_scale: initialConfig.char_fg_scale,
+            };
+          }
+          if (activeCharLayer === 'hp-bar') {
+            return {
+              ...prev,
+              hp_bar_pos: { x: initialConfig.hp_bar_pos.x, y: initialConfig.hp_bar_pos.y },
+              hp_bar_scale: initialConfig.hp_bar_scale,
             };
           }
           return {
@@ -977,7 +1056,7 @@ export default function HeroEditor() {
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const handleLayerPointerDown = (layer: CharLayer | TextLayer, event: ReactPointerEvent<HTMLElement>) => {
+  const handleLayerPointerDown = (layer: CharLayer | TextLayer | BarLayer, event: ReactPointerEvent<HTMLElement>) => {
     if (activeLayer === 'canvas') return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     if (spacePressed) return;
@@ -1029,7 +1108,7 @@ export default function HeroEditor() {
   };
 
   const handleResizeFromCornerPointerDown = (
-    layer: CharLayer,
+    layer: CharLayer | BarLayer,
     corner: 'nw' | 'ne' | 'sw' | 'se',
     event: ReactPointerEvent<HTMLButtonElement>
   ) => {
@@ -1067,7 +1146,7 @@ export default function HeroEditor() {
       const rawHeight = Math.abs(rawCorner.y - anchor.y);
       const constrainedWidth = Math.max(rawWidth, rawHeight * (2 / 3), 80);
       const newScale = (constrainedWidth / cardWidth) * 100;
-      const clampedScale = Math.max(40, Math.min(220, Math.round(newScale)));
+      const clampedScale = Math.max(40, Math.min(300, Math.round(newScale)));
       const clampedWidth = (cardWidth * clampedScale) / 100;
       const clampedHeight = (cardHeight * clampedScale) / 100;
       const normalizedCorner = {
@@ -1089,6 +1168,16 @@ export default function HeroEditor() {
               y: Math.round(newCenter.y),
             },
             char_bg_scale: clampedScale,
+          };
+        }
+        if (layer === 'hp-bar') {
+          return {
+            ...prev,
+            hp_bar_pos: {
+              x: Math.round(newCenter.x),
+              y: Math.round(newCenter.y),
+            },
+            hp_bar_scale: clampedScale,
           };
         }
         return {

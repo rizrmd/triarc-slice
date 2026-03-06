@@ -22,13 +22,23 @@ export interface HeroConfig {
   stats?: Record<string, any>;
   audio?: Record<string, string>;
   pose?: Record<string, any>;
+  hp_bar_pos: {
+    x: number;
+    y: number;
+  };
+  hp_bar_scale: number;
+  hp_bar_current: number;
+  hp_bar_max: number;
+  hp_bar_hue: number;
+  hp_bar_font_size?: number;
 }
 
 export type CharLayer = 'char-bg' | 'char-fg';
 export type MaskLayer = 'mask-bg' | 'mask-fg';
 export type TextLayer = 'name';
+export type BarLayer = 'hp-bar';
 export type CharProperty = 'x' | 'y' | 'scale';
-export type LayerId = 'char-bg' | 'mask-bg' | 'card' | 'mask-fg' | 'char-fg' | 'name' | 'canvas';
+export type LayerId = 'char-bg' | 'mask-bg' | 'card' | 'mask-fg' | 'char-fg' | 'name' | 'hp-bar' | 'canvas';
 export type AssetPickerTarget = CharLayer | 'card' | null;
 export type AssetItem = { name: string; url: string };
 
@@ -39,4 +49,5 @@ export type VisibleLayers = {
   'mask-fg': boolean;
   'char-fg': boolean;
   name: boolean;
+  'hp-bar': boolean;
 };

@@ -18,6 +18,7 @@ interface Box {
   label: string;
   pivot: string;
   cardSlug?: string;
+  asset?: string;
   locked?: boolean;
 }
 
@@ -55,6 +56,8 @@ const DEFAULT_BOXES = [
 export default function GameLayoutEditor() {
   const [layout, setLayout] = useState<GameLayout | null>(null);
   const [places, setPlaces] = useState<{ name: string; url: string }[]>([]);
+  const [uiAssets, setUiAssets] = useState<{ name: string; url: string }[]>([]);
+  const [charAssets, setCharAssets] = useState<{ name: string; url: string }[]>([]);
   const [cards, setCards] = useState<string[]>([]);
   const [selectedBox, setSelectedBox] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -237,6 +240,19 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(setPlaces)
       .catch(err => console.error("Failed to fetch places", err));
+
+    // Fetch UI assets
+    fetch('/api/assets/ui')
+      .then(res => res.json())
+      .then(setUiAssets)
+      .catch(err => console.error("Failed to fetch UI assets", err));
+
+    // Fetch character assets
+    fetch('/api/assets/characters')
+      .then(res => res.json())
+      .then(setCharAssets)
+      .catch(err => console.error("Failed to fetch character assets", err));
+
 
     // Fetch cards
     fetch('/api/cards')
@@ -463,7 +479,7 @@ export default function GameLayoutEditor() {
                        }}
                      />
                    )}
-                   {!box.cardSlug && (
+                   {!box.cardSlug && !box.asset && (
                      <div className="text-center font-bold text-xs pointer-events-none select-none p-1 break-words z-10 relative">
                        {box.label}
                      </div>
@@ -476,6 +492,52 @@ export default function GameLayoutEditor() {
                          transparent 
                          onAspectRatioLoaded={(ratio) => {
                             if (!box.locked) {
+                               const currentRatio = box.height / box.width;
+                               // Only update if difference is significant (> 1%)
+                               if (Math.abs(currentRatio - ratio) > 0.01) {
+                                  // Avoid state updates if component unmounted or data changed
+                                  setTimeout(() => {
+                                      setLayout(prev => {
+                                         if (!prev) return null;
+                                         const currentBox = prev.boxes[box.id];
+                                         if (!currentBox) return prev;
+                                         
+                                         const targetHeight = Math.round(currentBox.width * ratio);
+                                         if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
+                                         
+                                         // Also update normalized coords
+                                         const { nx, ny } = toNormalized(currentBox.x, currentBox.y, currentBox.width, targetHeight);
+                                         
+                                         return {
+                                            ...prev,
+                                            boxes: {
+                                               ...prev.boxes,
+                                               [box.id]: {
+                                                  ...currentBox,
+                                                  height: targetHeight,
+                                                  nx, ny
+                                               }
+                                            }
+                                         };
+                                      });
+                                  }, 0);
+                               }
+                            }
+                         }}
+                       />
+                     </div>
+                   )}
+
+                   {box.asset && (
+                     <div className="absolute inset-0 pointer-events-none">
+                       <img 
+                         src={box.asset} 
+                         className="w-full h-full object-contain" 
+                         alt="" 
+                         onLoad={(e) => {
+                            if (!box.locked) {
+                               const img = e.currentTarget;
+                               const ratio = img.naturalHeight / img.naturalWidth;
                                const currentRatio = box.height / box.width;
                                // Only update if difference is significant (> 1%)
                                if (Math.abs(currentRatio - ratio) > 0.01) {
@@ -555,6 +617,9 @@ export default function GameLayoutEditor() {
             onUpdate={updateBox}
             onClose={() => setSelectedBox(null)}
             cards={cards}
+            uiAssets={uiAssets}
+            charAssets={charAssets}
+            placeAssets={places}
           />
            )}
         </div>

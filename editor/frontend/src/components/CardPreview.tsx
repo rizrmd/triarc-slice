@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HeroConfig } from '@/types';
 import frameImage from '../assets/ui/hero-frame.webp';
+import barBg from '../assets/ui/bar/bar-bg.webp';
+import barFg from '../assets/ui/bar/bar-fg.webp';
+import barFrame from '../assets/ui/bar/bar-frame.webp';
 
 interface CardPreviewProps {
   slug: string;
@@ -39,6 +42,12 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPrev
             name_pos: data.name_pos || { x: 0, y: 0 },
             name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? data.name_scale : 40,
             tint: typeof data.tint === 'string' ? data.tint : '',
+            hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
+            hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 100,
+            hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : 100,
+            hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : 100,
+            hp_bar_hue: typeof data.hp_bar_hue === 'number' ? data.hp_bar_hue : 0,
+            hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 20,
           };
 
           const frameSrc = frameImage;
@@ -113,11 +122,14 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPrev
       loadImg(bgUrl),
       loadImg(fgUrl),
       loadImg(maskBgUrl),
-      loadImg(maskFgUrl)
+      loadImg(maskFgUrl),
+      loadImg(barBg),
+      loadImg(barFg),
+      loadImg(barFrame)
     ]).then((results) => {
       if (!mounted) return;
 
-      const [frameImg, defaultFrameImg, bgImg, fgImg, maskBgImg, maskFgImg] = results;
+      const [frameImg, defaultFrameImg, bgImg, fgImg, maskBgImg, maskFgImg, barBgImg, barFgImg, barFrameImg] = results;
 
       const activeFrame = frameImg && frameImg.naturalWidth > 0 ? frameImg : defaultFrameImg;
       const cardW = activeFrame?.naturalWidth && activeFrame.naturalWidth > 0 ? activeFrame.naturalWidth : baseSize.width;
@@ -228,6 +240,61 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPrev
         ctx.strokeText(config.full_name, textX, textY);
         
         ctx.fillText(config.full_name, textX, textY);
+        ctx.restore();
+      }
+
+      if (config.hp_bar_pos && barBgImg && barFgImg && barFrameImg) {
+        const barScale = (config.hp_bar_scale || 100) / 100;
+        // The HP bar width is 33% of the card frame width (standard reference)
+        const baseWidth = cardW * 0.33;
+        const aspectRatio = barBgImg.naturalWidth / barBgImg.naturalHeight;
+        
+        const barW = baseWidth * barScale;
+        const barH = barW / aspectRatio;
+        
+        const barX = cx + config.hp_bar_pos.x - barW / 2;
+        const barY = cy + config.hp_bar_pos.y - barH / 2;
+        
+        // Draw Bar BG
+        ctx.drawImage(barBgImg, barX, barY, barW, barH);
+        
+        // Draw Bar FG (Clipped & Hue Rotated)
+        const current = config.hp_bar_current || 0;
+        const max = config.hp_bar_max || 100;
+        const percentage = Math.max(0, Math.min(100, (current / max) * 100));
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(barX, barY, barW * (percentage / 100), barH);
+        ctx.clip();
+        
+        if (config.hp_bar_hue) {
+           ctx.filter = `hue-rotate(${config.hp_bar_hue}deg)`;
+        }
+        ctx.drawImage(barFgImg, barX, barY, barW, barH);
+        ctx.restore();
+        
+        // Draw Bar Frame
+        ctx.drawImage(barFrameImg, barX, barY, barW, barH);
+        
+        // Draw Text
+        ctx.save();
+        ctx.fillStyle = 'white';
+        // Match font size and family to Bar component
+        // Using a relative size to card width to handle high-res exports better
+        // Default size is 20px for editor at standard scale, convert to ratio
+        const baseFontSize = config.hp_bar_font_size || 20;
+        // 471 is typical card width. 20/471 ~= 0.0425
+        const fontSizeRatio = baseFontSize / 471;
+        const fontSize = Math.max(12, Math.round(cardW * fontSizeRatio));
+        
+        ctx.font = `${fontSize}px "Vollkorn", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 2;
+        ctx.shadowOffsetY = 1;
+        ctx.fillText(`${current} / ${max}`, barX + barW / 2, barY + barH / 2);
         ctx.restore();
       }
 

@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Copy, Clipboard, X, Lock, Unlock } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface Box {
   id: string;
@@ -15,6 +15,7 @@ interface Box {
   label: string;
   pivot: string;
   cardSlug?: string;
+  asset?: string;
   locked?: boolean;
 }
 
@@ -29,15 +30,70 @@ interface PropertiesSidebarProps {
   onUpdate: (id: string, updates: Partial<Box>) => void;
   onClose: () => void;
   cards: string[];
+  uiAssets?: { name: string; url: string }[];
+  charAssets?: { name: string; url: string }[];
+  placeAssets?: { name: string; url: string }[];
 }
 
-export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [] }: PropertiesSidebarProps) {
+function PropertyInput({ value, onChange, disabled, className }: { value: number, onChange: (val: number) => void, disabled?: boolean, className?: string }) {
+  const [localValue, setLocalValue] = useState(String(value));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(String(value));
+    }
+  }, [value, isEditing]);
+
+  return (
+    <Input
+      type="number"
+      value={localValue}
+      onFocus={() => setIsEditing(true)}
+      onBlur={() => setIsEditing(false)}
+      onChange={(e) => {
+        setLocalValue(e.target.value);
+        const val = parseInt(e.target.value);
+        if (!isNaN(val)) {
+          onChange(val);
+        }
+      }}
+      disabled={disabled}
+      className={className}
+    />
+  );
+}
+
+export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], uiAssets = [], charAssets = [], placeAssets = [] }: PropertiesSidebarProps) {
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
+  
+  const [assetCategory, setAssetCategory] = useState<'ui' | 'characters' | 'places'>('ui');
+
+  // Sync category with current asset if present
+  useEffect(() => {
+    if (selectedBox?.asset) {
+       if (selectedBox.asset.includes('/ui/')) setAssetCategory('ui');
+       else if (selectedBox.asset.includes('/characters/')) setAssetCategory('characters');
+       else if (selectedBox.asset.includes('/places/')) setAssetCategory('places');
+    }
+  }, [selectedBox?.id, selectedBox?.asset]); // Run when box or asset changes
+
+  const currentAssets = assetCategory === 'ui' ? uiAssets : assetCategory === 'characters' ? charAssets : placeAssets;
+
 
   const startXRef = useRef(0);
   const startValRef = useRef(0);
   const currentPropRef = useRef<keyof Box | null>(null);
+
+  const [sizeInputValue, setSizeInputValue] = useState("");
+  const [isEditingSize, setIsEditingSize] = useState(false);
+
+  useEffect(() => {
+    if (selectedBox && !isEditingSize) {
+      setSizeInputValue(((selectedBox.width / 1080) * 100).toFixed(1));
+    }
+  }, [selectedBox?.width, isEditingSize, selectedBox]);
 
   if (!selectedBox) return null;
 
@@ -188,6 +244,35 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [] }
           </div>
         )}
 
+        {!selectedBox.id.startsWith('hero') && (
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Asset</Label>
+            <div className="flex gap-2">
+                <select 
+                    className="w-1/3 p-2 border rounded bg-background text-sm"
+                    onChange={(e) => setAssetCategory(e.target.value as any)}
+                    value={assetCategory}
+                    disabled={selectedBox.locked}
+                >
+                    <option value="ui">UI</option>
+                    <option value="characters">Char</option>
+                    <option value="places">Place</option>
+                </select>
+                <select 
+                  className="flex-1 p-2 border rounded bg-background text-sm"
+                  value={selectedBox.asset || ''}
+                  onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined })}
+                  disabled={selectedBox.locked}
+                >
+                  <option value="">(None)</option>
+                  {currentAssets.map(asset => (
+                    <option key={asset.url} value={asset.url}>{asset.name}</option>
+                  ))}
+                </select>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label className="text-xs font-medium">Pivot Point</Label>
           <div className={`grid grid-cols-3 gap-1 w-[120px] mx-auto bg-muted p-1 rounded-md ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -224,14 +309,18 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [] }
                   className={`w-16 text-xs font-bold text-blue-500 select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-400'}`}
                   onMouseDown={handleSizeDragStart}
                 >
-                  Size %
+                  Size
                 </Label>
                 <Input 
                   type="number" 
                   step="0.1"
-                  value={((selectedBox.width / 1080) * 100).toFixed(1)} 
+                  value={sizeInputValue} 
+                  onFocus={() => setIsEditingSize(true)}
+                  onBlur={() => setIsEditingSize(false)}
                   onChange={(e) => {
-                     const val = parseFloat(e.target.value);
+                     const valStr = e.target.value;
+                     setSizeInputValue(valStr);
+                     const val = parseFloat(valStr);
                      if (!isNaN(val) && val > 0) {
                         const newW = (val / 100) * 1080;
                         const ratio = selectedBox.height / selectedBox.width;
@@ -260,10 +349,9 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [] }
               >
                 {prop}
               </Label>
-              <Input 
-                type="number" 
-                value={String(selectedBox[prop] ?? 0)} 
-                onChange={(e) => onUpdate(selectedBox.id, { [prop]: parseInt(e.target.value) || 0 })}
+              <PropertyInput 
+                value={selectedBox[prop] ?? 0}
+                onChange={(val) => onUpdate(selectedBox.id, { [prop]: val })}
                 className="h-8 text-xs"
                 disabled={selectedBox.locked}
               />
