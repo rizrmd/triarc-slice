@@ -103,10 +103,11 @@ static func _ensure_layout_loaded():
 			for h in heroes:
 				var nx = h.get("nx", 0.5)
 				var ny = h.get("ny", 0.5)
+				var pivot = h.get("pivot", "center")
+				var screen_relative = h.get("screen_relative", false)
 				
 				# Width/Height in JSON are pixels in the 1080x1920 Reference Viewport
 				var w = h.get("width", 344.0)
-				var height = h.get("height", 516.0) 
 				
 				# Normalize Size relative to Reference Viewport Width (1080)
 				# We use WIDTH as the primary size driver for this portrait game
@@ -117,6 +118,8 @@ static func _ensure_layout_loaded():
 				formation.append({
 					"nx": nx,
 					"ny": ny,
+					"pivot": pivot,
+					"screen_relative": screen_relative,
 					"size_norm": size_norm,
 					"cardSlug": card_slug
 				})
@@ -125,6 +128,51 @@ static func _ensure_layout_loaded():
 			# Note: We overwrite the existing formation for this specific count
 			_scenes["cave"]["card_formations"][count] = formation
 			print("Updated layout for ", count, " cards from JSON")
+
+# Helper function to get pivot offset
+static func _get_pivot_offset(pivot_name: String) -> Vector2:
+	match pivot_name:
+		"top-left": return Vector2(0, 0)
+		"top-center": return Vector2(0.5, 0)
+		"top-right": return Vector2(1, 0)
+		"center-left": return Vector2(0, 0.5)
+		"center": return Vector2(0.5, 0.5)
+		"center-right": return Vector2(1, 0.5)
+		"bottom-left": return Vector2(0, 1)
+		"bottom-center": return Vector2(0.5, 1)
+		"bottom-right": return Vector2(1, 1)
+	return Vector2(0.5, 0.5) # Default center
+
+# Helper to calculate position for a single slot/box
+static func _calculate_box_transform(slot: Dictionary, viewport_size: Vector2, bg_metrics: Dictionary) -> Dictionary:
+	var is_screen_relative = slot.get("screen_relative", false)
+	var screen_x = 0.0
+	var screen_y = 0.0
+	
+	if is_screen_relative:
+		# Relative to viewport size
+		screen_x = slot.nx * viewport_size.x
+		screen_y = slot.ny * viewport_size.y
+	else:
+		# Relative to background image
+		screen_x = bg_metrics.offset_x + (slot.nx * bg_metrics.scaled_w)
+		screen_y = bg_metrics.offset_y + (slot.ny * bg_metrics.scaled_h)
+	
+	# Calculate Scale
+	var target_w = 0.0
+	if slot.has("size_norm"):
+		target_w = slot.size_norm * viewport_size.x
+	elif slot.has("nw"):
+		target_w = slot.nw * viewport_size.x
+	else:
+		var base_w = (viewport_size.x - 48.0) / 3.0
+		target_w = base_w * slot.get("scale", 1.0)
+		
+	return {
+		"position": Vector2(screen_x, screen_y),
+		"target_width": target_w,
+		"pivot": slot.get("pivot", "center")
+	}
 
 # Apply layout to a background node and a list of card nodes
 static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, viewport_size: Vector2):
@@ -167,6 +215,13 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 	bg_node.position = Vector2(offset_x, offset_y)
 	bg_node.size = Vector2(scaled_w, scaled_h)
 	
+	var bg_metrics = {
+		"scaled_w": scaled_w,
+		"scaled_h": scaled_h,
+		"offset_x": offset_x,
+		"offset_y": offset_y
+	}
+	
 	# 2. Position Cards
 	# -----------------
 	if not config.card_formations.has(count):
@@ -180,26 +235,11 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		var card = cards[i]
 		var slot = formation[i]
 		
-		# Normalized position -> Screen position
-		# pos = offset + (normalized * scaled_size)
-		var screen_x = offset_x + (slot.nx * scaled_w)
-		var screen_y = offset_y + (slot.ny * scaled_h)
+		var transform = _calculate_box_transform(slot, viewport_size, bg_metrics)
+		var target_w = transform.target_width
+		var pos = transform.position
+		var pivot = transform.pivot
 		
-		# Calculate Scale to match editor visual (Screen Relative)
-		# We use width relative to viewport width
-		var target_w = 0.0
-		
-		if slot.has("size_norm"):
-			# New path (from JSON)
-			target_w = slot.size_norm * viewport_size.x
-		elif slot.has("nw"):
-			# Intermediate path
-			target_w = slot.nw * viewport_size.x
-		else:
-			# Legacy path
-			var base_w = (viewport_size.x - 48.0) / 3.0
-			target_w = base_w * slot.get("scale", 1.0)
-			
 		var ref_size = card.size
 		if ref_size.x <= 0: ref_size = Vector2(750, 1050)
 		
@@ -208,14 +248,75 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		
 		card.scale = Vector2(final_card_scale, final_card_scale)
 		
-		# Center the card on the target position
-		var card_size = card.size
-		card.position = Vector2(screen_x, screen_y) - (card_size * final_card_scale / 2.0)
+		var pivot_offset = _get_pivot_offset(pivot)
+		var scaled_size = card.size * final_card_scale
+		card.position = pos - (scaled_size * pivot_offset)
 		
 		# Z-index
-		card.z_index = i # Simple index based z-ordering
-		if slot.has("scale"): # Legacy
+		card.z_index = i
+		if slot.has("scale"): 
 			card.z_index = int(slot.scale * 10)
+
+# Apply layout to a single UI element (box)
+static func apply_box_layout(node: Node, box_id: String, viewport_size: Vector2, scene_key: String = "cave"):
+	_ensure_layout_loaded()
+	var box = get_box(box_id)
+	if box.is_empty(): return
+	
+	# Normalize box data to slot format expected by calculator
+	# JSON box has width/height, need size_norm
+	var ref_viewport_w = 1080.0
+	var size_norm = box.get("width", 100.0) / ref_viewport_w
+	
+	var slot = {
+		"nx": box.get("nx", 0.5),
+		"ny": box.get("ny", 0.5),
+		"pivot": box.get("pivot", "center"),
+		"screen_relative": box.get("screen_relative", false),
+		"size_norm": size_norm
+	}
+	
+	# Calculate BG metrics (needed for world-relative items)
+	var config = _scenes.get(scene_key, _scenes["cave"])
+	var bg_w = config.bg_size.x
+	var bg_h = config.bg_size.y
+	
+	var scale_x = viewport_size.x / bg_w
+	var scale_y = viewport_size.y / bg_h
+	var final_scale = 1.0
+	if config.fit_mode == "cover":
+		final_scale = max(scale_x, scale_y)
+	else:
+		final_scale = min(scale_x, scale_y)
+		
+	var bg_metrics = {
+		"scaled_w": bg_w * final_scale,
+		"scaled_h": bg_h * final_scale,
+		"offset_x": (viewport_size.x - (bg_w * final_scale)) / 2.0,
+		"offset_y": (viewport_size.y - (bg_h * final_scale)) / 2.0
+	}
+	
+	var transform = _calculate_box_transform(slot, viewport_size, bg_metrics)
+	
+	# Apply to Node
+	# Assuming node is a Sprite2D or Control. If Control, scale might behave differently.
+	# For Node2D (Sprite), we set scale and position.
+	
+	var ref_size = Vector2(100, 100)
+	if node is Control:
+		ref_size = node.size
+	elif node is Sprite2D and node.texture:
+		ref_size = node.texture.get_size()
+		
+	if ref_size.x <= 0: ref_size = Vector2(100, 100)
+	
+	var final_scale = transform.target_width / ref_size.x
+	var pivot_offset = _get_pivot_offset(transform.pivot)
+	var scaled_size = ref_size * final_scale
+	
+	if node is Node2D or node is Control:
+		node.scale = Vector2(final_scale, final_scale)
+		node.position = transform.position - (scaled_size * pivot_offset)
 
 static func get_hero_config(count: int) -> Array:
 	_ensure_layout_loaded()
