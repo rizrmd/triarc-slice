@@ -16,45 +16,45 @@
       "height": 100,
       "id": "action2",
       "label": "Action 2",
-      "nx": 0.3,
-      "ny": 0.7479166666666667,
+      "nx": 0.31484375,
+      "ny": 0.75625,
       "pivot": "center",
       "width": 100,
-      "x": 234,
-      "y": 1386
+      "x": 253,
+      "y": 1402
     },
     "action3": {
       "height": 100,
       "id": "action3",
       "label": "Action 3",
-      "nx": 0.425,
-      "ny": 0.7494791666666667,
+      "nx": 0.43125,
+      "ny": 0.7520833333333333,
       "pivot": "center",
       "width": 100,
-      "x": 394,
-      "y": 1389
+      "x": 402,
+      "y": 1394
     },
     "action4": {
       "height": 96,
       "id": "action4",
       "label": "Action 4",
-      "nx": 0.571875,
-      "ny": 0.7473958333333334,
+      "nx": 0.60390625,
+      "ny": 0.7572916666666667,
       "pivot": "center",
       "width": 136,
-      "x": 564,
-      "y": 1387
+      "x": 605,
+      "y": 1406
     },
     "action5": {
       "height": 100,
       "id": "action5",
       "label": "Action 5",
-      "nx": 0.70078125,
-      "ny": 0.7453125,
+      "nx": 0.7328125,
+      "ny": 0.7536458333333333,
       "pivot": "center",
       "width": 100,
-      "x": 747,
-      "y": 1381
+      "x": 788,
+      "y": 1397
     },
     "battery": {
       "height": 59,
@@ -129,7 +129,7 @@
       "label": "Hero 1",
       "nx": 0.24375,
       "ny": 0.58359375,
-      "pivot": "center",
+      "pivot": "top-center",
       "width": 324,
       "x": 50,
       "y": 873
@@ -141,7 +141,7 @@
       "label": "Hero 2",
       "nx": 0.5078125,
       "ny": 0.5825520833333333,
-      "pivot": "center",
+      "pivot": "top-center",
       "width": 324,
       "x": 388,
       "y": 871
@@ -153,7 +153,7 @@
       "label": "Hero 3",
       "nx": 0.771875,
       "ny": 0.5825520833333333,
-      "pivot": "center",
+      "pivot": "top-center",
       "width": 324,
       "x": 726,
       "y": 871
