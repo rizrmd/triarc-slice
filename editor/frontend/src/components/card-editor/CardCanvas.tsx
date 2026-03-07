@@ -172,8 +172,8 @@ export function CardCanvas({
   const visualBrushSize = brushSize * (activeScale / 100);
 
   return (
-    <Card className="rounded-2xl bg-[#14161b]">
-      <CardContent className="flex h-[calc(100vh-160px)] items-center justify-center p-6">
+    <Card className="bg-[#14161b] border-0 h-full flex flex-1 flex-col rounded-none">
+      <CardContent className="flex flex-1 items-center justify-center p-6">
         <div
           onPointerDown={onCanvasPointerDown}
           onWheel={onCanvasWheel}

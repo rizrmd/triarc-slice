@@ -30,5 +30,16 @@
   "lore": "",
   "stats": null,
   "audio": null,
-  "pose": null
+  "pose": {
+    "char_fg_pos": {
+      "x": 24,
+      "y": -11
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "shadow_scale": 100
+  }
 }

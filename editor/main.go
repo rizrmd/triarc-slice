@@ -107,8 +107,10 @@ func main() {
 }
 
 type CardMaskPayload struct {
-	MaskBg string `json:"mask_bg"`
-	MaskFg string `json:"mask_fg"`
+	MaskBg     string `json:"mask_bg"`
+	MaskFg     string `json:"mask_fg"`
+	PoseMaskBg string `json:"pose_mask_bg"`
+	PoseMaskFg string `json:"pose_mask_fg"`
 }
 
 func decodeMaskDataURL(value string) ([]byte, error) {
@@ -145,24 +147,13 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limit body size to 10MB to prevent DoS
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+	// Limit body size to 20MB to prevent DoS (increased for more masks)
+	r.Body = http.MaxBytesReader(w, r.Body, 20<<20)
 
 	var payload CardMaskPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		log.Printf("Mask decode error: %v", err)
 		http.Error(w, "Invalid JSON body or payload too large", http.StatusBadRequest)
-		return
-	}
-
-	maskBgBytes, err := decodeMaskDataURL(payload.MaskBg)
-	if err != nil {
-		http.Error(w, "BG: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	maskFgBytes, err := decodeMaskDataURL(payload.MaskFg)
-	if err != nil {
-		http.Error(w, "FG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -172,26 +163,40 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use saveAsWebP to ensure consistent format
-	tempBg := filepath.Join(imgDir, "mask-bg.webp.tmp")
-	if err := saveAsWebP(maskBgBytes, tempBg); err != nil {
-		http.Error(w, "Failed to save mask-bg: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err := os.Rename(tempBg, filepath.Join(imgDir, "mask-bg.webp")); err != nil {
-		os.Remove(tempBg) // Clean up
-		http.Error(w, "Failed to commit mask-bg", http.StatusInternalServerError)
-		return
+	saveMask := func(dataUrl string, filename string) error {
+		if dataUrl == "" {
+			return nil
+		}
+		bytes, err := decodeMaskDataURL(dataUrl)
+		if err != nil {
+			return err
+		}
+		
+		temp := filepath.Join(imgDir, filename+".tmp")
+		if err := saveAsWebP(bytes, temp); err != nil {
+			return err
+		}
+		if err := os.Rename(temp, filepath.Join(imgDir, filename)); err != nil {
+			os.Remove(temp) // Clean up
+			return err
+		}
+		return nil
 	}
 
-	tempFg := filepath.Join(imgDir, "mask-fg.webp.tmp")
-	if err := saveAsWebP(maskFgBytes, tempFg); err != nil {
-		http.Error(w, "Failed to save mask-fg: "+err.Error(), http.StatusInternalServerError)
+	if err := saveMask(payload.MaskBg, "mask-bg.webp"); err != nil {
+		http.Error(w, "BG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := os.Rename(tempFg, filepath.Join(imgDir, "mask-fg.webp")); err != nil {
-		os.Remove(tempFg) // Clean up
-		http.Error(w, "Failed to commit mask-fg", http.StatusInternalServerError)
+	if err := saveMask(payload.MaskFg, "mask-fg.webp"); err != nil {
+		http.Error(w, "FG: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := saveMask(payload.PoseMaskBg, "pose-mask-bg.webp"); err != nil {
+		http.Error(w, "Pose BG: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := saveMask(payload.PoseMaskFg, "pose-mask-fg.webp"); err != nil {
+		http.Error(w, "Pose FG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -210,7 +215,7 @@ func parseCharRequestPath(path string) (string, string, bool) {
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
 		return "", "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" {
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" && layer != "pose-char-fg" && layer != "pose-shadow" {
 		return "", "", false
 	}
 	return slug, layer, true
@@ -227,7 +232,7 @@ func parseCardCharSelectPath(path string) (string, string, bool) {
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
 		return "", "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" {
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" && layer != "pose-char-fg" && layer != "pose-shadow" {
 		return "", "", false
 	}
 	return slug, layer, true

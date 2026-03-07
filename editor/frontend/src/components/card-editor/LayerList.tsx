@@ -1,19 +1,20 @@
-import React from 'react';
-import { Image, Layers, Sparkles, Type, Activity } from 'lucide-react';
+import { Image, Layers, Sparkles, Type, Activity, Ghost, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import type { LayerId, VisibleLayers } from '@/types';
+import type { LayerId, VisibleLayers, PoseVisibleLayers } from '@/types';
 
 interface LayerListProps {
   activeLayer: LayerId;
   setActiveLayer: (layer: LayerId) => void;
-  visibleLayers: VisibleLayers;
-  setVisibleLayers: React.Dispatch<React.SetStateAction<VisibleLayers>>;
+  visibleLayers: VisibleLayers | PoseVisibleLayers;
+  setVisibleLayers: React.Dispatch<React.SetStateAction<any>>; // Using any for simplicity as it can be either type
   canvasZoom: number;
   setCanvasZoom: (zoom: number) => void;
   setCanvasPan: (pan: { x: number; y: number }) => void;
+  showCardLayers?: boolean;
+  showPoseLayers?: boolean;
 }
 
 export function LayerList({
@@ -24,57 +25,77 @@ export function LayerList({
   canvasZoom,
   setCanvasZoom,
   setCanvasPan,
+  showCardLayers = true,
+  showPoseLayers = true,
 }: LayerListProps) {
-  const toggleLayer = (layer: keyof VisibleLayers, checked: boolean) => {
-    setVisibleLayers((prev) => ({
+  const toggleLayer = (layer: string, checked: boolean) => {
+    setVisibleLayers((prev: any) => ({
       ...prev,
       [layer]: checked,
     }));
   };
 
   const renderLayerItem = (
-    id: keyof VisibleLayers,
+    id: string,
     label: string,
     Icon: React.ElementType
-  ) => (
-    <button
-      type="button"
-      onClick={() => setActiveLayer(id)}
-      className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition ${
-        activeLayer === id ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4" />
-        <span className="text-sm font-medium">{label}</span>
-      </div>
-      <Switch
-        checked={visibleLayers[id]}
-        onCheckedChange={(checked) => toggleLayer(id, checked)}
-        aria-label={`Toggle ${label}`}
-        onClick={(e) => e.stopPropagation()} 
-      />
-    </button>
-  );
+  ) => {
+      // Skip if layer doesn't exist in current visibleLayers
+      if (!(id in visibleLayers)) return null;
+      
+      return (
+        <div
+          className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition ${
+            activeLayer === id ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50'
+          }`}
+          onClick={() => setActiveLayer(id as LayerId)}
+        >
+          <div className="flex items-center gap-2">
+            <Icon className="h-4 w-4" />
+            <span className="text-sm font-medium">{label}</span>
+          </div>
+          <Switch
+            checked={(visibleLayers as any)[id]}
+            onCheckedChange={(checked) => toggleLayer(id, checked)}
+            aria-label={`Toggle ${label}`}
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      );
+  };
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-2xl h-full flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Layers className="h-4 w-4" />
           Layers
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {renderLayerItem('hp-bar', 'HP Bar', Activity)}
-        {renderLayerItem('name', 'Name', Type)}
-        {renderLayerItem('char-fg', 'char-fg', Sparkles)}
-        {renderLayerItem('mask-fg', 'mask-fg', Image)}
-        {renderLayerItem('card', 'card', Image)}
-        {renderLayerItem('char-bg', 'char-bg', Image)}
-        {renderLayerItem('mask-bg', 'mask-bg', Image)}
+      <CardContent className="space-y-2 flex-1 overflow-y-auto">
+        {/* Card Layers */}
+        {showCardLayers && (
+          <>
+            {renderLayerItem('hp-bar', 'HP Bar', Activity)}
+            {renderLayerItem('name', 'Name', Type)}
+            {renderLayerItem('char-fg', 'char-fg', Sparkles)}
+            {renderLayerItem('mask-fg', 'mask-fg', Image)}
+            {renderLayerItem('card', 'card', Image)}
+            {renderLayerItem('char-bg', 'char-bg', Image)}
+            {renderLayerItem('mask-bg', 'mask-bg', Image)}
+          </>
+        )}
 
-        <section className="space-y-2 rounded-lg border p-3">
+        {/* Pose Layers */}
+        {showPoseLayers && (
+          <>
+            {renderLayerItem('pose-shadow', 'Shadow', Ghost)}
+            {renderLayerItem('pose-char-fg', 'Character', User)}
+            {renderLayerItem('pose-mask-fg', 'Mask', Image)}
+          </>
+        )}
+
+        <section className="space-y-2 rounded-lg border p-3 mt-4">
           <div className="flex items-center justify-between text-xs">
             <Button
               type="button"

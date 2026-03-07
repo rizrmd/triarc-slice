@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { ensureHexColor } from '@/lib/utils';
-import type { HeroConfig, LayerId, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, AssetPickerTarget } from '@/types';
+import type { HeroConfig, LayerId, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, AssetPickerTarget, PoseLayer } from '@/types';
 
 interface LayerControlsProps {
   activeLayer: LayerId;
@@ -26,7 +26,7 @@ interface LayerControlsProps {
   applyLayerProperty: (layer: CharLayer | TextLayer | BarLayer, property: CharProperty, value: number) => void;
   updateLayerScale: (layer: CharLayer | TextLayer | BarLayer, scale: number) => void;
   handleCharUpload: (layer: CharLayer, file: File | null) => void;
-  uploadingCharLayer: CharLayer | null;
+  uploadingCharLayer: CharLayer | PoseLayer | null;
   layerClipboard: { x: number; y: number; scale: number } | null;
   propertyClipboard: { property: CharProperty; value: number } | null;
 
