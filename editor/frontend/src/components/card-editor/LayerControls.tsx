@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Brush, ClipboardPaste, Copy, Eraser, Image, Loader2, RotateCcw, Upload, Save } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -80,10 +80,12 @@ export function LayerControls({
   const charFgUploadRef = useRef<HTMLInputElement | null>(null);
   
   const [localName, setLocalName] = useState(config.full_name);
+  const [prevName, setPrevName] = useState(config.full_name);
 
-  useEffect(() => {
+  if (prevName !== config.full_name) {
+    setPrevName(config.full_name);
     setLocalName(config.full_name);
-  }, [config.full_name]);
+  }
 
   const handleSaveName = () => {
     if (!localName.trim()) {

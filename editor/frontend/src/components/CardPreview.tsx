@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HeroConfig } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import frameImage from '../assets/ui/hero-frame.webp';
 import barBg from '../assets/ui/bar/bar-bg.webp';
 import barFg from '../assets/ui/bar/bar-fg.webp';
@@ -9,9 +10,10 @@ interface CardPreviewProps {
   slug: string;
   transparent?: boolean;
   onAspectRatioLoaded?: (ratio: number) => void;
+  showPoseBadge?: boolean;
 }
 
-export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPreviewProps) {
+export function CardPreview({ slug, transparent, onAspectRatioLoaded, showPoseBadge }: CardPreviewProps) {
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -320,6 +322,13 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded }: CardPrev
           objectFit: 'contain'
         }}
       />
+      {showPoseBadge && config?.pose && (
+        <Badge 
+          className="absolute top-2 right-2 z-10 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md pointer-events-none"
+        >
+          POSE
+        </Badge>
+      )}
     </div>
   );
 }

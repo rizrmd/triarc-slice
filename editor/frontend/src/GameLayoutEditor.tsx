@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Rnd } from 'react-rnd';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,32 +6,8 @@ import { ArrowLeft, Loader2, Minus, Plus, RefreshCcw, Maximize } from 'lucide-re
 import { PropertiesSidebar } from '@/components/PropertiesSidebar';
 import { Slider } from '@/components/ui/slider';
 import { CardPreview } from '@/components/CardPreview';
-
-interface Box {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  nx?: number;
-  ny?: number;
-  label: string;
-  pivot: string;
-  cardSlug?: string;
-  asset?: string;
-  locked?: boolean;
-}
-
-// const PIVOT_OPTIONS = [
-//   'top-left', 'top-center', 'top-right',
-//   'center-left', 'center', 'center-right',
-//   'bottom-left', 'bottom-center', 'bottom-right'
-// ];
-
-interface GameLayout {
-  background: string;
-  boxes: Record<string, Box>;
-}
+import { HeroPosePreview } from '@/components/HeroPosePreview';
+import type { Box, GameLayout } from '@/types';
 
 const DEFAULT_BOXES = [
   { id: 'enemy1', label: 'Enemy 1' },
@@ -70,7 +46,7 @@ export default function GameLayoutEditor() {
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
 
-  const getBgMetrics = () => {
+  const getBgMetrics = useCallback(() => {
     const VIEWPORT_W = 1080;
     const VIEWPORT_H = 1920;
     const bgW = bgDimensions.width || 1640; // Default fallback
@@ -87,25 +63,25 @@ export default function GameLayoutEditor() {
     const offsetY = (VIEWPORT_H - scaledH) / 2;
     
     return { scaledW, scaledH, offsetX, offsetY };
-  };
+  }, [bgDimensions]);
 
-  const toNormalized = (x: number, y: number, w: number, h: number) => {
+  const toNormalized = useCallback((x: number, y: number, w: number, h: number) => {
     const { scaledW, scaledH, offsetX, offsetY } = getBgMetrics();
     const cx = x + w / 2;
     const cy = y + h / 2;
     const nx = (cx - offsetX) / scaledW;
     const ny = (cy - offsetY) / scaledH;
     return { nx, ny };
-  };
+  }, [getBgMetrics]);
 
-  const toPixels = (nx: number, ny: number, w: number, h: number) => {
+  const toPixels = useCallback((nx: number, ny: number, w: number, h: number) => {
     const { scaledW, scaledH, offsetX, offsetY } = getBgMetrics();
     const cx = offsetX + nx * scaledW;
     const cy = offsetY + ny * scaledH;
     const x = cx - w / 2;
     const y = cy - h / 2;
     return { x, y };
-  };
+  }, [getBgMetrics]);
 
   useEffect(() => {
     if (layout?.background) {
@@ -120,32 +96,34 @@ export default function GameLayoutEditor() {
   // Sync nx/ny and x/y whenever layout or dimensions change
    // This ensures consistency and enforces nx/ny as truth if present
    useEffect(() => {
-     if (bgDimensions.width > 0 && layout) {
-       setLayout(prev => {
-         if (!prev) return null;
-         const newBoxes = { ...prev.boxes };
-         let changed = false;
-         
-         Object.keys(newBoxes).forEach(key => {
-           const box = newBoxes[key];
-           if (box.nx !== undefined && box.ny !== undefined) {
-               // Enforce nx/ny authority
-               const { x, y } = toPixels(box.nx, box.ny, box.width, box.height);
-               if (Math.abs(x - box.x) > 1 || Math.abs(y - box.y) > 1) {
-                  newBoxes[key] = { ...box, x: Math.round(x), y: Math.round(y) };
-                  changed = true;
-               }
-           } else {
-              const { nx, ny } = toNormalized(box.x, box.y, box.width, box.height);
-              newBoxes[key] = { ...box, nx, ny };
-              changed = true;
-           }
-         });
-         
-         return changed ? { ...prev, boxes: newBoxes } : prev;
-       });
-     }
-   }, [bgDimensions, layout]);
+    if (bgDimensions.width > 0) {
+      requestAnimationFrame(() => {
+        setLayout(prev => {
+          if (!prev) return null;
+          const newBoxes = { ...prev.boxes };
+          let changed = false;
+          
+          Object.keys(newBoxes).forEach(key => {
+            const box = newBoxes[key];
+            if (box.nx !== undefined && box.ny !== undefined) {
+                // Enforce nx/ny authority
+                const { x, y } = toPixels(box.nx, box.ny, box.width, box.height);
+                if (Math.abs(x - box.x) > 1 || Math.abs(y - box.y) > 1) {
+                   newBoxes[key] = { ...box, x: Math.round(x), y: Math.round(y) };
+                   changed = true;
+                }
+            } else {
+               const { nx, ny } = toNormalized(box.x, box.y, box.width, box.height);
+               newBoxes[key] = { ...box, nx, ny };
+               changed = true;
+            }
+          });
+          
+          return changed ? { ...prev, boxes: newBoxes } : prev;
+        });
+      });
+    }
+  }, [bgDimensions, toPixels, toNormalized]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -467,7 +445,7 @@ export default function GameLayoutEditor() {
                     e.stopPropagation();
                     setSelectedBox(box.id);
                   }}
-                  className={`${selectedBox === box.id ? (box.cardSlug ? 'z-10' : 'border-2 border-blue-500 z-10') : (box.cardSlug ? '' : 'border-2 border-gray-400')} ${box.cardSlug ? 'bg-transparent' : 'bg-white/80'} ${box.locked ? 'opacity-80' : ''} flex items-center justify-center cursor-move rounded shadow-sm hover:shadow-md transition-shadow relative`}
+                  className={`${selectedBox === box.id ? (box.cardSlug || box.poseSlug ? 'z-10' : 'border-2 border-blue-500 z-10') : (box.cardSlug || box.poseSlug ? '' : 'border-2 border-gray-400')} ${box.cardSlug || box.poseSlug ? 'bg-transparent' : 'bg-white/80'} ${box.locked ? 'opacity-80' : ''} flex items-center justify-center cursor-move rounded shadow-sm hover:shadow-md transition-shadow relative`}
                  >
                    {/* Pivot Indicator */}
                    {box.pivot && !box.locked && (
@@ -479,7 +457,7 @@ export default function GameLayoutEditor() {
                        }}
                      />
                    )}
-                   {!box.cardSlug && !box.asset && (
+                   {!box.cardSlug && !box.asset && !box.poseSlug && (
                      <div className="text-center font-bold text-xs pointer-events-none select-none p-1 break-words z-10 relative">
                        {box.label}
                      </div>
@@ -525,6 +503,12 @@ export default function GameLayoutEditor() {
                             }
                          }}
                        />
+                     </div>
+                   )}
+
+                   {box.poseSlug && (
+                     <div className="absolute inset-0 pointer-events-none">
+                       <HeroPosePreview slug={box.poseSlug} />
                      </div>
                    )}
 

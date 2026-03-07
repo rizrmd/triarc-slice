@@ -94,9 +94,9 @@ interface PoseCanvasProps {
   canvasPan: { x: number; y: number };
   canvasPanning: boolean;
   spacePressed: boolean;
+  shadowCanvasRef: RefObject<HTMLCanvasElement | null>;
   maskFgCanvasRef: RefObject<HTMLCanvasElement | null>;
   fgUrl: string;
-  shadowUrl: string;
   
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onCanvasWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
@@ -119,9 +119,9 @@ export function PoseCanvas({
   canvasZoom,
   canvasPan,
   canvasPanning,
+  shadowCanvasRef,
   maskFgCanvasRef,
   fgUrl,
-  shadowUrl,
   onCanvasPointerDown,
   onCanvasWheel,
   onLayerPointerDown,
@@ -132,6 +132,7 @@ export function PoseCanvas({
   baseSize = { width: 320, height: 517 },
 }: PoseCanvasProps) {
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const isBrushLayerActive = activeLayer === 'pose-mask-fg';
   
   const baseWidth = baseSize.width;
   const baseHeight = baseSize.height;
@@ -148,7 +149,7 @@ export function PoseCanvas({
   const shadowHeight = baseHeight * (shadowScale / 100);
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (activeLayer !== 'pose-mask-fg') {
+    if (!isBrushLayerActive) {
       if (cursorPos) setCursorPos(null);
       return;
     }
@@ -165,7 +166,9 @@ export function PoseCanvas({
   };
 
   const activeScale =
-    activeLayer === 'pose-mask-fg'
+    activeLayer === 'pose-shadow'
+      ? shadowScale
+      : activeLayer === 'pose-mask-fg'
       ? charFgScale
       : 100;
   const visualBrushSize = brushSize * (activeScale / 100);
@@ -181,7 +184,7 @@ export function PoseCanvas({
           className={`relative h-full w-full overflow-hidden select-none ${
             canvasPanning
               ? 'cursor-grabbing'
-              : !spacePressed || (activeLayer === 'pose-mask-fg' && !spacePressed)
+              : !spacePressed || (isBrushLayerActive && !spacePressed)
               ? 'cursor-default'
               : 'cursor-grab'
           }`}
@@ -197,7 +200,7 @@ export function PoseCanvas({
           >
             <div
               id="pose-frame"
-              className="relative overflow-hidden bg-background shadow-2xl"
+              className="relative bg-background shadow-2xl"
               style={{ width: `${baseWidth}px`, height: `${baseHeight}px` }}
             >
               {/* Checkerboard background */}
@@ -220,29 +223,29 @@ export function PoseCanvas({
                     }`}
                   />
                 )}
-                <div className="absolute inset-0 overflow-hidden">
-                  {/* Shadow Layer */}
-                  {visibleLayers['pose-shadow'] && (
-                      <img
-                          src={shadowUrl}
-                          alt="Shadow"
-                          className={`absolute max-w-none ${
-                              activeLayer === 'pose-shadow' ? 'cursor-move' : 'cursor-default'
-                          } ${activeLayer === 'pose-mask-fg' || spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
-                          onPointerDown={(event) => onLayerPointerDown('pose-shadow', event)}
-                          onClick={() => {
-                              if (activeLayer === 'canvas') return;
-                              setActiveLayer('pose-shadow');
-                          }}
-                          style={{
-                              left: '50%',
-                              top: '50%',
-                              width: `${shadowWidth}px`,
-                              height: `${shadowHeight}px`,
-                              transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
-                          }}
-                      />
-                  )}
+                {/* Shadow Layer */}
+                {visibleLayers['pose-shadow'] && (
+                  <canvas
+                    ref={shadowCanvasRef}
+                    className={`absolute z-0 max-w-none ${
+                      activeLayer === 'pose-shadow' && !spacePressed ? 'cursor-move' : 'cursor-default'
+                    } ${spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
+                    onPointerDown={(event) => onLayerPointerDown('pose-shadow', event)}
+                    onClick={() => {
+                      if (activeLayer === 'canvas') return;
+                      setActiveLayer('pose-shadow');
+                    }}
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      width: `${shadowWidth}px`,
+                      height: `${shadowHeight}px`,
+                      transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
+                      touchAction: 'none',
+                    }}
+                  />
+                )}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
 
                   {/* Char FG Layer */}
                   {visibleLayers['pose-char-fg'] && (
@@ -251,14 +254,14 @@ export function PoseCanvas({
                       maskCanvasRef={maskFgCanvasRef}
                       width={fgWidth}
                       height={fgHeight}
-                      className={`absolute z-20 max-w-none ${
+                      className={`absolute z-10 max-w-none ${
                         activeLayer === 'pose-char-fg' ? 'cursor-move' : 'cursor-default'
                       } ${
-                        activeLayer === 'pose-mask-fg'
+                        isBrushLayerActive
                           ? 'pointer-events-none opacity-50'
-                          : spacePressed || canvasPanning
+                          : spacePressed || canvasPanning || activeLayer === 'pose-shadow'
                           ? 'pointer-events-none'
-                          : ''
+                          : 'pointer-events-auto'
                       }`}
                       onPointerDown={(event) => onLayerPointerDown('pose-char-fg', event)}
                       onClick={() => {
@@ -279,7 +282,7 @@ export function PoseCanvas({
                       ref={maskFgCanvasRef}
                       className={`absolute max-w-none opacity-0 ${
                         activeLayer === 'pose-mask-fg' && !spacePressed
-                          ? 'z-[21] cursor-crosshair'
+                          ? 'z-[21] cursor-crosshair pointer-events-auto'
                           : 'z-[21] pointer-events-none'
                       }`}
                       onPointerDown={(event) => onMaskPointerDown('pose-mask-fg', event)}
@@ -298,7 +301,9 @@ export function PoseCanvas({
                     />
                   )}
                 </div>
+              </div>
 
+              <div className="absolute inset-0 overflow-visible pointer-events-none">
                 {/* Controls for Shadow */}
                 {visibleLayers['pose-shadow'] && activeLayer === 'pose-shadow' && (
                     <>
@@ -317,8 +322,8 @@ export function PoseCanvas({
                         key={corner}
                         type="button"
                         aria-label={`Resize shadow ${corner}`}
-                        onPointerDown={(event) => onResizePointerDown('pose-shadow', corner as any, event)}
-                        className={`absolute z-40 h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-${corner === 'nw' || corner === 'se' ? 'nwse' : 'nesw'}-resize rounded-full bg-purple-200 ${spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
+                        onPointerDown={(event) => onResizePointerDown('pose-shadow', corner as 'nw' | 'ne' | 'sw' | 'se', event)}
+                        className={`absolute z-40 h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-${corner === 'nw' || corner === 'se' ? 'nwse' : 'nesw'}-resize rounded-full bg-purple-200 pointer-events-auto ${spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
                         style={{
                             left: `calc(50% + ${shadowPos.x + (corner.includes('e') ? 1 : -1) * shadowWidth / 2}px)`,
                             top: `calc(50% + ${shadowPos.y + (corner.includes('s') ? 1 : -1) * shadowHeight / 2}px)`,
@@ -346,8 +351,8 @@ export function PoseCanvas({
                         key={corner}
                         type="button"
                         aria-label={`Resize char-fg ${corner}`}
-                        onPointerDown={(event) => onResizePointerDown('pose-char-fg', corner as any, event)}
-                        className={`absolute z-40 h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-${corner === 'nw' || corner === 'se' ? 'nwse' : 'nesw'}-resize rounded-full bg-emerald-200 ${spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
+                        onPointerDown={(event) => onResizePointerDown('pose-char-fg', corner as 'nw' | 'ne' | 'sw' | 'se', event)}
+                        className={`absolute z-40 h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-${corner === 'nw' || corner === 'se' ? 'nwse' : 'nesw'}-resize rounded-full bg-emerald-200 pointer-events-auto ${spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
                         style={{
                             left: `calc(50% + ${charFgPos.x + (corner.includes('e') ? 1 : -1) * fgWidth / 2}px)`,
                             top: `calc(50% + ${charFgPos.y + (corner.includes('s') ? 1 : -1) * fgHeight / 2}px)`,
@@ -357,7 +362,7 @@ export function PoseCanvas({
                   </>
                 )}
 
-                {cursorPos && activeLayer === 'pose-mask-fg' && (
+                {cursorPos && isBrushLayerActive && (
                   <div
                     className="absolute pointer-events-none rounded-full border border-white shadow-[0_0_2px_rgba(0,0,0,0.8)] z-50"
                     style={{

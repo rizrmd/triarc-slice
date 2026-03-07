@@ -19,8 +19,10 @@ export function AssetPicker({ target, onSelect, onClose, applying }: AssetPicker
   useEffect(() => {
     if (!target) return;
     const category = target === 'card' ? 'ui' : 'characters';
-    setLoading(true);
-    setError(null);
+    requestAnimationFrame(() => {
+        setLoading(true);
+        setError(null);
+    });
     
     fetch(`/api/assets/${category}`)
       .then((res) => {

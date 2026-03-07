@@ -145,7 +145,7 @@ export default function CardList() {
             <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
               {filteredCards.map((slug) => (
                 <Link key={slug} to={`/edit/${slug}`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
-                  <CardPreview slug={slug} />
+                  <CardPreview slug={slug} showPoseBadge />
                 </Link>
               ))}
               {filteredCards.length === 0 && searchQuery && (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { HeroConfig, LayerId, PoseLayer, MaskLayer, PoseVisibleLayers, GameLayout, AssetPickerTarget } from '@/types';
+import type { HeroConfig, LayerId, PoseLayer, MaskLayer, PoseVisibleLayers, GameLayout, AssetPickerTarget, CharProperty } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PoseLayerControls } from './PoseLayerControls';
 import { PoseCanvas, MaskedImage } from './PoseCanvas';
@@ -14,9 +14,17 @@ interface HeroPoseTabProps {
   updateLayerScale: (layer: PoseLayer, scale: number) => void;
   updateLayerPosition: (layer: PoseLayer, dx: number, dy: number) => void;
   applyLayerState: (layer: PoseLayer, state: { x: number; y: number; scale: number }) => void;
+  copyAllLayerProperties: (layer: PoseLayer) => void;
+  pasteAllLayerProperties: (layer: PoseLayer) => void;
+  resetAllLayerProperties: (layer: PoseLayer) => void;
+  copySingleProperty: (layer: PoseLayer, property: CharProperty) => void;
+  pasteSingleProperty: (layer: PoseLayer, property: CharProperty) => void;
+  resetLayerProperty: (layer: PoseLayer, property: CharProperty) => void;
   handleLayerUpload: (layer: PoseLayer, file: File | null) => void;
   uploadingLayer: PoseLayer | null;
   setAssetPickerTarget: (target: AssetPickerTarget) => void;
+  layerClipboard: { x: number; y: number; scale: number } | null;
+  propertyClipboard: { property: CharProperty; value: number } | null;
   
   brushSize: number;
   setBrushSize: (size: number) => void;
@@ -27,7 +35,7 @@ interface HeroPoseTabProps {
   brushMode: 'erase' | 'restore';
   setBrushMode: (mode: 'erase' | 'restore') => void;
   clearMaskLayer: (layer: MaskLayer) => void;
-  
+  poseShadowCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   poseMaskFgCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   poseFgUrl: string;
   poseShadowUrl: string;
@@ -40,6 +48,12 @@ export function HeroPoseTab({
   updateLayerScale,
   updateLayerPosition,
   applyLayerState,
+  copyAllLayerProperties,
+  pasteAllLayerProperties,
+  resetAllLayerProperties,
+  copySingleProperty,
+  pasteSingleProperty,
+  resetLayerProperty,
   handleLayerUpload,
   uploadingLayer,
   brushSize,
@@ -51,12 +65,16 @@ export function HeroPoseTab({
   brushMode,
   setBrushMode,
   clearMaskLayer,
+  poseShadowCanvasRef,
   poseMaskFgCanvasRef,
   poseFgUrl,
   poseShadowUrl,
+  layerClipboard,
+  propertyClipboard,
   onMaskChange,
   setAssetPickerTarget,
 }: HeroPoseTabProps) {
+  const [activeTab, setActiveTab] = useState("canvas");
   const [activeLayer, setActiveLayer] = useState<LayerId>('pose-char-fg');
   const [visibleLayers, setVisibleLayers] = useState<PoseVisibleLayers>({
     'pose-frame': true,
@@ -64,6 +82,7 @@ export function HeroPoseTab({
     'pose-mask-fg': true,
     'pose-shadow': true,
   });
+  const [poseShadowPreviewUrl, setPoseShadowPreviewUrl] = useState('');
   
   const [canvasZoom, setCanvasZoom] = useState(100);
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
@@ -75,7 +94,6 @@ export function HeroPoseTab({
   const [previewPanning, setPreviewPanning] = useState(false);
   
   const [layout, setLayout] = useState<GameLayout | null>(null);
-  const [_bgDimensions, setBgDimensions] = useState({ width: 0, height: 0 });
   
   useEffect(() => {
     fetch('/api/game-layout')
@@ -84,15 +102,39 @@ export function HeroPoseTab({
       .catch(err => console.error("Failed to fetch game layout", err));
   }, []);
 
+  // Removed unused background dimension logic
+  /*
   useEffect(() => {
     if (layout?.background) {
       const img = new Image();
       img.src = `/assets/places/${layout.background}`;
       img.onload = () => {
-         setBgDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+         // setBgDimensions({ width: img.naturalWidth, height: img.naturalHeight });
       };
     }
   }, [layout?.background]);
+  */
+
+  useEffect(() => {
+    const canvas = poseShadowCanvasRef.current;
+    if (!canvas) return;
+    canvas.width = 320;
+    canvas.height = 517;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    if (!poseShadowUrl) {
+      requestAnimationFrame(() => setPoseShadowPreviewUrl(''));
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      setPoseShadowPreviewUrl(canvas.toDataURL('image/png'));
+    };
+    image.src = poseShadowUrl;
+  }, [poseShadowUrl, poseShadowCanvasRef]);
 
   // Keyboard shortcuts (subset of HeroEditor)
   useEffect(() => {
@@ -270,22 +312,17 @@ export function HeroPoseTab({
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const handleMaskPointerDown = (_layer: MaskLayer, event: React.PointerEvent) => {
-      // Implemented in PoseCanvas logic usually?
-      // Wait, PoseCanvas delegates to onMaskPointerDown.
-      // I need to implement drawing logic here or reuse HeroEditor's?
-      // HeroEditor has drawOnMaskLayer logic but it's not exported.
-      // I should have lifted it up.
-      // But HeroEditor is too big.
-      
-      // I will implement simple drawing logic here.
+  const drawOnCanvas = (
+      _layer: 'pose-mask-fg',
+      canvas: HTMLCanvasElement,
+      event: React.PointerEvent,
+      onStrokeEnd?: () => void
+  ) => {
       if (spacePressed) return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
       event.stopPropagation();
-      setActiveLayer('pose-mask-fg'); // Ensure active
-
-      const canvas = poseMaskFgCanvasRef.current;
-      if (!canvas) return;
+      canvas.setPointerCapture(event.pointerId);
       const context = canvas.getContext('2d');
       if (!context) return;
 
@@ -299,17 +336,14 @@ export function HeroPoseTab({
 
       const draw = (p1: {x: number, y: number}, p2: {x: number, y: number}) => {
           context.save();
-          context.globalCompositeOperation = brushMode === 'erase' ? 'source-over' : 'destination-out';
+          context.globalCompositeOperation = brushMode === 'erase'
+              ? 'source-over'
+              : 'destination-out';
           context.lineCap = 'round';
           context.lineJoin = 'round';
           const alpha = brushOpacity / 100;
           context.strokeStyle = `rgba(0, 0, 0, ${alpha})`;
-          context.lineWidth = brushSize; // Need to scale by layer scale?
-          // HeroEditor scales brush size by layer scale visually, but drawing uses raw brush size?
-          // No, HeroEditor visualBrushSize = brushSize * (activeScale / 100).
-          // Drawing uses brushSize directly? 
-          // Line 1002: context.lineWidth = brushSize.
-          // So brush size is in canvas pixels.
+          context.lineWidth = brushSize;
           
           if (brushHardness < 100) {
               const blurAmount = (brushSize / 2) * ((100 - brushHardness) / 100);
@@ -334,14 +368,24 @@ export function HeroPoseTab({
           lastPoint = nextPoint;
       };
       
-      const onPointerUp = () => {
+      const onPointerUp = (e: PointerEvent) => {
+          canvas.releasePointerCapture(e.pointerId);
           window.removeEventListener('pointermove', onPointerMove);
           window.removeEventListener('pointerup', onPointerUp);
+          onStrokeEnd?.();
           onMaskChange();
       };
       
       window.addEventListener('pointermove', onPointerMove);
       window.addEventListener('pointerup', onPointerUp);
+  };
+
+  const handleMaskPointerDown = (layer: MaskLayer, event: React.PointerEvent) => {
+      if (layer !== 'pose-mask-fg') return;
+      setActiveLayer(layer);
+      const canvas = poseMaskFgCanvasRef.current;
+      if (!canvas) return;
+      drawOnCanvas('pose-mask-fg', canvas, event);
   };
 
   const enemy2Box = layout?.boxes?.['enemy2'];
@@ -401,7 +445,7 @@ export function HeroPoseTab({
                   
                   {/* Hero in Enemy2 Box */}
                   <div 
-                      className={`absolute overflow-hidden ${visibleLayers['pose-frame'] ? 'border border-red-500/50' : ''}`}
+                      className={`absolute ${visibleLayers['pose-frame'] ? 'border border-red-500/50' : ''}`}
                       style={{
                           left: `${boxX}px`,
                           top: `${boxY}px`,
@@ -409,28 +453,28 @@ export function HeroPoseTab({
                           height: `${h}px`,
                       }}
                   >
+                      {/* Shadow */}
+                      {visibleLayers['pose-shadow'] && poseShadowPreviewUrl && (
+                        <img
+                          src={poseShadowPreviewUrl}
+                          className="absolute z-0 max-w-none pointer-events-none"
+                          style={{
+                            left: '50%',
+                            top: '50%',
+                            width: `${shadowW}px`,
+                            height: `${shadowH}px`,
+                            transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
+                          }}
+                        />
+                      )}
                       <div className="absolute inset-0 overflow-hidden">
-                        {/* Shadow */}
-                        {visibleLayers['pose-shadow'] && poseShadowUrl && (
-                            <img 
-                                src={poseShadowUrl}
-                                className="absolute max-w-none pointer-events-none"
-                                style={{
-                                    left: '50%',
-                                    top: '50%',
-                                    width: `${shadowW}px`,
-                                    height: `${shadowH}px`,
-                                    transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
-                                }}
-                            />
-                        )}
                         {visibleLayers['pose-char-fg'] && poseFgUrl && (
                           <MaskedImage
                             src={poseFgUrl}
                             maskCanvasRef={poseMaskFgCanvasRef}
                             width={fgW}
                             height={fgH}
-                            className="absolute z-20 max-w-none pointer-events-none"
+                            className="absolute z-10 max-w-none pointer-events-none"
                             style={{
                               left: '50%',
                               top: '50%',
@@ -455,9 +499,17 @@ export function HeroPoseTab({
             updateLayerScale={updateLayerScale}
             updateLayerPosition={updateLayerPosition} // Need to adapt signature? updateLayerPosition expects LayerId, PoseLayerControls passes PoseLayer. Correct.
             setLayerPosition={(layer, x, y) => applyLayerState(layer, { x, y, scale: (layer === 'pose-char-fg' ? config.pose?.char_fg_scale : config.pose?.shadow_scale) || 100 })}
+            copyAllLayerProperties={copyAllLayerProperties}
+            pasteAllLayerProperties={pasteAllLayerProperties}
+            resetAllLayerProperties={resetAllLayerProperties}
+            copySingleProperty={copySingleProperty}
+            pasteSingleProperty={pasteSingleProperty}
+            resetLayerProperty={resetLayerProperty}
             handleLayerUpload={handleLayerUpload}
             uploadingLayer={uploadingLayer}
             setAssetPickerTarget={setAssetPickerTarget}
+            layerClipboard={layerClipboard}
+            propertyClipboard={propertyClipboard}
             brushSize={brushSize}
             setBrushSize={setBrushSize}
             brushOpacity={brushOpacity}
@@ -469,11 +521,11 @@ export function HeroPoseTab({
             clearMaskLayer={clearMaskLayer}
             layerUrls={{
                 'pose-char-fg': poseFgUrl,
-                'pose-shadow': poseShadowUrl,
+                'pose-shadow': poseShadowPreviewUrl || poseShadowUrl,
             }}
           />
           <div className="relative flex-1 min-h-0 overflow-hidden border bg-gray-900">
-             <Tabs defaultValue="canvas" className="flex h-full min-h-0 w-full flex-col">
+             <Tabs defaultValue="canvas" value={activeTab} onValueChange={setActiveTab} className="flex h-full min-h-0 w-full flex-col">
                 <div className="absolute top-4 right-4 z-10 bg-card rounded-md p-1 border shadow-sm">
                     <TabsList>
                         <TabsTrigger value="canvas">Canvas</TabsTrigger>
@@ -491,9 +543,9 @@ export function HeroPoseTab({
                       canvasPan={canvasPan}
                       canvasPanning={canvasPanning}
                       spacePressed={spacePressed}
+                      shadowCanvasRef={poseShadowCanvasRef}
                       maskFgCanvasRef={poseMaskFgCanvasRef}
                       fgUrl={poseFgUrl}
-                      shadowUrl={poseShadowUrl}
                       onCanvasPointerDown={handleCanvasPointerDown}
                       onCanvasWheel={handleCanvasWheel}
                       onLayerPointerDown={handleLayerPointerDown}
@@ -514,9 +566,9 @@ export function HeroPoseTab({
                 setActiveLayer={setActiveLayer}
                 visibleLayers={visibleLayers}
                 setVisibleLayers={setVisibleLayers}
-                canvasZoom={canvasZoom}
-                setCanvasZoom={setCanvasZoom}
-                setCanvasPan={setCanvasPan}
+                canvasZoom={activeTab === 'preview' ? previewZoom : canvasZoom}
+                setCanvasZoom={activeTab === 'preview' ? setPreviewZoom : setCanvasZoom}
+                setCanvasPan={activeTab === 'preview' ? setPreviewPan : setCanvasPan}
                 showCardLayers={false}
              />
           </div>

@@ -22,7 +22,7 @@ export function ensureHexColor(color: string): string {
   // Check for rgb/rgba
   const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   if (match) {
-    const [_, r, g, b] = match;
+    const [, r, g, b] = match;
     const toHex = (n: string) => parseInt(n).toString(16).padStart(2, '0');
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
   }

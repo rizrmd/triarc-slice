@@ -4,20 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Copy, Clipboard, X, Lock, Unlock, Move, Maximize } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
-interface Box {
-  id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  nx?: number;
-  ny?: number;
-  label: string;
-  pivot: string;
-  cardSlug?: string;
-  asset?: string;
-  locked?: boolean;
-}
+import type { Box } from "@/types";
 
 const PIVOT_OPTIONS = [
   'top-left', 'top-center', 'top-right',
@@ -39,11 +26,10 @@ function PropertyInput({ value, onChange, disabled, className }: { value: number
   const [localValue, setLocalValue] = useState(String(value));
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    if (!isEditing) {
-      setLocalValue(String(value));
-    }
-  }, [value, isEditing]);
+  // Sync state from props when not editing (State derivation during render)
+  if (!isEditing && String(value) !== localValue) {
+    setLocalValue(String(value));
+  }
 
   return (
     <Input
@@ -68,18 +54,20 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
   
-  const [assetCategory, setAssetCategory] = useState<'ui' | 'characters' | 'places'>('ui');
+  const [assetCategory, setAssetCategory] = useState<'ui' | 'characters' | 'places' | 'pose'>('ui');
 
   // Sync category with current asset if present
   useEffect(() => {
-    if (selectedBox?.asset) {
+    if (selectedBox?.poseSlug) {
+      setAssetCategory('pose');
+    } else if (selectedBox?.asset) {
        if (selectedBox.asset.includes('/ui/')) setAssetCategory('ui');
        else if (selectedBox.asset.includes('/characters/')) setAssetCategory('characters');
        else if (selectedBox.asset.includes('/places/')) setAssetCategory('places');
     }
-  }, [selectedBox?.id, selectedBox?.asset]); // Run when box or asset changes
+  }, [selectedBox?.id, selectedBox?.asset, selectedBox?.poseSlug]); // Run when box or asset changes
 
-  const currentAssets = assetCategory === 'ui' ? uiAssets : assetCategory === 'characters' ? charAssets : placeAssets;
+  const currentAssets = assetCategory === 'ui' ? uiAssets : assetCategory === 'characters' ? charAssets : assetCategory === 'places' ? placeAssets : [];
 
 
   const startXRef = useRef(0);
@@ -102,6 +90,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
     startXRef.current = e.clientX;
     startValRef.current = value;
     currentPropRef.current = prop;
+    // eslint-disable-next-line
     document.body.style.cursor = 'ew-resize';
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -127,6 +116,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
     startXRef.current = e.clientX;
     // Current size percent
     startValRef.current = (selectedBox.width / 1080) * 100;
+    // eslint-disable-next-line
     document.body.style.cursor = 'ew-resize';
     
     const handleMouseMove = (moveEvent: MouseEvent) => {
@@ -151,7 +141,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleCopy = (key: keyof Box, value: any) => {
+  const handleCopy = (key: keyof Box, value: string | number | undefined) => {
     navigator.clipboard.writeText(String(value));
     setCopiedProp(key);
     setTimeout(() => setCopiedProp(null), 1000);
@@ -268,29 +258,52 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
 
         {!selectedBox.id.startsWith('hero') && (
           <div className="space-y-2">
-            <Label className="text-xs font-medium">Asset</Label>
+            <Label className="text-xs font-medium">Asset / Pose</Label>
             <div className="flex gap-2">
                 <select 
                     className="w-1/3 p-2 border rounded bg-background text-sm"
-                    onChange={(e) => setAssetCategory(e.target.value as any)}
+                    onChange={(e) => {
+                      const newCat = e.target.value as 'ui' | 'characters' | 'places' | 'pose';
+                      setAssetCategory(newCat);
+                      if (newCat === 'pose') {
+                         onUpdate(selectedBox.id, { asset: undefined });
+                      } else {
+                         onUpdate(selectedBox.id, { poseSlug: undefined });
+                      }
+                    }}
                     value={assetCategory}
                     disabled={selectedBox.locked}
                 >
                     <option value="ui">UI</option>
                     <option value="characters">Char</option>
                     <option value="places">Place</option>
+                    <option value="pose">Pose</option>
                 </select>
-                <select 
-                  className="flex-1 p-2 border rounded bg-background text-sm"
-                  value={selectedBox.asset || ''}
-                  onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined })}
-                  disabled={selectedBox.locked}
-                >
-                  <option value="">(None)</option>
-                  {currentAssets.map(asset => (
-                    <option key={asset.url} value={asset.url}>{asset.name}</option>
-                  ))}
-                </select>
+                {assetCategory === 'pose' ? (
+                  <select 
+                    className="flex-1 p-2 border rounded bg-background text-sm"
+                    value={selectedBox.poseSlug || ''}
+                    onChange={(e) => onUpdate(selectedBox.id, { poseSlug: e.target.value || undefined, asset: undefined })}
+                    disabled={selectedBox.locked}
+                  >
+                    <option value="">(None)</option>
+                    {cards.map(slug => (
+                      <option key={slug} value={slug}>{slug}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select 
+                    className="flex-1 p-2 border rounded bg-background text-sm"
+                    value={selectedBox.asset || ''}
+                    onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined, poseSlug: undefined })}
+                    disabled={selectedBox.locked}
+                  >
+                    <option value="">(None)</option>
+                    {currentAssets.map(asset => (
+                      <option key={asset.url} value={asset.url}>{asset.name}</option>
+                    ))}
+                  </select>
+                )}
             </div>
           </div>
         )}

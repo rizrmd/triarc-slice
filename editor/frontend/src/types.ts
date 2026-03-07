@@ -19,7 +19,7 @@ export interface HeroConfig {
   text_shadow_color: string;
   tint: string;
   lore?: string;
-  stats?: Record<string, any>;
+  stats?: Record<string, string | number>;
   audio?: Record<string, string>;
   hp_bar_pos: {
     x: number;
@@ -88,6 +88,7 @@ export interface Box {
   label: string;
   pivot: string;
   cardSlug?: string;
+  poseSlug?: string;
   asset?: string;
   locked?: boolean;
 }

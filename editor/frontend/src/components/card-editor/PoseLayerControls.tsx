@@ -1,12 +1,12 @@
 import { useRef } from 'react';
-import { Brush, Eraser, Image, Loader2, RotateCcw, Upload, FolderOpen } from 'lucide-react';
+import { Brush, ClipboardPaste, Copy, Eraser, Image, Loader2, RotateCcw, Upload, FolderOpen } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import type { HeroConfig, LayerId, PoseLayer, MaskLayer, AssetPickerTarget } from '@/types';
+import type { HeroConfig, LayerId, PoseLayer, MaskLayer, AssetPickerTarget, CharProperty } from '@/types';
 
 interface PoseLayerControlsProps {
   activeLayer: LayerId;
@@ -17,9 +17,17 @@ interface PoseLayerControlsProps {
   updateLayerScale: (layer: PoseLayer, scale: number) => void;
   updateLayerPosition: (layer: PoseLayer, dx: number, dy: number) => void; // Delta update
   setLayerPosition: (layer: PoseLayer, x: number, y: number) => void; // Absolute update
+  copyAllLayerProperties: (layer: PoseLayer) => void;
+  pasteAllLayerProperties: (layer: PoseLayer) => void;
+  resetAllLayerProperties: (layer: PoseLayer) => void;
+  copySingleProperty: (layer: PoseLayer, property: CharProperty) => void;
+  pasteSingleProperty: (layer: PoseLayer, property: CharProperty) => void;
+  resetLayerProperty: (layer: PoseLayer, property: CharProperty) => void;
   handleLayerUpload: (layer: PoseLayer, file: File | null) => void;
   uploadingLayer: PoseLayer | null;
   setAssetPickerTarget: (target: AssetPickerTarget) => void;
+  layerClipboard: { x: number; y: number; scale: number } | null;
+  propertyClipboard: { property: CharProperty; value: number } | null;
   
   // Mask Layer Props
   brushSize: number;
@@ -39,12 +47,19 @@ interface PoseLayerControlsProps {
 export function PoseLayerControls({
   activeLayer,
   config,
-  commitConfig: _commitConfig,
   updateLayerScale,
   setLayerPosition,
+  copyAllLayerProperties,
+  pasteAllLayerProperties,
+  resetAllLayerProperties,
+  copySingleProperty,
+  pasteSingleProperty,
+  resetLayerProperty,
   handleLayerUpload,
   uploadingLayer,
   setAssetPickerTarget,
+  layerClipboard,
+  propertyClipboard,
   brushSize,
   setBrushSize,
   brushOpacity,
@@ -78,6 +93,40 @@ export function PoseLayerControls({
 
     return (
       <section className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={() => copyAllLayerProperties(layer)}
+            aria-label={`Copy ${layer}`}
+            title="Copy"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            onClick={() => pasteAllLayerProperties(layer)}
+            disabled={!layerClipboard}
+            aria-label={`Paste ${layer}`}
+            title="Paste"
+          >
+            <ClipboardPaste className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => resetAllLayerProperties(layer)}
+            aria-label={`Reset ${layer}`}
+            title="Reset"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+        </div>
+
         <div className="space-y-2">
           <Label>Image {layer === 'pose-char-fg' ? 'Character' : 'Shadow'}</Label>
           <div className="flex gap-3">
@@ -153,6 +202,39 @@ export function PoseLayerControls({
             step={1}
             onValueChange={([value]) => setLayerPosition(layer, value, safePos.y)}
           />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => copySingleProperty(layer, 'x')}
+              aria-label={`Copy X ${layer}`}
+              title="Copy X"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => pasteSingleProperty(layer, 'x')}
+              disabled={propertyClipboard?.property !== 'x'}
+              aria-label={`Paste X ${layer}`}
+              title="Paste X"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => resetLayerProperty(layer, 'x')}
+              aria-label={`Reset X ${layer}`}
+              title="Reset X"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -167,6 +249,39 @@ export function PoseLayerControls({
             step={1}
             onValueChange={([value]) => setLayerPosition(layer, safePos.x, value)}
           />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => copySingleProperty(layer, 'y')}
+              aria-label={`Copy Y ${layer}`}
+              title="Copy Y"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => pasteSingleProperty(layer, 'y')}
+              disabled={propertyClipboard?.property !== 'y'}
+              aria-label={`Paste Y ${layer}`}
+              title="Paste Y"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => resetLayerProperty(layer, 'y')}
+              aria-label={`Reset Y ${layer}`}
+              title="Reset Y"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -181,6 +296,39 @@ export function PoseLayerControls({
             step={1}
             onValueChange={([value]) => updateLayerScale(layer, value)}
           />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => copySingleProperty(layer, 'scale')}
+              aria-label={`Copy Scale ${layer}`}
+              title="Copy Scale"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => pasteSingleProperty(layer, 'scale')}
+              disabled={propertyClipboard?.property !== 'scale'}
+              aria-label={`Paste Scale ${layer}`}
+              title="Paste Scale"
+            >
+              <ClipboardPaste className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => resetLayerProperty(layer, 'scale')}
+              aria-label={`Reset Scale ${layer}`}
+              title="Reset Scale"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </section>
     );
@@ -207,7 +355,7 @@ export function PoseLayerControls({
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Mask Layer</Label>
-                <Badge variant="outline">pose-mask-fg</Badge>
+                <Badge variant="outline">{activeLayer}</Badge>
               </div>
               <p className="text-xs text-muted-foreground">
                 Draw on mask. Position/Scale follows pose-char-fg.

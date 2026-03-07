@@ -85,6 +85,7 @@
       "nx": 0.2453125,
       "ny": 0.28880208333333335,
       "pivot": "bottom-center",
+      "poseSlug": "arcane-paladin",
       "width": 320,
       "x": 54,
       "y": 296
@@ -96,6 +97,7 @@
       "nx": 0.50625,
       "ny": 0.28880208333333335,
       "pivot": "bottom-center",
+      "poseSlug": "arc-strider",
       "width": 320,
       "x": 388,
       "y": 296

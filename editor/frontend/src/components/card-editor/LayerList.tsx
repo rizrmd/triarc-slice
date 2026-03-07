@@ -1,15 +1,16 @@
+import React from 'react';
 import { Image, Layers, Sparkles, Type, Activity, Ghost, User, Square } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
-import type { LayerId, VisibleLayers, PoseVisibleLayers } from '@/types';
+import type { LayerId } from '@/types';
 
-interface LayerListProps {
+interface LayerListProps<T extends Record<string, boolean>> {
   activeLayer: LayerId;
   setActiveLayer: (layer: LayerId) => void;
-  visibleLayers: VisibleLayers | PoseVisibleLayers;
-  setVisibleLayers: React.Dispatch<React.SetStateAction<any>>; // Using any for simplicity as it can be either type
+  visibleLayers: T;
+  setVisibleLayers: React.Dispatch<React.SetStateAction<T>>;
   canvasZoom: number;
   setCanvasZoom: (zoom: number) => void;
   setCanvasPan: (pan: { x: number; y: number }) => void;
@@ -17,7 +18,7 @@ interface LayerListProps {
   showPoseLayers?: boolean;
 }
 
-export function LayerList({
+export function LayerList<T extends Record<string, boolean>>({
   activeLayer,
   setActiveLayer,
   visibleLayers,
@@ -27,9 +28,9 @@ export function LayerList({
   setCanvasPan,
   showCardLayers = true,
   showPoseLayers = true,
-}: LayerListProps) {
+}: LayerListProps<T>) {
   const toggleLayer = (layer: string, checked: boolean) => {
-    setVisibleLayers((prev: any) => ({
+    setVisibleLayers((prev) => ({
       ...prev,
       [layer]: checked,
     }));
@@ -55,7 +56,7 @@ export function LayerList({
             <span className="text-sm font-medium">{label}</span>
           </div>
           <Switch
-            checked={(visibleLayers as any)[id]}
+            checked={visibleLayers[id]}
             onCheckedChange={(checked) => toggleLayer(id, checked)}
             aria-label={`Toggle ${label}`}
             onClick={(e) => e.stopPropagation()} 

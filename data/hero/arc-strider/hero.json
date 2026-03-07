@@ -32,14 +32,14 @@
   "audio": null,
   "pose": {
     "char_fg_pos": {
-      "x": 4,
-      "y": 6
+      "x": -8,
+      "y": 20
     },
-    "char_fg_scale": 100,
+    "char_fg_scale": 109,
     "shadow_pos": {
-      "x": 0,
-      "y": 0
+      "x": -7,
+      "y": 23
     },
-    "shadow_scale": 100
+    "shadow_scale": 107
   }
 }

@@ -37,8 +37,8 @@ export default function HeroEditor() {
 
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const [initialConfig, setInitialConfig] = useState<HeroConfig | null>(null);
-  const [undoStack, setUndoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string } }[]>([]);
-  const [redoStack, setRedoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string } }[]>([]);
+  const [undoStack, setUndoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } }[]>([]);
+  const [redoStack, setRedoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -75,7 +75,7 @@ export default function HeroEditor() {
   const [uploadingCharLayer, setUploadingCharLayer] = useState<CharLayer | PoseLayer | null>(null);
   const [maskVersion, setMaskVersion] = useState(0);
   const lastSavedMaskVersion = useRef(0);
-  const lastMaskSnapshotRef = useRef<{ 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string } | null>(null);
+  const lastMaskSnapshotRef = useRef<{ 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } | null>(null);
   const lastMaskSnapshotVersionRef = useRef(-1);
   const [assetPickerTarget, setAssetPickerTarget] = useState<AssetPickerTarget>(null);
   // Asset items state is moved to AssetPicker, but we need apply logic here
@@ -85,12 +85,27 @@ export default function HeroEditor() {
   const cardFrameRef = useRef<HTMLDivElement | null>(null);
   const maskBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const poseShadowCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const poseMaskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   
   const [brushSize, setBrushSize] = useState(20);
   const [brushOpacity, setBrushOpacity] = useState(90);
   const [brushHardness, setBrushHardness] = useState(100);
   const [brushMode, setBrushMode] = useState<'erase' | 'restore'>('erase');
+  
+  const [serverMaskVersion, setServerMaskVersion] = useState(() => Date.now());
+  const [maskLoadState, setMaskLoadState] = useState<Record<MaskLayer, boolean>>({
+    'mask-bg': false,
+    'mask-fg': false,
+    'pose-mask-fg': false,
+  });
+  const [frameLoadReady, setFrameLoadReady] = useState(false);
+  const [charLoadState, setCharLoadState] = useState<Record<CharLayer | PoseLayer, boolean>>({
+    'char-bg': false,
+    'char-fg': false,
+    'pose-char-fg': false,
+    'pose-shadow': false,
+  });
   
   const cardWidth = cardBaseSize.width;
   const cardHeight = cardBaseSize.height;
@@ -130,7 +145,8 @@ export default function HeroEditor() {
     const bg = maskBgCanvasRef.current?.toDataURL('image/png') || '';
     const fg = maskFgCanvasRef.current?.toDataURL('image/png') || '';
     const poseFg = poseMaskFgCanvasRef.current?.toDataURL('image/png') || '';
-    const snapshot = { 'mask-bg': bg, 'mask-fg': fg, 'pose-mask-fg': poseFg };
+    const poseShadow = poseShadowCanvasRef.current?.toDataURL('image/png') || '';
+    const snapshot = { 'mask-bg': bg, 'mask-fg': fg, 'pose-mask-fg': poseFg, 'pose-shadow': poseShadow };
 
     lastMaskSnapshotRef.current = snapshot;
     lastMaskSnapshotVersionRef.current = maskVersion;
@@ -143,9 +159,8 @@ export default function HeroEditor() {
     return poseMaskFgCanvasRef;
   };
 
-  const restoreMasks = useCallback((masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string }) => {
-    const loadLayer = (layer: MaskLayer, src: string) => {
-      const canvas = getMaskCanvasRef(layer).current;
+  const restoreMasks = useCallback((masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string }) => {
+    const loadLayer = (canvas: HTMLCanvasElement | null, src: string) => {
       if (!canvas || !src) return;
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -156,9 +171,10 @@ export default function HeroEditor() {
       };
       img.src = src;
     };
-    loadLayer('mask-bg', masks['mask-bg']);
-    loadLayer('mask-fg', masks['mask-fg']);
-    if (masks['pose-mask-fg']) loadLayer('pose-mask-fg', masks['pose-mask-fg']);
+    loadLayer(maskBgCanvasRef.current, masks['mask-bg']);
+    loadLayer(maskFgCanvasRef.current, masks['mask-fg']);
+    loadLayer(poseMaskFgCanvasRef.current, masks['pose-mask-fg']);
+    loadLayer(poseShadowCanvasRef.current, masks['pose-shadow']);
     setMaskVersion((v) => v + 1);
   }, []);
 
@@ -274,7 +290,7 @@ export default function HeroEditor() {
   useEffect(() => {
     let mounted = true;
     const image = new window.Image();
-    setFrameLoadReady(false);
+    requestAnimationFrame(() => setFrameLoadReady(false));
     
     console.log('[CardEditor] Starting frame image load:', activeFrameSrc);
 
@@ -362,13 +378,33 @@ export default function HeroEditor() {
       const bgCanvas = maskBgCanvasRef.current;
       const fgCanvas = maskFgCanvasRef.current;
       const poseFgCanvas = poseMaskFgCanvasRef.current;
+      const shadowCanvas = poseShadowCanvasRef.current;
 
       const payload = {
         mask_bg: bgCanvas ? bgCanvas.toDataURL('image/png') : '',
         mask_fg: fgCanvas ? fgCanvas.toDataURL('image/png') : '',
         pose_mask_fg: poseFgCanvas ? poseFgCanvas.toDataURL('image/png') : '',
       };
-      return fetch(`/api/card-mask/${slug}`, {
+      const uploadShadowPromise = (() => {
+        if (!shadowCanvas) return Promise.resolve(true);
+        return new Promise<boolean>((resolve) => {
+          shadowCanvas.toBlob((blob) => {
+            if (!blob) {
+              resolve(false);
+              return;
+            }
+            const formData = new FormData();
+            formData.append('file', blob, 'pose-shadow.png');
+            fetch(`/api/card-char/${slug}/pose-shadow`, {
+              method: 'POST',
+              body: formData,
+            })
+              .then((res) => resolve(res.ok))
+              .catch(() => resolve(false));
+          }, 'image/png');
+        });
+      })();
+      const saveMaskPromise = fetch(`/api/card-mask/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -377,6 +413,17 @@ export default function HeroEditor() {
           if (!res.ok) {
             const text = await res.text();
             throw new Error(text || 'Failed to save masks');
+          }
+          return true;
+        })
+        .catch(() => false);
+      return Promise.all([saveMaskPromise, uploadShadowPromise])
+        .then(([savedMasks, savedShadow]) => {
+          if (savedShadow) {
+            setCharImageVersion((prev) => ({ ...prev, 'pose-shadow': prev['pose-shadow'] + 1 }));
+          }
+          if (!savedMasks || !savedShadow) {
+            throw new Error('Failed to save pose layers');
           }
           return true;
         })
@@ -433,7 +480,7 @@ export default function HeroEditor() {
   };
 
   // ... Layer manipulation logic ...
-  const getLayerState = (layer: CharLayer | TextLayer | BarLayer) => {
+  const getLayerState = (layer: CharLayer | TextLayer | BarLayer | PoseLayer) => {
     if (!config) return { x: 0, y: 0, scale: layer === 'hp-bar' ? 250 : 100 };
     if (layer === 'char-bg') {
       return {
@@ -447,6 +494,22 @@ export default function HeroEditor() {
         x: config.char_fg_pos.x,
         y: config.char_fg_pos.y,
         scale: config.char_fg_scale,
+      };
+    }
+    if (layer === 'pose-char-fg') {
+      const pose = config.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      return {
+        x: pose.char_fg_pos.x,
+        y: pose.char_fg_pos.y,
+        scale: pose.char_fg_scale,
+      };
+    }
+    if (layer === 'pose-shadow') {
+      const pose = config.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      return {
+        x: pose.shadow_pos.x,
+        y: pose.shadow_pos.y,
+        scale: pose.shadow_scale,
       };
     }
     if (layer === 'hp-bar') {
@@ -613,7 +676,7 @@ export default function HeroEditor() {
     });
   };
 
-  const applyLayerProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty, value: number) => {
+  const applyLayerProperty = (layer: CharLayer | TextLayer | BarLayer | PoseLayer, property: CharProperty, value: number) => {
     if (property === 'scale') {
       updateLayerScale(layer, value);
       return;
@@ -639,6 +702,32 @@ export default function HeroEditor() {
           },
         };
       }
+      if (layer === 'pose-char-fg') {
+        const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+        return {
+          ...prev,
+          pose: {
+            ...pose,
+            char_fg_pos: {
+              ...pose.char_fg_pos,
+              [property]: rounded,
+            },
+          },
+        };
+      }
+      if (layer === 'pose-shadow') {
+        const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+        return {
+          ...prev,
+          pose: {
+            ...pose,
+            shadow_pos: {
+              ...pose.shadow_pos,
+              [property]: rounded,
+            },
+          },
+        };
+      }
       if (layer === 'hp-bar') {
         return {
           ...prev,
@@ -658,16 +747,16 @@ export default function HeroEditor() {
     });
   };
 
-  const copyAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer) => {
+  const copyAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer | PoseLayer) => {
     setLayerClipboard(getLayerState(layer));
   };
 
-  const pasteAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer) => {
+  const pasteAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer | PoseLayer) => {
     if (!layerClipboard) return;
     applyLayerState(layer, layerClipboard);
   };
 
-  const copySingleProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {
+  const copySingleProperty = (layer: CharLayer | TextLayer | BarLayer | PoseLayer, property: CharProperty) => {
     const layerState = getLayerState(layer);
     setPropertyClipboard({
       property,
@@ -675,23 +764,23 @@ export default function HeroEditor() {
     });
   };
 
-  const pasteSingleProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {
+  const pasteSingleProperty = (layer: CharLayer | TextLayer | BarLayer | PoseLayer, property: CharProperty) => {
     if (!propertyClipboard || propertyClipboard.property !== property) return;
     applyLayerProperty(layer, property, propertyClipboard.value);
   };
 
-  const getDefaultLayerState = (layer?: CharLayer | TextLayer | BarLayer) => ({
+  const getDefaultLayerState = (layer?: CharLayer | TextLayer | BarLayer | PoseLayer) => ({
     x: 0,
     y: 0,
     scale: layer === 'hp-bar' ? 250 : 100,
   });
 
-  const resetLayerProperty = (layer: CharLayer | TextLayer | BarLayer, property: CharProperty) => {
+  const resetLayerProperty = (layer: CharLayer | TextLayer | BarLayer | PoseLayer, property: CharProperty) => {
     const defaultLayer = getDefaultLayerState(layer);
     applyLayerProperty(layer, property, defaultLayer[property]);
   };
 
-  const resetAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer) => {
+  const resetAllLayerProperties = (layer: CharLayer | TextLayer | BarLayer | PoseLayer) => {
     applyLayerState(layer, getDefaultLayerState(layer));
   };
 
@@ -871,24 +960,10 @@ export default function HeroEditor() {
     setMaskVersion((v) => v + 1);
   };
 
-  const [serverMaskVersion, setServerMaskVersion] = useState(Date.now());
-  const [maskLoadState, setMaskLoadState] = useState<Record<MaskLayer, boolean>>({
-    'mask-bg': false,
-    'mask-fg': false,
-    'pose-mask-fg': false,
-  });
-  const [frameLoadReady, setFrameLoadReady] = useState(false);
-  const [charLoadState, setCharLoadState] = useState<Record<CharLayer | PoseLayer, boolean>>({
-    'char-bg': false,
-    'char-fg': false,
-    'pose-char-fg': false,
-    'pose-shadow': false,
-  });
-
   useEffect(() => {
-    setServerMaskVersion(Date.now());
+    requestAnimationFrame(() => setServerMaskVersion(Date.now()));
     // Reset mask load state on slug change to prevent flash of unmasked content
-    setMaskLoadState({ 'mask-bg': false, 'mask-fg': false, 'pose-mask-fg': false });
+    requestAnimationFrame(() => setMaskLoadState({ 'mask-bg': false, 'mask-fg': false, 'pose-mask-fg': false }));
   }, [slug]);
 
   useEffect(() => {
@@ -974,31 +1049,33 @@ export default function HeroEditor() {
     };
 
     // If visible but no dimensions yet, mark as NOT ready to prevent unmasked flash
-    if (visibleLayers['mask-bg']) {
-      if (cardWidth > 0 && cardHeight > 0) {
-        loadMaskLayer('mask-bg');
+    requestAnimationFrame(() => {
+      if (visibleLayers['mask-bg']) {
+        if (cardWidth > 0 && cardHeight > 0) {
+          loadMaskLayer('mask-bg');
+        } else {
+          setMaskLoadState(prev => ({ ...prev, 'mask-bg': false }));
+        }
       } else {
-        setMaskLoadState(prev => ({ ...prev, 'mask-bg': false }));
+        setMaskLoadState(prev => ({ ...prev, 'mask-bg': true }));
       }
-    } else {
-      setMaskLoadState(prev => ({ ...prev, 'mask-bg': true }));
-    }
 
-    if (visibleLayers['mask-fg']) {
-      if (cardWidth > 0 && cardHeight > 0) {
-        loadMaskLayer('mask-fg');
+      if (visibleLayers['mask-fg']) {
+        if (cardWidth > 0 && cardHeight > 0) {
+          loadMaskLayer('mask-fg');
+        } else {
+          setMaskLoadState(prev => ({ ...prev, 'mask-fg': false }));
+        }
       } else {
-        setMaskLoadState(prev => ({ ...prev, 'mask-fg': false }));
+        setMaskLoadState(prev => ({ ...prev, 'mask-fg': true }));
       }
-    } else {
-      setMaskLoadState(prev => ({ ...prev, 'mask-fg': true }));
-    }
 
-    if (visibleLayers['pose-mask-fg']) {
-        loadMaskLayer('pose-mask-fg');
-    } else {
-      setMaskLoadState(prev => ({ ...prev, 'pose-mask-fg': true }));
-    }
+      if (visibleLayers['pose-mask-fg']) {
+          loadMaskLayer('pose-mask-fg');
+      } else {
+        setMaskLoadState(prev => ({ ...prev, 'pose-mask-fg': true }));
+      }
+    });
 
     return () => {
       isCancelled = true;
@@ -1132,6 +1209,7 @@ export default function HeroEditor() {
 
     const canvas = getMaskCanvasRef(layer).current;
     if (!canvas) return;
+    canvas.setPointerCapture(event.pointerId);
     let lastPoint = mapPointerToMaskCanvas(canvas, event);
     drawOnMaskLayer(layer, lastPoint, lastPoint);
     const onPointerMove = (moveEvent: PointerEvent) => {
@@ -1139,7 +1217,8 @@ export default function HeroEditor() {
       drawOnMaskLayer(layer, lastPoint, nextPoint);
       lastPoint = nextPoint;
     };
-    const onPointerUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
+      canvas.releasePointerCapture(e.pointerId);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       setMaskVersion((v) => v + 1);
@@ -1547,6 +1626,14 @@ export default function HeroEditor() {
                 handleLayerUpload={handleCharUpload}
                 uploadingLayer={uploadingCharLayer as PoseLayer | null}
                 setAssetPickerTarget={setAssetPickerTarget}
+                copyAllLayerProperties={copyAllLayerProperties}
+                pasteAllLayerProperties={pasteAllLayerProperties}
+                resetAllLayerProperties={resetAllLayerProperties}
+                copySingleProperty={copySingleProperty}
+                pasteSingleProperty={pasteSingleProperty}
+                resetLayerProperty={resetLayerProperty}
+                layerClipboard={layerClipboard}
+                propertyClipboard={propertyClipboard}
                 brushSize={brushSize}
                 setBrushSize={setBrushSize}
                 brushOpacity={brushOpacity}
@@ -1556,11 +1643,12 @@ export default function HeroEditor() {
                 brushMode={brushMode}
                 setBrushMode={setBrushMode}
                 clearMaskLayer={clearMaskLayer}
+                poseShadowCanvasRef={poseShadowCanvasRef}
                 poseMaskFgCanvasRef={poseMaskFgCanvasRef}
                 poseFgUrl={poseFgUrl}
-                 poseShadowUrl={poseShadowUrl}
-                 onMaskChange={() => setMaskVersion((v) => v + 1)}
-             />
+                poseShadowUrl={poseShadowUrl}
+                onMaskChange={() => setMaskVersion((v) => v + 1)}
+            />
           </TabsContent>
 
           <TabsContent value="info">
