@@ -178,6 +178,23 @@ func _get_hero_pose_shadow_texture(slug: String) -> Texture2D:
 	
 	return null
 
+func _get_hero_pose_mask_texture(slug: String) -> Texture2D:
+	# Try external path first for development
+	var res_path = ProjectSettings.globalize_path("res://")
+	var ext_path = res_path.path_join("../data/hero/" + slug + "/img/pose-mask-fg.webp")
+	
+	if FileAccess.file_exists(ext_path):
+		var image = Image.load_from_file(ext_path)
+		if image:
+			return ImageTexture.create_from_image(image)
+	
+	# Fallback to res://
+	var int_path = "res://data/hero/" + slug + "/img/pose-mask-fg.webp"
+	if ResourceLoader.exists(int_path):
+		return load(int_path)
+	
+	return null
+
 func _render_extra_layout_boxes(viewport_size):
 	var all_ids = LayoutManager.get_all_box_ids()
 	for id in all_ids:
@@ -232,17 +249,15 @@ func _render_extra_layout_boxes(viewport_size):
 					shadow.centered = true
 					
 					# Shadow Size relative to container
-					# shadowW = w * scale
-					# Sprite scale = target_size / texture_size
 					var shadow_target_w = w * shadow_scale
 					var shadow_tex_w = shadow_tex.get_width()
 					var s_scale = shadow_target_w / shadow_tex_w if shadow_tex_w > 0 else 1.0
 					shadow.scale = Vector2(s_scale, s_scale)
 					
 					# Shadow Position relative to center
+					# In Editor (HeroPosePreview.tsx), shadow is positioned relative to center of container
 					# sx = (w/2) + shadowPos.x - (shadowW/2) <-- This is top-left
-					# Sprite is centered, so we want center position.
-					# CenterX = sx + shadowW/2 = (w/2) + shadowPos.x
+					# So CenterX = sx + shadowW/2 = (w/2) + shadowPos.x
 					shadow.position = Vector2(w/2.0 + shadow_pos.x, h/2.0 + shadow_pos.y)
 					
 					container.add_child(shadow)
@@ -260,6 +275,37 @@ func _render_extra_layout_boxes(viewport_size):
 				
 				# Character Position
 				sprite.position = Vector2(w/2.0 + char_fg_pos.x, h/2.0 + char_fg_pos.y)
+				
+				# Apply Mask if available
+				# We need a custom shader or clip children to apply mask
+				# Since Godot 4, we can use CanvasGroup or ClipChildren
+				
+				# Check for mask
+				var mask_tex = _get_hero_pose_mask_texture(pose_slug)
+				if mask_tex:
+					# Create a container for masking
+					var mask_container = Control.new()
+					mask_container.set_anchors_preset(Control.PRESET_FULL_RECT)
+					mask_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					# Using Clip Children: "Clip Only" mode allows using parent as mask?
+					# Actually, typical masking in Godot:
+					# Parent (Mask) -> Child (Content) with Clip Children = Clip Only? No.
+					# Parent (Container) with Clip Children = Clip + Draw
+					# Child 1: The Mask Sprite (Modulate = White?)
+					# Child 2: The Content Sprite
+					
+					# BUT standard alpha masking usually requires a shader or specific blending.
+					# The simplest way in Godot 4 without shaders for alpha mask:
+					# 1. Use a shader on the sprite.
+					
+					# Let's use a shader for the sprite.
+					var shader = load("res://shaders/mask.gdshader")
+					if shader:
+						var mat = ShaderMaterial.new()
+						mat.shader = shader
+						# Ensure uniform name matches shader ("mask_texture" vs "mask")
+						mat.set_shader_parameter("mask_texture", mask_tex)
+						sprite.material = mat
 				
 				container.add_child(sprite)
 				

@@ -243,22 +243,25 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 		var card = cards[i]
 		var slot = formation[i]
 		
+		# For card nodes, apply the exact same logic as apply_box_layout
+		# This ensures consistency between heroes and other boxes
 		var transform = _calculate_box_transform(slot, viewport_size, bg_metrics)
 		var target_w = transform.target_width
-		var pos = transform.position
-		var pivot = transform.pivot
+		var pos_center = transform.position
 		
 		var ref_size = card.size
 		if ref_size.x <= 0: ref_size = Vector2(750, 1050)
 		
 		# Calculate scale based on width
 		var final_card_scale = target_w / ref_size.x
+		var scaled_size = ref_size * final_card_scale
 		
 		card.scale = Vector2(final_card_scale, final_card_scale)
 		
-		var pivot_offset = _get_pivot_offset(pivot)
-		var scaled_size = card.size * final_card_scale
-		card.position = pos - (scaled_size * pivot_offset)
+		# Position card such that its CENTER is at pos_center
+		# Cards are Control nodes (usually) or Node2D
+		# Assuming standard top-left pivot for the card node itself
+		card.position = pos_center - (scaled_size * 0.5)
 		
 		# Z-index
 		card.z_index = i

@@ -145,6 +145,181 @@ func load_hero(slug: String):
 		
 	else:
 		name_label.visible = false
+		
+	# 4. HP Bar
+	var hp_bar_pos = data.get("hp_bar_pos")
+	if hp_bar_pos:
+		var hp_bar_node = frame.get_node_or_null("HPBar")
+		if not hp_bar_node:
+			# Create HP Bar container
+			hp_bar_node = Control.new()
+			hp_bar_node.name = "HPBar"
+			frame.add_child(hp_bar_node)
+			
+			# Create layers: BG, FG, Frame, Text
+			var bar_bg = TextureRect.new()
+			bar_bg.name = "BarBG"
+			bar_bg.texture = load_texture("res://assets/ui/bar/bar-bg.webp")
+			bar_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			hp_bar_node.add_child(bar_bg)
+			
+			var bar_fg = TextureRect.new()
+			bar_fg.name = "BarFG"
+			bar_fg.texture = load_texture("res://assets/ui/bar/bar-fg.webp")
+			bar_fg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			hp_bar_node.add_child(bar_fg)
+			
+			var bar_frame = TextureRect.new()
+			bar_frame.name = "BarFrame"
+			bar_frame.texture = load_texture("res://assets/ui/bar/bar-frame.webp")
+			bar_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			hp_bar_node.add_child(bar_frame)
+			
+			var bar_label = Label.new()
+			bar_label.name = "BarLabel"
+			bar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			bar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			# Add shadow to text
+			bar_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+			bar_label.add_theme_constant_override("shadow_offset_x", 0)
+			bar_label.add_theme_constant_override("shadow_offset_y", 1)
+			bar_label.add_theme_constant_override("shadow_outline_size", 2)
+			hp_bar_node.add_child(bar_label)
+		
+		# Update HP Bar properties
+		var bar_scale = data.get("hp_bar_scale", 250) / 100.0
+		var current_hp = data.get("hp_bar_current", 100)
+		var max_hp = data.get("hp_bar_max", 100)
+		var hue_rot = data.get("hp_bar_hue", 0)
+		var font_size_base = data.get("hp_bar_font_size", 31)
+		
+		# Calculate dimensions
+		# Logic from CardPreview.tsx:
+		# const baseWidth = cardW * 0.33;
+		# const barW = baseWidth * barScale;
+		# const barH = barW / aspectRatio;
+		
+		var bar_bg_tex = load_texture("res://assets/ui/bar/bar-bg.webp")
+		if bar_bg_tex:
+			var aspect = bar_bg_tex.get_width() / float(bar_bg_tex.get_height())
+			var base_width = card_size.x * 0.33
+			var final_w = base_width * bar_scale
+			var final_h = final_w / aspect
+			
+			hp_bar_node.size = Vector2(final_w, final_h)
+			hp_bar_node.custom_minimum_size = Vector2(final_w, final_h)
+			
+			# Position
+			# cx + config.hp_bar_pos.x - barW / 2
+			var offset_x = hp_bar_pos.get("x", 0)
+			var offset_y = hp_bar_pos.get("y", 0)
+			
+			hp_bar_node.position = center + Vector2(offset_x, offset_y) - (hp_bar_node.size / 2)
+			
+			# Apply to children
+			var bar_bg = hp_bar_node.get_node("BarBG")
+			bar_bg.size = hp_bar_node.size
+			bar_bg.position = Vector2.ZERO
+			
+			var bar_fg = hp_bar_node.get_node("BarFG")
+			bar_fg.size = hp_bar_node.size
+			bar_fg.position = Vector2.ZERO
+			
+			# Clip FG based on percentage
+			# Use a Control container with clip_contents?
+			# Or simpler: texture region? No, Expand mode.
+			# Best way: Use a Container for FG and set its size width percentage.
+			# But we need to keep aspect ratio of texture inside?
+			# Actually, standard bars usually just crop.
+			# Let's wrap FG in a Control that clips.
+			
+			var percentage = clamp(float(current_hp) / float(max_hp), 0.0, 1.0)
+			
+			# We need to recreate structure if we want proper clipping without scaling distortion
+			# Or use a shader.
+			# Simplest: TextureProgressBar?
+			# TextureProgressBar supports expand and radial fill etc.
+			# Let's replace TextureRect with TextureProgressBar if possible, but we already created nodes.
+			# Let's adjust nodes.
+			
+			if bar_fg is TextureRect:
+				# Replace with TextureProgressBar for easy handling
+				var parent = bar_fg.get_parent()
+				var new_bar = TextureProgressBar.new()
+				new_bar.name = "BarFG"
+				new_bar.texture_progress = bar_fg.texture
+				new_bar.ignore_texture_size = true
+				# STRETCH_SCALE doesn't exist in TextureProgressBar
+				# We just need to ensure the texture fills the rect?
+				# TextureProgressBar behavior:
+				# If nine_patch_stretch is true, it stretches according to patch margins.
+				# If false, it draws texture at original size unless ignore_texture_size is true?
+				# Wait, for TextureProgressBar to scale the texture to 'size', we need:
+				# nine_patch_stretch = true (even if margins are 0)
+				new_bar.nine_patch_stretch = true
+				new_bar.stretch_margin_bottom = 0
+				new_bar.stretch_margin_left = 0
+				new_bar.stretch_margin_right = 0
+				new_bar.stretch_margin_top = 0
+				
+				new_bar.value = percentage * 100
+				new_bar.size = hp_bar_node.size
+				new_bar.position = Vector2.ZERO
+				
+				# Hue rotation
+				if hue_rot != 0:
+					# Create a material for hue rotation
+					var mat = ShaderMaterial.new()
+					# Simple hue shift shader
+					var code = """
+					shader_type canvas_item;
+					uniform float hue_shift;
+					vec3 hueShift(vec3 color, float hue) {
+						const vec3 k = vec3(0.57735, 0.57735, 0.57735);
+						float cosAngle = cos(hue);
+						return vec3(color * cosAngle + cross(k, color) * sin(hue) + k * dot(k, color) * (1.0 - cosAngle));
+					}
+					void fragment() {
+						vec4 tex = texture(TEXTURE, UV);
+						COLOR = vec4(hueShift(tex.rgb, hue_shift), tex.a);
+					}
+					"""
+					var shader = Shader.new()
+					shader.code = code
+					mat.shader = shader
+					mat.set_shader_parameter("hue_shift", deg_to_rad(hue_rot))
+					new_bar.material = mat
+				
+				parent.remove_child(bar_fg)
+				bar_fg.queue_free()
+				parent.add_child(new_bar)
+				# Reorder to be behind frame (frame is last added texture, label is after)
+				parent.move_child(new_bar, 1) 
+			elif bar_fg is TextureProgressBar:
+				bar_fg.size = hp_bar_node.size
+				bar_fg.value = percentage * 100
+			
+			var bar_frame = hp_bar_node.get_node("BarFrame")
+			bar_frame.size = hp_bar_node.size
+			bar_frame.position = Vector2.ZERO
+			
+			# Label
+			var bar_label = hp_bar_node.get_node("BarLabel")
+			bar_label.text = str(current_hp) + " / " + str(max_hp)
+			bar_label.size = hp_bar_node.size
+			bar_label.position = Vector2.ZERO
+			
+			# Font size
+			# Logic: fontSizeRatio = baseFontSize / 471 (typical card width)
+			# fontSize = cardW * fontSizeRatio
+			var font_ratio = float(font_size_base) / 471.0
+			var final_font_size = max(12, int(card_size.x * font_ratio))
+			bar_label.add_theme_font_size_override("font_size", final_font_size)
+	else:
+		var hp_bar_node = frame.get_node_or_null("HPBar")
+		if hp_bar_node:
+			hp_bar_node.visible = false
+
 	# Remove existing tint overlay if any
 	var existing_tint = frame.get_node_or_null("FrameTint")
 	if existing_tint:
