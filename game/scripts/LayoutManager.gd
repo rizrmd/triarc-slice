@@ -45,7 +45,15 @@ static func _ensure_layout_loaded():
 	_layout_loaded = true
 	
 	var path = "res://data/game-layout.json"
-	if not FileAccess.file_exists(path):
+	
+	# Try to find external layout file for development (sibling to game folder)
+	var res_abs_path = ProjectSettings.globalize_path("res://")
+	var dev_path = res_abs_path.path_join("../data/game-layout.json")
+	
+	if FileAccess.file_exists(dev_path):
+		path = dev_path
+		print("Using external layout file: ", path)
+	elif not FileAccess.file_exists(path):
 		print("Layout file not found: ", path)
 		return
 		
@@ -171,7 +179,7 @@ static func _calculate_box_transform(slot: Dictionary, viewport_size: Vector2, b
 	return {
 		"position": Vector2(screen_x, screen_y),
 		"target_width": target_w,
-		"pivot": slot.get("pivot", "center")
+		"pivot": slot.get("pivot", "center") # Revert to use pivot from slot for now
 	}
 
 # Apply layout to a background node and a list of card nodes
@@ -298,25 +306,47 @@ static func apply_box_layout(node: Node, box_id: String, viewport_size: Vector2,
 	
 	var transform = _calculate_box_transform(slot, viewport_size, bg_metrics)
 	
-	# Apply to Node
-	# Assuming node is a Sprite2D or Control. If Control, scale might behave differently.
-	# For Node2D (Sprite), we set scale and position.
+	# Fix pivot issue:
+	# The Editor exports x/y which are top-left or center depending on pivot?
+	# Wait, the editor calculates nx/ny based on CENTER of the box.
+	# But in Godot, we position the node.
+	# If pivot is "top-left", the node position should be Top-Left.
+	# BUT our target position from _calculate_box_transform is the CENTER of the box (because nx/ny are center).
+	# So we need to offset the position based on the pivot relative to center.
+	
+	var target_w = transform.target_width
+	var pos_center = transform.position
 	
 	var ref_size = Vector2(100, 100)
 	if node is Control:
-		ref_size = node.size
+		ref_size = node.custom_minimum_size
+		if ref_size.x <= 0: ref_size = node.size
 	elif node is Sprite2D and node.texture:
 		ref_size = node.texture.get_size()
 		
 	if ref_size.x <= 0: ref_size = Vector2(100, 100)
 	
-	var final_scale = transform.target_width / ref_size.x
-	var pivot_offset = _get_pivot_offset(transform.pivot)
-	var scaled_size = ref_size * final_scale
+	var node_scale = target_w / ref_size.x
+	var scaled_size = ref_size * node_scale
+	
+	# The editor always calculates nx/ny based on the CENTER of the box.
+	# So pos_center is where the visual center of the node should be.
 	
 	if node is Node2D or node is Control:
-		node.scale = Vector2(final_scale, final_scale)
-		node.position = transform.position - (scaled_size * pivot_offset)
+		node.scale = Vector2(node_scale, node_scale)
+		
+		if node is Sprite2D:
+			if node.centered:
+				# Origin is center
+				node.position = pos_center
+			else:
+				# Origin is top-left
+				node.position = pos_center - (scaled_size * 0.5)
+		elif node is Control:
+			# Origin is top-left
+			node.position = pos_center - (scaled_size * 0.5)
+			# Note: If Control has a modified pivot_offset, this logic might need adjustment.
+			# But for standard controls, this places the center at pos_center.
 
 static func get_hero_config(count: int) -> Array:
 	_ensure_layout_loaded()
@@ -347,3 +377,9 @@ static func get_box(box_id: String) -> Dictionary:
 	if _layout_data.has("boxes") and _layout_data.boxes.has(box_id):
 		return _layout_data.boxes[box_id]
 	return {}
+
+static func get_all_box_ids() -> Array:
+	_ensure_layout_loaded()
+	if _layout_data.has("boxes"):
+		return _layout_data.boxes.keys()
+	return []
