@@ -51,6 +51,7 @@ export default function HeroEditor() {
     'char-fg': true,
     name: true,
     'hp-bar': true,
+    'pose-frame': true,
     'pose-char-fg': true,
     'pose-mask-fg': true,
     'pose-shadow': true,

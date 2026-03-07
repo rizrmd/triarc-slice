@@ -1,4 +1,4 @@
-import { Image, Layers, Sparkles, Type, Activity, Ghost, User } from 'lucide-react';
+import { Image, Layers, Sparkles, Type, Activity, Ghost, User, Square } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -89,6 +89,7 @@ export function LayerList({
         {/* Pose Layers */}
         {showPoseLayers && (
           <>
+            {renderLayerItem('pose-frame', 'Frame', Square)}
             {renderLayerItem('pose-shadow', 'Shadow', Ghost)}
             {renderLayerItem('pose-char-fg', 'Character', User)}
             {renderLayerItem('pose-mask-fg', 'Mask', Image)}

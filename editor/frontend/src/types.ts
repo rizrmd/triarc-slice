@@ -52,7 +52,7 @@ export type MaskLayer = 'mask-bg' | 'mask-fg' | 'pose-mask-fg';
 export type TextLayer = 'name';
 export type BarLayer = 'hp-bar';
 export type CharProperty = 'x' | 'y' | 'scale';
-export type LayerId = 'char-bg' | 'mask-bg' | 'card' | 'mask-fg' | 'char-fg' | 'name' | 'hp-bar' | 'canvas' | 'pose-char-fg' | 'pose-shadow' | 'pose-mask-fg';
+export type LayerId = 'char-bg' | 'mask-bg' | 'card' | 'mask-fg' | 'char-fg' | 'name' | 'hp-bar' | 'canvas' | 'pose-frame' | 'pose-char-fg' | 'pose-shadow' | 'pose-mask-fg';
 export type AssetPickerTarget = CharLayer | 'card' | PoseLayer | null;
 export type AssetItem = { name: string; url: string };
 
@@ -65,11 +65,13 @@ export type VisibleLayers = {
   name: boolean;
   'hp-bar': boolean;
   'pose-char-fg': boolean;
+  'pose-frame': boolean;
   'pose-mask-fg': boolean;
   'pose-shadow': boolean;
 };
 
 export type PoseVisibleLayers = {
+  'pose-frame': boolean;
   'pose-char-fg': boolean;
   'pose-mask-fg': boolean;
   'pose-shadow': boolean;

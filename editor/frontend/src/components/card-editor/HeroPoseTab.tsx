@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { HeroConfig, LayerId, PoseLayer, MaskLayer, PoseVisibleLayers, GameLayout, AssetPickerTarget } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PoseLayerControls } from './PoseLayerControls';
-import { PoseCanvas } from './PoseCanvas';
+import { PoseCanvas, MaskedImage } from './PoseCanvas';
 import { LayerList } from './LayerList';
 import { Loader2 } from 'lucide-react';
 
@@ -59,6 +59,7 @@ export function HeroPoseTab({
 }: HeroPoseTabProps) {
   const [activeLayer, setActiveLayer] = useState<LayerId>('pose-char-fg');
   const [visibleLayers, setVisibleLayers] = useState<PoseVisibleLayers>({
+    'pose-frame': true,
     'pose-char-fg': true,
     'pose-mask-fg': true,
     'pose-shadow': true,
@@ -147,7 +148,7 @@ export function HeroPoseTab({
 
   const handleCanvasPointerDown = (event: React.PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if ((activeLayer === 'pose-mask-fg') && !spacePressed) return; // Allow drawing
+    if (!spacePressed) return;
 
     event.preventDefault();
     setCanvasPanning(true);
@@ -195,13 +196,78 @@ export function HeroPoseTab({
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const handleResizePointerDown = (_layer: PoseLayer, _corner: any, event: React.PointerEvent) => {
-      // Simplification: Not implementing resize via drag for now, relying on sliders
-      // Or implement it if time permits. Given complexity, sliders are safer.
-      // But user expects it?
-      // Let's rely on sliders in PoseLayerControls for now.
-      event.preventDefault();
-      event.stopPropagation();
+  const handleResizePointerDown = (
+    layer: PoseLayer,
+    corner: 'nw' | 'ne' | 'sw' | 'se',
+    event: React.PointerEvent
+  ) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (spacePressed) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setActiveLayer(layer);
+
+    const baseWidth = baseSize.width;
+    const baseHeight = baseSize.height;
+    const layerPos = layer === 'pose-char-fg'
+      ? config.pose?.char_fg_pos ?? { x: 0, y: 0 }
+      : config.pose?.shadow_pos ?? { x: 0, y: 0 };
+    const layerScale = layer === 'pose-char-fg'
+      ? config.pose?.char_fg_scale ?? 100
+      : config.pose?.shadow_scale ?? 100;
+
+    const signX = corner === 'ne' || corner === 'se' ? 1 : -1;
+    const signY = corner === 'sw' || corner === 'se' ? 1 : -1;
+    const startHalfW = (baseWidth * (layerScale / 100)) / 2;
+    const startHalfH = (baseHeight * (layerScale / 100)) / 2;
+    const anchor = {
+      x: layerPos.x - signX * startHalfW,
+      y: layerPos.y - signY * startHalfH,
+    };
+    const startPointer = { x: event.clientX, y: event.clientY };
+    const startCorner = {
+      x: layerPos.x + signX * startHalfW,
+      y: layerPos.y + signY * startHalfH,
+    };
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const pointerDeltaX = moveEvent.clientX - startPointer.x;
+      const pointerDeltaY = moveEvent.clientY - startPointer.y;
+      const rawCorner = {
+        x: startCorner.x + pointerDeltaX,
+        y: startCorner.y + pointerDeltaY,
+      };
+
+      const rawWidth = Math.abs(rawCorner.x - anchor.x);
+      const rawHeight = Math.abs(rawCorner.y - anchor.y);
+      const constrainedWidth = Math.max(rawWidth, rawHeight * (baseWidth / baseHeight), 40);
+      const newScale = (constrainedWidth / baseWidth) * 100;
+      const clampedScale = Math.max(10, Math.min(300, Math.round(newScale)));
+      const clampedWidth = (baseWidth * clampedScale) / 100;
+      const clampedHeight = (baseHeight * clampedScale) / 100;
+      const normalizedCorner = {
+        x: anchor.x + signX * clampedWidth,
+        y: anchor.y + signY * clampedHeight,
+      };
+      const newCenter = {
+        x: (anchor.x + normalizedCorner.x) / 2,
+        y: (anchor.y + normalizedCorner.y) / 2,
+      };
+
+      applyLayerState(layer, {
+        x: Math.round(newCenter.x),
+        y: Math.round(newCenter.y),
+        scale: clampedScale,
+      });
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
   };
 
   const handleMaskPointerDown = (_layer: MaskLayer, event: React.PointerEvent) => {
@@ -335,7 +401,7 @@ export function HeroPoseTab({
                   
                   {/* Hero in Enemy2 Box */}
                   <div 
-                      className="absolute border border-red-500/50"
+                      className={`absolute overflow-hidden ${visibleLayers['pose-frame'] ? 'border border-red-500/50' : ''}`}
                       style={{
                           left: `${boxX}px`,
                           top: `${boxY}px`,
@@ -343,52 +409,36 @@ export function HeroPoseTab({
                           height: `${h}px`,
                       }}
                   >
-                      {/* Shadow */}
-                      {poseShadowUrl && (
-                          <img 
-                              src={poseShadowUrl}
-                              className="absolute max-w-none"
-                              style={{
-                                  left: '50%',
-                                  top: '50%',
-                                  width: `${shadowW}px`,
-                                  height: `${shadowH}px`,
-                                  transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
-                              }}
+                      <div className="absolute inset-0 overflow-hidden">
+                        {/* Shadow */}
+                        {visibleLayers['pose-shadow'] && poseShadowUrl && (
+                            <img 
+                                src={poseShadowUrl}
+                                className="absolute max-w-none pointer-events-none"
+                                style={{
+                                    left: '50%',
+                                    top: '50%',
+                                    width: `${shadowW}px`,
+                                    height: `${shadowH}px`,
+                                    transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
+                                }}
+                            />
+                        )}
+                        {visibleLayers['pose-char-fg'] && poseFgUrl && (
+                          <MaskedImage
+                            src={poseFgUrl}
+                            maskCanvasRef={poseMaskFgCanvasRef}
+                            width={fgW}
+                            height={fgH}
+                            className="absolute z-20 max-w-none pointer-events-none"
+                            style={{
+                              left: '50%',
+                              top: '50%',
+                              transform: `translate(calc(-50% + ${charFgPos.x}px), calc(-50% + ${charFgPos.y}px))`,
+                            }}
                           />
-                      )}
-                      {/* Char FG (masked) */}
-                      {/* We can reuse MaskedImage if we had access, or just img if mask is applied on backend/canvas save?
-                          Mask is applied in frontend canvas. The backend saves the mask image separately.
-                          To show masked image here, we need to apply mask.
-                          CSS mask-image works if we have the mask URL.
-                          The mask URL is poseMaskFgCanvasRef.current.toDataURL() or saved URL.
-                          Since we might not have saved yet, we should use the canvas ref if available?
-                          Or just use the saved URL logic from HeroEditor?
-                          HeroEditor constructs URLs for saved images.
-                          For preview, we want live updates?
-                          If live, we need to use canvas data.
-                          But canvas is in another tab (unmounted?).
-                          If unmounted, we can't access canvas.
-                          So preview only works with saved data?
-                          Or we keep canvas mounted.
-                      */}
-                      {poseFgUrl && (
-                         <div 
-                             className="absolute max-w-none"
-                             style={{
-                                 left: '50%',
-                                 top: '50%',
-                                 width: `${fgW}px`,
-                                 height: `${fgH}px`,
-                                 transform: `translate(calc(-50% + ${charFgPos.x}px), calc(-50% + ${charFgPos.y}px))`,
-                             }}
-                         >
-                             <img src={poseFgUrl} className="w-full h-full" />
-                             {/* Apply mask if available */}
-                             {/* This is tricky without saved mask URL or active canvas */}
-                         </div>
-                      )}
+                        )}
+                      </div>
                   </div>
               </div>
           </div>

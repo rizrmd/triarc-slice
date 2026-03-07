@@ -13,7 +13,7 @@ interface MaskedImageProps {
   onClick?: () => void;
 }
 
-function MaskedImage({
+export function MaskedImage({
   src,
   maskCanvasRef,
   width,
@@ -181,7 +181,7 @@ export function PoseCanvas({
           className={`relative h-full w-full overflow-hidden select-none ${
             canvasPanning
               ? 'cursor-grabbing'
-              : activeLayer === 'pose-mask-fg' && !spacePressed
+              : !spacePressed || (activeLayer === 'pose-mask-fg' && !spacePressed)
               ? 'cursor-default'
               : 'cursor-grab'
           }`}
@@ -197,7 +197,7 @@ export function PoseCanvas({
           >
             <div
               id="pose-frame"
-              className="relative bg-background shadow-2xl border border-white/10"
+              className="relative overflow-hidden bg-background shadow-2xl"
               style={{ width: `${baseWidth}px`, height: `${baseHeight}px` }}
             >
               {/* Checkerboard background */}
@@ -213,82 +213,91 @@ export function PoseCanvas({
               />
               
               <div className="absolute inset-0">
-                {/* Shadow Layer */}
-                {visibleLayers['pose-shadow'] && (
-                    <img
-                        src={shadowUrl}
-                        alt="Shadow"
-                        className={`absolute max-w-none ${
-                            activeLayer === 'pose-shadow' ? 'cursor-move' : 'cursor-default'
-                        } ${activeLayer === 'pose-mask-fg' || spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
-                        onPointerDown={(event) => onLayerPointerDown('pose-shadow', event)}
-                        onClick={() => {
-                            if (activeLayer === 'canvas') return;
-                            setActiveLayer('pose-shadow');
-                        }}
-                        style={{
-                            left: '50%',
-                            top: '50%',
-                            width: `${shadowWidth}px`,
-                            height: `${shadowHeight}px`,
-                            transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
-                        }}
+                {visibleLayers['pose-frame'] && (
+                  <div
+                    className={`absolute inset-0 z-50 pointer-events-none ${
+                      activeLayer === 'pose-frame' ? 'border border-blue-300/90' : 'border border-white/20'
+                    }`}
+                  />
+                )}
+                <div className="absolute inset-0 overflow-hidden">
+                  {/* Shadow Layer */}
+                  {visibleLayers['pose-shadow'] && (
+                      <img
+                          src={shadowUrl}
+                          alt="Shadow"
+                          className={`absolute max-w-none ${
+                              activeLayer === 'pose-shadow' ? 'cursor-move' : 'cursor-default'
+                          } ${activeLayer === 'pose-mask-fg' || spacePressed || canvasPanning ? 'pointer-events-none' : ''}`}
+                          onPointerDown={(event) => onLayerPointerDown('pose-shadow', event)}
+                          onClick={() => {
+                              if (activeLayer === 'canvas') return;
+                              setActiveLayer('pose-shadow');
+                          }}
+                          style={{
+                              left: '50%',
+                              top: '50%',
+                              width: `${shadowWidth}px`,
+                              height: `${shadowHeight}px`,
+                              transform: `translate(calc(-50% + ${shadowPos.x}px), calc(-50% + ${shadowPos.y}px))`,
+                          }}
+                      />
+                  )}
+
+                  {/* Char FG Layer */}
+                  {visibleLayers['pose-char-fg'] && (
+                    <MaskedImage
+                      src={fgUrl}
+                      maskCanvasRef={maskFgCanvasRef}
+                      width={fgWidth}
+                      height={fgHeight}
+                      className={`absolute z-20 max-w-none ${
+                        activeLayer === 'pose-char-fg' ? 'cursor-move' : 'cursor-default'
+                      } ${
+                        activeLayer === 'pose-mask-fg'
+                          ? 'pointer-events-none opacity-50'
+                          : spacePressed || canvasPanning
+                          ? 'pointer-events-none'
+                          : ''
+                      }`}
+                      onPointerDown={(event) => onLayerPointerDown('pose-char-fg', event)}
+                      onClick={() => {
+                        if (activeLayer === 'canvas') return;
+                        setActiveLayer('pose-char-fg');
+                      }}
+                      style={{
+                        left: '50%',
+                        top: '50%',
+                        transform: `translate(calc(-50% + ${charFgPos.x}px), calc(-50% + ${charFgPos.y}px))`,
+                      }}
                     />
-                )}
+                  )}
 
-                {/* Char FG Layer */}
-                {visibleLayers['pose-char-fg'] && (
-                  <MaskedImage
-                    src={fgUrl}
-                    maskCanvasRef={maskFgCanvasRef}
-                    width={fgWidth}
-                    height={fgHeight}
-                    className={`absolute z-20 max-w-none ${
-                      activeLayer === 'pose-char-fg' ? 'cursor-move' : 'cursor-default'
-                    } ${
-                      activeLayer === 'pose-mask-fg'
-                        ? 'pointer-events-none opacity-50'
-                        : spacePressed || canvasPanning
-                        ? 'pointer-events-none'
-                        : ''
-                    }`}
-                    onPointerDown={(event) => onLayerPointerDown('pose-char-fg', event)}
-                    onClick={() => {
-                      if (activeLayer === 'canvas') return;
-                      setActiveLayer('pose-char-fg');
-                    }}
-                    style={{
-                      left: '50%',
-                      top: '50%',
-                      transform: `translate(calc(-50% + ${charFgPos.x}px), calc(-50% + ${charFgPos.y}px))`,
-                    }}
-                  />
-                )}
-
-                {/* Mask Layer */}
-                {visibleLayers['pose-mask-fg'] && (
-                  <canvas
-                    ref={maskFgCanvasRef}
-                    className={`absolute max-w-none opacity-0 ${
-                      activeLayer === 'pose-mask-fg' && !spacePressed
-                        ? 'z-[21] cursor-crosshair'
-                        : 'z-[21] pointer-events-none'
-                    }`}
-                    onPointerDown={(event) => onMaskPointerDown('pose-mask-fg', event)}
-                    onClick={() => {
-                      if (activeLayer === 'canvas') return;
-                      setActiveLayer('pose-mask-fg');
-                    }}
-                    style={{
-                      left: '50%',
-                      top: '50%',
-                      width: `${fgWidth}px`,
-                      height: `${fgHeight}px`,
-                      transform: `translate(calc(-50% + ${charFgPos.x}px), calc(-50% + ${charFgPos.y}px))`,
-                      touchAction: 'none',
-                    }}
-                  />
-                )}
+                  {/* Mask Layer */}
+                  {visibleLayers['pose-mask-fg'] && (
+                    <canvas
+                      ref={maskFgCanvasRef}
+                      className={`absolute max-w-none opacity-0 ${
+                        activeLayer === 'pose-mask-fg' && !spacePressed
+                          ? 'z-[21] cursor-crosshair'
+                          : 'z-[21] pointer-events-none'
+                      }`}
+                      onPointerDown={(event) => onMaskPointerDown('pose-mask-fg', event)}
+                      onClick={() => {
+                        if (activeLayer === 'canvas') return;
+                        setActiveLayer('pose-mask-fg');
+                      }}
+                      style={{
+                        left: '50%',
+                        top: '50%',
+                        width: `${fgWidth}px`,
+                        height: `${fgHeight}px`,
+                        transform: `translate(calc(-50% + ${charFgPos.x}px), calc(-50% + ${charFgPos.y}px))`,
+                        touchAction: 'none',
+                      }}
+                    />
+                  )}
+                </div>
 
                 {/* Controls for Shadow */}
                 {visibleLayers['pose-shadow'] && activeLayer === 'pose-shadow' && (
