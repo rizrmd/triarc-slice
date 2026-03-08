@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 84,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "They are the wind itself\u2014intangible and free. To be bound by the earth is to lose their essence, making them weak against solid, grounding attacks.",
+  "stats": {
+    "max_hp": 2700,
+    "attack": 140,
+    "defense": 120,
+    "element_affinity": {
+      "earth": -25,
+      "fire": 0,
+      "ice": 0,
+      "light": 0,
+      "shadow": 0,
+      "wind": 35
+    }
+  },
   "audio": null,
   "pose": null
 }

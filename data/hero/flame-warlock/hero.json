@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 22,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "A living inferno. They incinerate all before them, but their inner fire is easily extinguished by the numbing cold of ice.",
+  "stats": {
+    "max_hp": 2400,
+    "attack": 175,
+    "defense": 90,
+    "element_affinity": {
+      "earth": 0,
+      "fire": 35,
+      "ice": -35,
+      "light": 0,
+      "shadow": 0,
+      "wind": 0
+    }
+  },
   "audio": null,
   "pose": null
 }

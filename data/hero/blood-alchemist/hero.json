@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 0,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "They thrive in the dark arts of vitality, but the purifying light of the sun burns their corrupted blood.",
+  "stats": {
+    "max_hp": 2900,
+    "attack": 145,
+    "defense": 110,
+    "element_affinity": {
+      "earth": 0,
+      "fire": 0,
+      "ice": 0,
+      "light": -25,
+      "shadow": 25,
+      "wind": 0
+    }
+  },
   "audio": null,
   "pose": null
 }

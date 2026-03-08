@@ -26,8 +26,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 212,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "She is the eternal winter. While her cold snaps steel, a simple flame can melt her icy defenses and leave her defenseless.",
+  "stats": {
+    "max_hp": 2800,
+    "attack": 155,
+    "defense": 125,
+    "element_affinity": {
+      "earth": 0,
+      "fire": -35,
+      "ice": 35,
+      "light": 0,
+      "shadow": 0,
+      "wind": 0
+    }
+  },
   "audio": null,
   "pose": null
 }

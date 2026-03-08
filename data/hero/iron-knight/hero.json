@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 33,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "Anchored by heavy steel, they stand firm against any impact. However, they are easily outmaneuvered by air-based attacks that bypass their armor.",
+  "stats": {
+    "max_hp": 3500,
+    "attack": 130,
+    "defense": 180,
+    "element_affinity": {
+      "earth": 25,
+      "fire": 0,
+      "ice": 0,
+      "light": 0,
+      "shadow": 0,
+      "wind": -20
+    }
+  },
   "audio": null,
   "pose": null
 }

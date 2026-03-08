@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 214,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "One with the storm, they move faster than sight but are grounded and crushed by the weight of earth magic.",
+  "stats": {
+    "max_hp": 2700,
+    "attack": 155,
+    "defense": 115,
+    "element_affinity": {
+      "earth": -25,
+      "fire": 0,
+      "ice": 0,
+      "light": 0,
+      "shadow": 0,
+      "wind": 30
+    }
+  },
   "audio": null,
   "pose": {
     "char_fg_pos": {

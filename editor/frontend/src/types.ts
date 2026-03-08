@@ -19,7 +19,6 @@ export interface HeroConfig {
   text_shadow_color: string;
   tint: string;
   lore?: string;
-  stats?: Record<string, string | number>;
   audio?: Record<string, string>;
   hp_bar_pos: {
     x: number;
@@ -31,6 +30,21 @@ export interface HeroConfig {
   hp_bar_hue: number;
   hp_bar_font_size?: number;
   pose?: PoseConfig;
+  stats?: HeroStats;
+}
+
+export interface HeroStats {
+  max_hp: number;
+  attack: number;
+  defense: number;
+  element_affinity: {
+    fire: number;
+    ice: number;
+    earth: number;
+    wind: number;
+    light: number;
+    shadow: number;
+  };
 }
 
 export interface PoseConfig {

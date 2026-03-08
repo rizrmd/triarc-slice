@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 62,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "Explosive power and quick reflexes are their trade. They ride the shockwaves of their own shots but struggle against the unyielding stability of earth.",
+  "stats": {
+    "max_hp": 2500,
+    "attack": 165,
+    "defense": 105,
+    "element_affinity": {
+      "earth": -15,
+      "fire": 20,
+      "ice": 0,
+      "light": 0,
+      "shadow": 0,
+      "wind": 15
+    }
+  },
   "audio": null,
   "pose": null
 }

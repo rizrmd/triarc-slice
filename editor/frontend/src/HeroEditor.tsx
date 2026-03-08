@@ -15,6 +15,7 @@ import { AssetPicker } from '@/components/card-editor/AssetPicker';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HeroInfoTab } from '@/components/card-editor/HeroInfoTab';
+import { HeroStatsTab } from '@/components/card-editor/HeroStatsTab';
 import { HeroAudioTab } from '@/components/card-editor/HeroAudioTab';
 import { HeroPoseTab } from '@/components/card-editor/HeroPoseTab';
 
@@ -212,8 +213,8 @@ export default function HeroEditor() {
           text_shadow_color: data.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
           hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
           hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 250,
-          hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : 100,
-          hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : 100,
+          hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : (data.stats?.max_hp > 0 ? data.stats.max_hp : 100),
+          hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : (data.stats?.max_hp > 0 ? data.stats.max_hp : 100),
           hp_bar_hue: typeof data.hp_bar_hue === 'number' ? data.hp_bar_hue : 0,
           hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 31,
         };
@@ -1524,6 +1525,7 @@ export default function HeroEditor() {
           <TabsList>
             <TabsTrigger value="card">Card</TabsTrigger>
             <TabsTrigger value="pose">Pose</TabsTrigger>
+            <TabsTrigger value="stats">Stats</TabsTrigger>
             <TabsTrigger value="info">Info</TabsTrigger>
             <TabsTrigger value="audio">Audio</TabsTrigger>
           </TabsList>
@@ -1649,6 +1651,10 @@ export default function HeroEditor() {
                 poseShadowUrl={poseShadowUrl}
                 onMaskChange={() => setMaskVersion((v) => v + 1)}
             />
+          </TabsContent>
+
+          <TabsContent value="stats">
+            <HeroStatsTab config={config} onChange={commitConfig} />
           </TabsContent>
 
           <TabsContent value="info">

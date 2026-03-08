@@ -188,8 +188,13 @@ func load_hero(slug: String):
 		
 		# Update HP Bar properties
 		var bar_scale = data.get("hp_bar_scale", 250) / 100.0
-		var current_hp = data.get("hp_bar_current", 100)
-		var max_hp = data.get("hp_bar_max", 100)
+		
+		var stats = data.get("stats", {})
+		var stats_max_hp = stats.get("max_hp", 0)
+		var default_hp = stats_max_hp if stats_max_hp > 0 else 100
+		
+		var current_hp = data.get("hp_bar_current", default_hp)
+		var max_hp = data.get("hp_bar_max", default_hp)
 		var hue_rot = data.get("hp_bar_hue", 0)
 		var font_size_base = data.get("hp_bar_font_size", 31)
 		

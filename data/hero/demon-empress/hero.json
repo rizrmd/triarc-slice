@@ -18,8 +18,20 @@
   "name_scale": 52,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#e34602",
-  "lore": "",
-  "stats": null,
+  "lore": "Born of the abyss and hellfire, she commands absolute dominance over darkness but withers under the judgment of holy light.",
+  "stats": {
+    "max_hp": 3100,
+    "attack": 160,
+    "defense": 125,
+    "element_affinity": {
+      "earth": 0,
+      "fire": 15,
+      "ice": 0,
+      "light": -30,
+      "shadow": 30,
+      "wind": 0
+    }
+  },
   "audio": null,
   "pose": null
 }

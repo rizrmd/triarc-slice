@@ -27,8 +27,20 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 85,
   "hp_bar_font_size": 31,
-  "lore": "",
-  "stats": null,
+  "lore": "An avatar of the mountain. Unshakeable and eternal, yet they cannot grasp the elusive nature of the wind, which erodes them over time.",
+  "stats": {
+    "max_hp": 3600,
+    "attack": 120,
+    "defense": 170,
+    "element_affinity": {
+      "earth": 40,
+      "fire": 0,
+      "ice": 0,
+      "light": 0,
+      "shadow": 0,
+      "wind": -30
+    }
+  },
   "audio": null,
   "pose": null
 }
