@@ -23,13 +23,12 @@
     "y": 152
   },
   "hp_bar_scale": 250,
-  "hp_bar_current": 100,
-  "hp_bar_max": 100,
+  "hp_bar_current": 2600,
+  "hp_bar_max": 2600,
   "hp_bar_hue": 218,
   "hp_bar_font_size": 31,
   "lore": "They strike from the heavens, riding the gale and channeling lightning. Grounded combat against earth-aligned foes clips their wings and leaves them vulnerable.",
   "stats": {
-    "max_hp": 2600,
     "attack": 160,
     "defense": 110,
     "element_affinity": {
@@ -39,7 +38,8 @@
       "light": 15,
       "shadow": 0,
       "wind": 25
-    }
+    },
+    "max_hp": 2600
   },
   "audio": null,
   "pose": null

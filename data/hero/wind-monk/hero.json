@@ -23,13 +23,12 @@
     "y": 152
   },
   "hp_bar_scale": 250,
-  "hp_bar_current": 100,
-  "hp_bar_max": 100,
+  "hp_bar_current": 2700,
+  "hp_bar_max": 2700,
   "hp_bar_hue": 84,
   "hp_bar_font_size": 31,
-  "lore": "They are the wind itself\u2014intangible and free, flowing like water. To be bound by the earth is to lose their essence, making them weak against solid, grounding attacks.",
+  "lore": "They are the wind itself—intangible and free, flowing like water. To be bound by the earth is to lose their essence, making them weak against solid, grounding attacks.",
   "stats": {
-    "max_hp": 2700,
     "attack": 140,
     "defense": 120,
     "element_affinity": {
@@ -39,7 +38,8 @@
       "light": 10,
       "shadow": -5,
       "wind": 35
-    }
+    },
+    "max_hp": 2700
   },
   "audio": null,
   "pose": null

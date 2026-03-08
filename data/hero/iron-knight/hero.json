@@ -23,13 +23,12 @@
     "y": 152
   },
   "hp_bar_scale": 250,
-  "hp_bar_current": 100,
-  "hp_bar_max": 100,
+  "hp_bar_current": 3500,
+  "hp_bar_max": 3500,
   "hp_bar_hue": 33,
   "hp_bar_font_size": 31,
   "lore": "Anchored by heavy steel, they stand firm against any impact. Their armor gleams with righteous light, but they are vulnerable to the heat that cooks them inside their shell and the lightning that bypasses their defense.",
   "stats": {
-    "max_hp": 3500,
     "attack": 130,
     "defense": 180,
     "element_affinity": {
@@ -39,8 +38,20 @@
       "light": 10,
       "shadow": 0,
       "wind": -20
-    }
+    },
+    "max_hp": 3500
   },
   "audio": null,
-  "pose": null
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "shadow_scale": 100
+  }
 }

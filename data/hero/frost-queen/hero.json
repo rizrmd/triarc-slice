@@ -22,13 +22,12 @@
     "y": 153
   },
   "hp_bar_scale": 250,
-  "hp_bar_current": 100,
-  "hp_bar_max": 100,
-  "hp_bar_hue": 212,
+  "hp_bar_current": 2800,
+  "hp_bar_max": 2800,
+  "hp_bar_hue": 199,
   "hp_bar_font_size": 31,
   "lore": "She is the eternal winter, commanding frozen tides and biting gales. While her cold snaps steel, a simple flame can melt her icy defenses and leave her defenseless.",
   "stats": {
-    "max_hp": 2800,
     "attack": 155,
     "defense": 125,
     "element_affinity": {
@@ -38,7 +37,8 @@
       "light": 0,
       "shadow": 0,
       "wind": 15
-    }
+    },
+    "max_hp": 2800
   },
   "audio": null,
   "pose": null

@@ -23,9 +23,9 @@
     "y": 151
   },
   "hp_bar_scale": 250,
-  "hp_bar_current": 100,
-  "hp_bar_max": 100,
-  "hp_bar_hue": 38,
+  "hp_bar_current": 3200,
+  "hp_bar_max": 3200,
+  "hp_bar_hue": 204,
   "hp_bar_font_size": 31,
   "lore": "Their soul is a conduit for blinding light and deep shadow, stabilized by an unshakeable will. However, this volatile mixture makes them unstable when exposed to raw fire.",
   "stats": {

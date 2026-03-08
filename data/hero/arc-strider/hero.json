@@ -23,13 +23,12 @@
     "y": 152
   },
   "hp_bar_scale": 250,
-  "hp_bar_current": 100,
-  "hp_bar_max": 100,
+  "hp_bar_current": 2700,
+  "hp_bar_max": 2700,
   "hp_bar_hue": 214,
   "hp_bar_font_size": 31,
   "lore": "One with the storm, they move faster than sight. While the wind fuels their speed and lightning charges their strikes, they are easily grounded by earth magic and short-circuited by water.",
   "stats": {
-    "max_hp": 2700,
     "attack": 155,
     "defense": 115,
     "element_affinity": {
@@ -39,7 +38,8 @@
       "light": 5,
       "shadow": 0,
       "wind": 25
-    }
+    },
+    "max_hp": 2700
   },
   "audio": null,
   "pose": {
