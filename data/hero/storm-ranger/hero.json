@@ -27,18 +27,18 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 218,
   "hp_bar_font_size": 31,
-  "lore": "They strike from the heavens, riding the gale. Grounded combat against earth-aligned foes clips their wings and leaves them vulnerable.",
+  "lore": "They strike from the heavens, riding the gale and channeling lightning. Grounded combat against earth-aligned foes clips their wings and leaves them vulnerable.",
   "stats": {
     "max_hp": 2600,
     "attack": 160,
     "defense": 110,
     "element_affinity": {
-      "earth": -20,
-      "fire": 0,
-      "ice": 0,
-      "light": 0,
+      "earth": -25,
+      "fire": -5,
+      "ice": 5,
+      "light": 15,
       "shadow": 0,
-      "wind": 30
+      "wind": 25
     }
   },
   "audio": null,

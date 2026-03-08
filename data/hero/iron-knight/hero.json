@@ -27,16 +27,16 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 33,
   "hp_bar_font_size": 31,
-  "lore": "Anchored by heavy steel, they stand firm against any impact. However, they are easily outmaneuvered by air-based attacks that bypass their armor.",
+  "lore": "Anchored by heavy steel, they stand firm against any impact. Their armor gleams with righteous light, but they are vulnerable to the heat that cooks them inside their shell and the lightning that bypasses their defense.",
   "stats": {
     "max_hp": 3500,
     "attack": 130,
     "defense": 180,
     "element_affinity": {
-      "earth": 25,
-      "fire": 0,
-      "ice": 0,
-      "light": 0,
+      "earth": 30,
+      "fire": -15,
+      "ice": 10,
+      "light": 10,
       "shadow": 0,
       "wind": -20
     }

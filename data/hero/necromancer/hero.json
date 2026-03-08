@@ -27,17 +27,17 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 74,
   "hp_bar_font_size": 31,
-  "lore": "They weave death itself into a cloak. While masters of the grave, they are terrified of the life-giving light that turns their minions to dust.",
+  "lore": "They weave death itself into a cloak, chilling the air around them. While masters of the grave's cold shadow, they are terrified of the life-giving light and the purging fire that turns their minions to dust.",
   "stats": {
     "max_hp": 2300,
     "attack": 160,
     "defense": 100,
     "element_affinity": {
-      "earth": 0,
-      "fire": 0,
-      "ice": 0,
+      "earth": 10,
+      "fire": -20,
+      "ice": 15,
       "light": -30,
-      "shadow": 30,
+      "shadow": 35,
       "wind": 0
     }
   },

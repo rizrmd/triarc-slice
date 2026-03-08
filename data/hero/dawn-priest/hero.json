@@ -27,16 +27,16 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 35,
   "hp_bar_font_size": 31,
-  "lore": "A beacon of absolute purity. Darkness cannot exist in their presence, yet they are utterly helpless when their light is extinguished by shadow.",
+  "lore": "A beacon of absolute purity, drawing strength from the sun's warmth and the holy light. Darkness cannot exist in their presence, and the cold of death is anathema to their radiant soul.",
   "stats": {
     "max_hp": 2800,
     "attack": 100,
     "defense": 130,
     "element_affinity": {
       "earth": 0,
-      "fire": 0,
-      "ice": 0,
-      "light": 35,
+      "fire": 15,
+      "ice": -10,
+      "light": 40,
       "shadow": -35,
       "wind": 0
     }

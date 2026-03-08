@@ -26,16 +26,16 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 88,
   "hp_bar_font_size": 31,
-  "lore": "A creature of the dark and the deep caverns. Light reveals their position and strips away their advantage, leaving them exposed.",
+  "lore": "A creature of the dark and the deep caverns, utilizing natural toxins. Light reveals their position and strips away their advantage, while fire burns away their poisons.",
   "stats": {
     "max_hp": 2500,
     "attack": 170,
     "defense": 95,
     "element_affinity": {
-      "earth": 15,
-      "fire": 0,
+      "earth": 20,
+      "fire": -10,
       "ice": 0,
-      "light": -20,
+      "light": -25,
       "shadow": 25,
       "wind": 0
     }

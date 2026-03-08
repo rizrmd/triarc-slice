@@ -27,18 +27,18 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 255,
   "hp_bar_font_size": 31,
-  "lore": "A master of elemental convergence. She harmonizes multiple elements through the prism of light, though this delicate balance is hard to maintain.",
+  "lore": "A master of elemental convergence. She harmonizes fire, ice, and wind through the prism of light, though this delicate balance leaves her grounded and susceptible to raw corruption.",
   "stats": {
     "max_hp": 3000,
     "attack": 145,
     "defense": 135,
     "element_affinity": {
-      "earth": 0,
-      "fire": 10,
-      "ice": 10,
+      "earth": -10,
+      "fire": 5,
+      "ice": 5,
       "light": 20,
-      "shadow": 0,
-      "wind": 10
+      "shadow": -15,
+      "wind": 5
     }
   },
   "audio": null,

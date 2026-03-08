@@ -18,18 +18,18 @@
   "name_scale": 52,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#e34602",
-  "lore": "Born of the abyss and hellfire, she commands absolute dominance over darkness but withers under the judgment of holy light.",
+  "lore": "Born of the abyss and hellfire, she commands absolute dominance over darkness and flame. She is anchored by the deep earth but withers under the judgment of holy light.",
   "stats": {
     "max_hp": 3100,
     "attack": 160,
     "defense": 125,
     "element_affinity": {
-      "earth": 0,
-      "fire": 15,
+      "earth": 10,
+      "fire": 20,
       "ice": 0,
-      "light": -30,
+      "light": -35,
       "shadow": 30,
-      "wind": 0
+      "wind": -10
     }
   },
   "audio": null,

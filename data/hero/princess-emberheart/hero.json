@@ -18,18 +18,18 @@
   "name_scale": 42,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ff7a33",
-  "lore": "Her spirit burns with the intensity of a dragon's heart. Cold magic saps her will, dulling the edge of her flaming blade.",
+  "lore": "Her spirit burns with the intensity of a dragon's heart, radiating nobility. Cold magic saps her will, dulling the edge of her flaming blade.",
   "stats": {
     "max_hp": 2900,
     "attack": 150,
     "defense": 120,
     "element_affinity": {
-      "earth": 0,
-      "fire": 25,
-      "ice": -20,
-      "light": 15,
+      "earth": -5,
+      "fire": 30,
+      "ice": -25,
+      "light": 10,
       "shadow": 0,
-      "wind": 0
+      "wind": 5
     }
   },
   "audio": null,

@@ -27,18 +27,18 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 22,
   "hp_bar_font_size": 31,
-  "lore": "A living inferno. They incinerate all before them, but their inner fire is easily extinguished by the numbing cold of ice.",
+  "lore": "A living inferno fed by the winds of chaos. They incinerate all before them, but their inner fire is easily extinguished by the numbing cold of ice and the suffocating pressure of water.",
   "stats": {
     "max_hp": 2400,
     "attack": 175,
     "defense": 90,
     "element_affinity": {
-      "earth": 0,
+      "earth": -5,
       "fire": 35,
       "ice": -35,
       "light": 0,
       "shadow": 0,
-      "wind": 0
+      "wind": 15
     }
   },
   "audio": null,

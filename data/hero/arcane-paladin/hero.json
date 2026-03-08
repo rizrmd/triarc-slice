@@ -27,17 +27,17 @@
   "hp_bar_max": 100,
   "hp_bar_hue": 38,
   "hp_bar_font_size": 31,
-  "lore": "Their soul is a conduit for blinding light and deep shadow, leaving them volatile when exposed to raw fire.",
+  "lore": "Their soul is a conduit for blinding light and deep shadow, stabilized by an unshakeable will. However, this volatile mixture makes them unstable when exposed to raw fire.",
   "stats": {
     "attack": 145,
     "defense": 145,
     "element_affinity": {
-      "earth": 0,
+      "earth": 10,
       "fire": -20,
       "ice": 0,
-      "light": 25,
+      "light": 20,
       "shadow": 15,
-      "wind": 0
+      "wind": -10
     },
     "max_hp": 3200
   },

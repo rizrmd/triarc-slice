@@ -17,18 +17,18 @@
   "name_scale": 51,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ff570f",
-  "lore": "A conqueror who forged his empire in blood and shadow. He fears only the light of truth that could reveal the cracks in his iron rule.",
+  "lore": "A conqueror who forged his empire in blood, shadow, and iron. He crushes resistance with overwhelming force, fearing only the light of truth that could reveal the cracks in his rule.",
   "stats": {
     "max_hp": 3800,
     "attack": 165,
     "defense": 150,
     "element_affinity": {
-      "earth": 0,
-      "fire": 25,
+      "earth": 15,
+      "fire": 20,
       "ice": 0,
-      "light": -25,
+      "light": -35,
       "shadow": 25,
-      "wind": 0
+      "wind": -10
     }
   },
   "audio": null,
