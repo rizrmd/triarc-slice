@@ -41,7 +41,15 @@
     },
     "max_hp": 3200
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/arcane-paladin/audio/Paladin_7_-_It's_not_balance_yet.wav",
+    "CastingHighAffinity": "/data/hero/arcane-paladin/audio/Paladin_2_-_Light_and_shadow_align.wav",
+    "CastingLowAffinity": "/data/hero/arcane-paladin/audio/Paladin_1_-_My_power,_resists.wav",
+    "DamageBlocked": "/data/hero/arcane-paladin/audio/Paladin_5_-_Light_strike_fails.wav",
+    "DamageCritical": "/data/hero/arcane-paladin/audio/Paladin_4_-_Divine_Judgment.wav",
+    "DamageNormal": "/data/hero/arcane-paladin/audio/Paladin_3_-_Judgment_strikes.wav",
+    "Die": "/data/hero/arcane-paladin/audio/Paladin_6_-_The_light_fades.wav"
+  },
   "pose": {
     "char_fg_pos": {
       "x": 0,

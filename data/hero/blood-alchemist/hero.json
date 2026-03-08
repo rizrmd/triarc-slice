@@ -41,7 +41,15 @@
     },
     "max_hp": 2900
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/blood-alchemist/audio/Blood_Alchemist_7_-_The_mixture_is_unstable.wav",
+    "CastingHighAffinity": "/data/hero/blood-alchemist/audio/Blood_Alchemist_2-_A_flawless_transmutation.wav",
+    "CastingLowAffinity": "/data/hero/blood-alchemist/audio/Blood_Alchemist_1_-_Impure_reaction.wav",
+    "DamageBlocked": "/data/hero/blood-alchemist/audio/Blood_Alchemist_5_-_Resistance..._curious..wav",
+    "DamageCritical": "/data/hero/blood-alchemist/audio/Blood_Alchemist_4_-_Your_blood_betrays_you.wav",
+    "DamageNormal": "/data/hero/blood-alchemist/audio/Blood_Alchemist_3_-_Bleed_for_me.wav",
+    "Die": "/data/hero/blood-alchemist/audio/Blood_Alchemist_6_-_The_blood..._escapes_me..wav"
+  },
   "pose": {
     "char_fg_pos": {
       "x": 0,
