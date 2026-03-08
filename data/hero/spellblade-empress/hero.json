@@ -25,7 +25,7 @@
   "hp_bar_scale": 250,
   "hp_bar_current": 100,
   "hp_bar_max": 100,
-  "hp_bar_hue": 0,
+  "hp_bar_hue": 255,
   "hp_bar_font_size": 31,
   "lore": "",
   "stats": null,

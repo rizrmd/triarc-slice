@@ -18,6 +18,15 @@
   "name_scale": 57,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#db530a",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 100,
+  "hp_bar_max": 100,
+  "hp_bar_hue": 33,
+  "hp_bar_font_size": 31,
   "lore": "",
   "stats": null,
   "audio": null,
