@@ -909,6 +909,7 @@ export default function HeroEditor() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undoStack, redoStack, saving, config, slug, activeLayer, layerClipboard, initialConfig, maskVersion]);
 
   useEffect(() => {
@@ -1081,6 +1082,7 @@ export default function HeroEditor() {
     return () => {
       isCancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, cardWidth, cardHeight, serverMaskVersion, visibleLayers['mask-bg'], visibleLayers['mask-fg'], visibleLayers['pose-mask-fg']]);
 
   const isMaskBgReady = !visibleLayers['mask-bg'] || maskLoadState['mask-bg'];
@@ -1150,6 +1152,7 @@ export default function HeroEditor() {
       cleanupPoseFg();
       cleanupPoseShadow();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgUrl, fgUrl, poseFgUrl, poseShadowUrl, visibleLayers['char-bg'], visibleLayers['char-fg'], visibleLayers['pose-char-fg'], visibleLayers['pose-shadow']]);
 
   const isCharBgReady = !visibleLayers['char-bg'] || charLoadState['char-bg'];
@@ -1662,7 +1665,7 @@ export default function HeroEditor() {
           </TabsContent>
 
           <TabsContent value="audio">
-            <HeroAudioTab config={config} onChange={commitConfig} />
+            <HeroAudioTab config={config} onChange={commitConfig} slug={slug || ''} />
           </TabsContent>
         </Tabs>
       {assetPickerTarget && (

@@ -24,7 +24,8 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded, showPoseBa
     if (baseSize.width > 0 && baseSize.height > 0 && onAspectRatioLoaded) {
       onAspectRatioLoaded(baseSize.height / baseSize.width);
     }
-  }, [baseSize.width, baseSize.height, onAspectRatioLoaded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseSize.width, baseSize.height]);
 
   // Fetch config and preload frame
   useEffect(() => {
@@ -305,6 +306,7 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded, showPoseBa
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, slug]); // Removed baseSize from dependency array to prevent infinite loop
 
   return (

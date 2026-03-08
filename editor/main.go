@@ -92,6 +92,7 @@ func main() {
 	http.HandleFunc("/api/card/", cardHandler) // Handles both GET and POST for specific card
 	http.HandleFunc("/api/card-mask/", cardMaskHandler)
 	http.HandleFunc("/api/card-char/", cardCharHandler)
+	http.HandleFunc("/api/card-audio/", heroAudioHandler)
 	http.HandleFunc("/api/card-char-select/", cardCharSelectHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
 	http.HandleFunc("/api/game-layout", gameLayoutHandler)
@@ -357,6 +358,75 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func heroAudioHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// URL path: /api/card-audio/{slug}
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/card-audio/")
+	slug := trimmed
+	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		http.Error(w, "Invalid slug", http.StatusBadRequest)
+		return
+	}
+
+	// 50MB limit
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		http.Error(w, "Invalid multipart form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "Missing file", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// Ensure filename is safe
+	filename := filepath.Base(header.Filename)
+	filename = strings.ReplaceAll(filename, " ", "_")
+	// Basic extension check
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext != ".wav" && ext != ".mp3" && ext != ".ogg" {
+		http.Error(w, "Only .wav, .mp3, .ogg allowed", http.StatusBadRequest)
+		return
+	}
+
+	heroDir := filepath.Join(resolvePath("./data"), "hero", slug)
+	audioDir := filepath.Join(heroDir, "audio")
+	if err := os.MkdirAll(audioDir, 0755); err != nil {
+		http.Error(w, "Failed to create audio directory", http.StatusInternalServerError)
+		return
+	}
+
+	targetPath := filepath.Join(audioDir, filename)
+	dst, err := os.Create(targetPath)
+	if err != nil {
+		http.Error(w, "Failed to create file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, file); err != nil {
+		http.Error(w, "Failed to save file", http.StatusInternalServerError)
+		return
+	}
+
+	// Public URL path
+	// The server maps /data/ to ./data/
+	// So data/hero/{slug}/audio/{filename} becomes /data/hero/{slug}/audio/{filename}
+	publicPath := fmt.Sprintf("/data/hero/%s/audio/%s", slug, filename)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"path": publicPath,
+	})
 }
 
 func gameLayoutHandler(w http.ResponseWriter, r *http.Request) {

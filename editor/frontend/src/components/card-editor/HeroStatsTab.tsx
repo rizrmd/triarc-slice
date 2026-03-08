@@ -406,7 +406,7 @@ export function HeroStatsTab({ config, onChange }: HeroStatsTabProps) {
                   <select 
                     className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     value={simElement}
-                    onChange={(e) => setSimElement(e.target.value as any)}
+                    onChange={(e) => setSimElement(e.target.value as keyof HeroStats['element_affinity'])}
                   >
                     {ELEMENTS.map(el => (
                       <option key={el.key} value={el.key}>{el.label}</option>
