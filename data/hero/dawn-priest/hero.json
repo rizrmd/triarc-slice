@@ -41,7 +41,15 @@
     },
     "max_hp": 2800
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/dawn-priest/audio/Dawn_Priest_7_-__The_dawn_must_wait..wav",
+    "CastingHighAffinity": "/data/hero/dawn-priest/audio/Dawn_Priest_2_-_Radiance_flows_through_me..wav",
+    "CastingLowAffinity": "/data/hero/dawn-priest/audio/Dawn_Priest_1_-_My_blessing_weakens.wav",
+    "DamageBlocked": "/data/hero/dawn-priest/audio/Dawn_Priest_5_-_Your_darkness_fails.wav",
+    "DamageCritical": "/data/hero/dawn-priest/audio/Dawn_Priest_4_-_My_strength..._shaken!.wav",
+    "DamageNormal": "/data/hero/dawn-priest/audio/Dawn_Priest_3_-_The_dawn_still_guides_me.wav",
+    "Die": "/data/hero/dawn-priest/audio/Dawn_Priest_6_-_The_light..._denied..wav"
+  },
   "pose": {
     "char_fg_pos": {
       "x": 0,
