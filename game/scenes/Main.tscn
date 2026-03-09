@@ -23,17 +23,191 @@ stretch_mode = 6
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="HBoxContainer" type="HBoxContainer" parent="UI"]
-offset_left = 20.0
-offset_top = 20.0
-offset_right = 300.0
-offset_bottom = 51.0
-theme_override_constants/separation = 10
+[node name="LobbyPanel" type="PanelContainer" parent="UI"]
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 360.0
+offset_bottom = 444.0
 
-[node name="HeroSelect" type="OptionButton" parent="UI/HBoxContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="UI/LobbyPanel"]
 layout_mode = 2
-selected = 0
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
 
-[node name="LoadButton" type="Button" parent="UI/HBoxContainer"]
+[node name="LobbyVBox" type="VBoxContainer" parent="UI/LobbyPanel/MarginContainer"]
 layout_mode = 2
-text = "Load Hero"
+theme_override_constants/separation = 8
+
+[node name="TitleLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "SpaceTimeDB Lobby"
+
+[node name="ServerUrlEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+placeholder_text = "Server URL"
+text = "http://127.0.0.1:4000"
+
+[node name="DatabaseEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+placeholder_text = "Database name"
+text = "vg-server-local"
+
+[node name="DisplayNameEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+placeholder_text = "Display name"
+
+[node name="RegisterButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Register Profile"
+
+[node name="Hero1Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+
+[node name="Hero2Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+
+[node name="Hero3Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+
+[node name="QueueButtons" type="HBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="QueueButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Queue Matchmaking"
+
+[node name="LeaveQueueButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Leave Queue"
+
+[node name="RefreshButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Refresh State"
+
+[node name="IdentityLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Identity: not connected"
+autowrap_mode = 2
+
+[node name="ProfileLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Profile: not registered"
+autowrap_mode = 2
+
+[node name="QueueLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Queue: idle"
+autowrap_mode = 2
+
+[node name="MatchLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Match: none"
+autowrap_mode = 2
+
+[node name="EnergyLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Energy: -"
+autowrap_mode = 2
+
+[node name="CasterLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Caster: none"
+autowrap_mode = 2
+
+[node name="CasterButtons" type="HBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Caster1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/CasterButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Hero 1"
+
+[node name="Caster2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/CasterButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Hero 2"
+
+[node name="Caster3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/CasterButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Hero 3"
+
+[node name="HandLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Hand: none"
+
+[node name="ActionButtons" type="VBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Action1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
+layout_mode = 2
+text = "Action 1"
+
+[node name="Action2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
+layout_mode = 2
+text = "Action 2"
+
+[node name="Action3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
+layout_mode = 2
+text = "Action 3"
+
+[node name="Action4Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
+layout_mode = 2
+text = "Action 4"
+
+[node name="Action5Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
+layout_mode = 2
+text = "Action 5"
+
+[node name="RerollButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Reroll Hand (2)"
+
+[node name="TargetLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Target: select a card first"
+autowrap_mode = 2
+
+[node name="TargetButtons" type="GridContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+columns = 3
+
+[node name="Ally1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
+layout_mode = 2
+text = "Ally 1"
+
+[node name="Ally2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
+layout_mode = 2
+text = "Ally 2"
+
+[node name="Ally3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
+layout_mode = 2
+text = "Ally 3"
+
+[node name="Enemy1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
+layout_mode = 2
+text = "Enemy 1"
+
+[node name="Enemy2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
+layout_mode = 2
+text = "Enemy 2"
+
+[node name="Enemy3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
+layout_mode = 2
+text = "Enemy 3"
+
+[node name="StatusLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Ready."
+autowrap_mode = 2
+
+[node name="PollTimer" type="Timer" parent="UI"]
+wait_time = 2.0
+autostart = false
