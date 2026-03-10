@@ -27,7 +27,7 @@ stretch_mode = 6
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 360.0
-offset_bottom = 444.0
+offset_bottom = 500.0
 
 [node name="MarginContainer" type="MarginContainer" parent="UI/LobbyPanel"]
 layout_mode = 2
@@ -42,17 +42,16 @@ theme_override_constants/separation = 8
 
 [node name="TitleLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "SpaceTimeDB Lobby"
+text = "Vanguard's Gambit"
 
 [node name="ServerUrlEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-placeholder_text = "Server URL"
-text = "http://127.0.0.1:4000"
+placeholder_text = "Server URL (ws://127.0.0.1:8080)"
+text = "ws://127.0.0.1:8080"
 
-[node name="DatabaseEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+[node name="ConnectButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-placeholder_text = "Database name"
-text = "vg-server-local"
+text = "Connect"
 
 [node name="DisplayNameEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
@@ -85,18 +84,9 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Leave Queue"
 
-[node name="RefreshButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+[node name="PlayerIdLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Refresh State"
-
-[node name="IdentityLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Identity: not connected"
-autowrap_mode = 2
-
-[node name="ProfileLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Profile: not registered"
+text = "Player: -"
 autowrap_mode = 2
 
 [node name="QueueLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
@@ -207,7 +197,3 @@ text = "Enemy 3"
 layout_mode = 2
 text = "Ready."
 autowrap_mode = 2
-
-[node name="PollTimer" type="Timer" parent="UI"]
-wait_time = 2.0
-autostart = false
