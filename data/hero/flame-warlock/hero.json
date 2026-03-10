@@ -41,6 +41,14 @@
     },
     "max_hp": 2400
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/flame-warlock/audio/Flame_Warlock_7_-_The_flames_are_not_ready..wav",
+    "CastingHighAffinity": "/data/hero/flame-warlock/audio/Flame_Warlock_2_-_Let_the_world_burn!.wav",
+    "CastingLowAffinity": "/data/hero/flame-warlock/audio/Flame_Warlock_1_-_Sparks_rise!.wav",
+    "DamageBlocked": "/data/hero/flame-warlock/audio/Flame_Warlock_5_-_Your_spark_dies_here..wav",
+    "DamageCritical": "/data/hero/flame-warlock/audio/Flame_Warlock_4_-_Ghh—_my_flames!.wav",
+    "DamageNormal": "/data/hero/flame-warlock/audio/Flame_Warlock_3_-_Insolent!.wav",
+    "Die": "/data/hero/flame-warlock/audio/Flame_Warlock_6_-_Ash…_to_ash….wav"
+  },
   "pose": null
 }

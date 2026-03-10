@@ -41,6 +41,14 @@
     },
     "max_hp": 3600
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/earth-warden/audio/Earth_Warden_7_-_The_earth_forbids_it..wav",
+    "CastingHighAffinity": "/data/hero/earth-warden/audio/Earth_Warden_2_-_The_mountain_awakens!.wav",
+    "CastingLowAffinity": "/data/hero/earth-warden/audio/Earth_Warden_1_-_The_earth_answers.wav",
+    "DamageBlocked": "/data/hero/earth-warden/audio/Earth_Warden_5_-_Like_wind_against_a_cliff..wav",
+    "DamageCritical": "/data/hero/earth-warden/audio/Earth_Warden_4_-_The_mountain…_cracks….wav",
+    "DamageNormal": "/data/hero/earth-warden/audio/Earth_Warden_3_-_I_endure..wav",
+    "Die": "/data/hero/earth-warden/audio/Earth_Warden_6_-_The_earth…_reclaims_me….wav"
+  },
   "pose": null
 }

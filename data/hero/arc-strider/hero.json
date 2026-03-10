@@ -42,13 +42,13 @@
     "max_hp": 2700
   },
   "audio": {
-    "ActionReject": "/data/hero/arc-strider/audio/Arc_Strider_7_-_The_storm_waits.wav",
-    "CastingHighAffinity": "/data/hero/arc-strider/audio/Arc_Strider_2_-_The_storm_answers.wav",
-    "CastingLowAffinity": "/data/hero/arc-strider/audio/Arc_Strider_1_-_Weak_Current.wav",
-    "DamageBlocked": "/data/hero/arc-strider/audio/Arc_Strider_5_-The_storm_breaks.wav",
-    "DamageCritical": "/data/hero/arc-strider/audio/Arc_Strider_4_-_Thunder_breaks_you.wav",
-    "DamageNormal": "/data/hero/arc-strider/audio/Arc_Strider_3_-_Feel_the_storm.wav",
-    "Die": "/data/hero/arc-strider/audio/Arc_Strider_6_-_My_lightning_gone.wav"
+    "ActionReject": "/data/hero/arc-strider/audio/Arc_Strider_7_-_Wait_for_the_strike..wav",
+    "CastingHighAffinity": "/data/hero/arc-strider/audio/Arc_Strider_2_-_The_sky,_Empowers_Me!.wav",
+    "CastingLowAffinity": "/data/hero/arc-strider/audio/Arc_Strider_1_-_The_storm_resists.wav",
+    "DamageBlocked": "/data/hero/arc-strider/audio/Arc_Strider_5_-_Storm..._hold_me....wav",
+    "DamageCritical": "/data/hero/arc-strider/audio/Arc_Strider_4_-_Ghhh!.wav",
+    "DamageNormal": "/data/hero/arc-strider/audio/Arc_Strider_3_-_That_won't_stop_me!.wav",
+    "Die": "/data/hero/arc-strider/audio/Arc_Strider_6_-_The_storm..._fades....wav"
   },
   "pose": {
     "char_fg_pos": {

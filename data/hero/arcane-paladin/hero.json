@@ -42,13 +42,13 @@
     "max_hp": 3200
   },
   "audio": {
-    "ActionReject": "/data/hero/arcane-paladin/audio/Paladin_7_-_It's_not_balance_yet.wav",
-    "CastingHighAffinity": "/data/hero/arcane-paladin/audio/Paladin_2_-_Light_and_shadow_align.wav",
-    "CastingLowAffinity": "/data/hero/arcane-paladin/audio/Paladin_1_-_My_power,_resists.wav",
-    "DamageBlocked": "/data/hero/arcane-paladin/audio/Paladin_5_-_Light_strike_fails.wav",
-    "DamageCritical": "/data/hero/arcane-paladin/audio/Paladin_4_-_Divine_Judgment.wav",
-    "DamageNormal": "/data/hero/arcane-paladin/audio/Paladin_3_-_Judgment_strikes.wav",
-    "Die": "/data/hero/arcane-paladin/audio/Paladin_6_-_The_light_fades.wav"
+    "ActionReject": "/data/hero/arcane-paladin/audio/Arcane_Paladin_7_-_Hold_your_ground..wav",
+    "CastingHighAffinity": "/data/hero/arcane-paladin/audio/Arcane_Paladin_2_-_The_arcane_awakens!.wav",
+    "CastingLowAffinity": "/data/hero/arcane-paladin/audio/Arcane_Paladin_1_-_Light_and_shadow_clash..wav",
+    "DamageBlocked": "/data/hero/arcane-paladin/audio/Arcane_Paladin_5_-_Your_strike_fails..wav",
+    "DamageCritical": "/data/hero/arcane-paladin/audio/Arcane_Paladin_4_-_You_test_my_will!.wav",
+    "DamageNormal": "/data/hero/arcane-paladin/audio/Arcane_Paladin_3_-My_will_holds..wav",
+    "Die": "/data/hero/arcane-paladin/audio/Arcane_Paladin_6_-_Forgive_me....wav"
   },
   "pose": {
     "char_fg_pos": {
