@@ -24,6 +24,8 @@ export default function HeroEditor() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'card';
+  const type = searchParams.get('type') || 'hero';
+  const isAction = type === 'action';
 
   const handleTabChange = (value: string) => {
     setSearchParams(
@@ -197,7 +199,8 @@ export default function HeroEditor() {
   // ... Fetching effects ...
   useEffect(() => {
     if (!slug) return;
-    fetch(`/api/card/${slug}`)
+    const endpoint = isAction ? `/api/action/${slug}` : `/api/card/${slug}`;
+    fetch(endpoint)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch card');
         return res.json();
@@ -354,7 +357,8 @@ export default function HeroEditor() {
     (targetConfig: HeroConfig, showAlertOnError = false) => {
       if (!slug) return Promise.resolve(false);
       setSaveError(null);
-      return fetch(`/api/card/${slug}`, {
+      const endpoint = isAction ? `/api/action/${slug}` : `/api/card/${slug}`;
+      return fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(targetConfig),
@@ -370,7 +374,7 @@ export default function HeroEditor() {
           return false;
         })
     },
-    [slug]
+    [slug, isAction]
   );
 
   const saveMasks = useCallback(
@@ -396,7 +400,8 @@ export default function HeroEditor() {
             }
             const formData = new FormData();
             formData.append('file', blob, 'pose-shadow.png');
-            fetch(`/api/card-char/${slug}/pose-shadow`, {
+            const endpoint = isAction ? `/api/action-char/${slug}/pose-shadow` : `/api/card-char/${slug}/pose-shadow`;
+            fetch(endpoint, {
               method: 'POST',
               body: formData,
             })
@@ -405,7 +410,8 @@ export default function HeroEditor() {
           }, 'image/png');
         });
       })();
-      const saveMaskPromise = fetch(`/api/card-mask/${slug}`, {
+      const maskEndpoint = isAction ? `/api/action-mask/${slug}` : `/api/card-mask/${slug}`;
+      const saveMaskPromise = fetch(maskEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1045,7 +1051,8 @@ export default function HeroEditor() {
         }
       };
       
-      const src = `/data/hero/${slug}/img/${layer}.webp?v=${serverMaskVersion}`;
+      const basePath = isAction ? 'action' : 'hero';
+      const src = `/data/${basePath}/${slug}/img/${layer}.webp?v=${serverMaskVersion}`;
       console.log(`[CardEditor] Loading mask src: ${src}`);
       image.src = src;
     };
@@ -1088,17 +1095,20 @@ export default function HeroEditor() {
   const isMaskBgReady = !visibleLayers['mask-bg'] || maskLoadState['mask-bg'];
   const isMaskFgReady = !visibleLayers['mask-fg'] || maskLoadState['mask-fg'];
   const isPoseMaskFgReady = !visibleLayers['pose-mask-fg'] || maskLoadState['pose-mask-fg'];
+  
+  const charApiBase = isAction ? '/api/action-char' : '/api/card-char';
+  
   const bgUrl = slug && isMaskBgReady
-    ? `/api/card-char/${slug}/char-bg?v=${charImageVersion['char-bg']}`
+    ? `${charApiBase}/${slug}/char-bg?v=${charImageVersion['char-bg']}`
     : '';
   const fgUrl = slug && isMaskFgReady
-    ? `/api/card-char/${slug}/char-fg?v=${charImageVersion['char-fg']}`
+    ? `${charApiBase}/${slug}/char-fg?v=${charImageVersion['char-fg']}`
     : '';
   const poseFgUrl = slug && isPoseMaskFgReady
-    ? `/api/card-char/${slug}/pose-char-fg?v=${charImageVersion['pose-char-fg']}`
+    ? `${charApiBase}/${slug}/pose-char-fg?v=${charImageVersion['pose-char-fg']}`
     : '';
   const poseShadowUrl = slug
-    ? `/api/card-char/${slug}/pose-shadow?v=${charImageVersion['pose-shadow']}`
+    ? `${charApiBase}/${slug}/pose-shadow?v=${charImageVersion['pose-shadow']}`
     : '';
 
   useEffect(() => {
@@ -1423,7 +1433,8 @@ export default function HeroEditor() {
     setSaveError(null);
     const formData = new FormData();
     formData.append('file', file);
-    void fetch(`/api/card-char/${slug}/${layer}`, {
+    const endpoint = isAction ? `/api/action-char/${slug}/${layer}` : `/api/card-char/${slug}/${layer}`;
+    void fetch(endpoint, {
       method: 'POST',
       body: formData,
     })
@@ -1456,7 +1467,8 @@ export default function HeroEditor() {
     }
     setAssetApplying(true);
     setSaveError(null);
-    void fetch(`/api/card-char-select/${slug}/${assetPickerTarget}`, {
+    const endpoint = isAction ? `/api/action-char-select/${slug}/${assetPickerTarget}` : `/api/card-char-select/${slug}/${assetPickerTarget}`;
+    void fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ filename: item.name }),
@@ -1527,10 +1539,10 @@ export default function HeroEditor() {
 
           <TabsList>
             <TabsTrigger value="card">Card</TabsTrigger>
-            <TabsTrigger value="pose">Pose</TabsTrigger>
-            <TabsTrigger value="stats">Stats</TabsTrigger>
+            {!isAction && <TabsTrigger value="pose">Pose</TabsTrigger>}
+            {!isAction && <TabsTrigger value="stats">Stats</TabsTrigger>}
             <TabsTrigger value="info">Info</TabsTrigger>
-            <TabsTrigger value="audio">Audio</TabsTrigger>
+            {!isAction && <TabsTrigger value="audio">Audio</TabsTrigger>}
           </TabsList>
 
           <div className="flex items-center gap-2">
@@ -1616,57 +1628,63 @@ export default function HeroEditor() {
                 canvasZoom={canvasZoom}
                 setCanvasZoom={setCanvasZoom}
                 setCanvasPan={setCanvasPan}
-                showPoseLayers={false}
+                showPoseLayers={!isAction}
               />
             </main>
           </TabsContent>
 
-          <TabsContent value="pose" forceMount className="mt-0 flex-1 min-h-0 data-[state=active]:flex flex-col data-[state=inactive]:hidden">
-            <HeroPoseTab 
-                config={config} 
-                onChange={commitConfig}
-                updateLayerScale={updateLayerScale}
-                updateLayerPosition={updateLayerPosition}
-                applyLayerState={applyLayerState}
-                handleLayerUpload={handleCharUpload}
-                uploadingLayer={uploadingCharLayer as PoseLayer | null}
-                setAssetPickerTarget={setAssetPickerTarget}
-                copyAllLayerProperties={copyAllLayerProperties}
-                pasteAllLayerProperties={pasteAllLayerProperties}
-                resetAllLayerProperties={resetAllLayerProperties}
-                copySingleProperty={copySingleProperty}
-                pasteSingleProperty={pasteSingleProperty}
-                resetLayerProperty={resetLayerProperty}
-                layerClipboard={layerClipboard}
-                propertyClipboard={propertyClipboard}
-                brushSize={brushSize}
-                setBrushSize={setBrushSize}
-                brushOpacity={brushOpacity}
-                setBrushOpacity={setBrushOpacity}
-                brushHardness={brushHardness}
-                setBrushHardness={setBrushHardness}
-                brushMode={brushMode}
-                setBrushMode={setBrushMode}
-                clearMaskLayer={clearMaskLayer}
-                poseShadowCanvasRef={poseShadowCanvasRef}
-                poseMaskFgCanvasRef={poseMaskFgCanvasRef}
-                poseFgUrl={poseFgUrl}
-                poseShadowUrl={poseShadowUrl}
-                onMaskChange={() => setMaskVersion((v) => v + 1)}
-            />
-          </TabsContent>
+          {!isAction && (
+            <TabsContent value="pose" forceMount className="mt-0 flex-1 min-h-0 data-[state=active]:flex flex-col data-[state=inactive]:hidden">
+              <HeroPoseTab 
+                  config={config} 
+                  onChange={commitConfig}
+                  updateLayerScale={updateLayerScale}
+                  updateLayerPosition={updateLayerPosition}
+                  applyLayerState={applyLayerState}
+                  handleLayerUpload={handleCharUpload}
+                  uploadingLayer={uploadingCharLayer as PoseLayer | null}
+                  setAssetPickerTarget={setAssetPickerTarget}
+                  copyAllLayerProperties={copyAllLayerProperties}
+                  pasteAllLayerProperties={pasteAllLayerProperties}
+                  resetAllLayerProperties={resetAllLayerProperties}
+                  copySingleProperty={copySingleProperty}
+                  pasteSingleProperty={pasteSingleProperty}
+                  resetLayerProperty={resetLayerProperty}
+                  layerClipboard={layerClipboard}
+                  propertyClipboard={propertyClipboard}
+                  brushSize={brushSize}
+                  setBrushSize={setBrushSize}
+                  brushOpacity={brushOpacity}
+                  setBrushOpacity={setBrushOpacity}
+                  brushHardness={brushHardness}
+                  setBrushHardness={setBrushHardness}
+                  brushMode={brushMode}
+                  setBrushMode={setBrushMode}
+                  clearMaskLayer={clearMaskLayer}
+                  poseShadowCanvasRef={poseShadowCanvasRef}
+                  poseMaskFgCanvasRef={poseMaskFgCanvasRef}
+                  poseFgUrl={poseFgUrl}
+                  poseShadowUrl={poseShadowUrl}
+                  onMaskChange={() => setMaskVersion((v) => v + 1)}
+              />
+            </TabsContent>
+          )}
 
-          <TabsContent value="stats">
-            <HeroStatsTab config={config} onChange={commitConfig} />
-          </TabsContent>
+          {!isAction && (
+            <TabsContent value="stats">
+              <HeroStatsTab config={config} onChange={commitConfig} />
+            </TabsContent>
+          )}
 
           <TabsContent value="info">
             <HeroInfoTab config={config} onChange={commitConfig} />
           </TabsContent>
 
-          <TabsContent value="audio">
-            <HeroAudioTab config={config} onChange={commitConfig} slug={slug || ''} />
-          </TabsContent>
+          {!isAction && (
+            <TabsContent value="audio">
+              <HeroAudioTab config={config} onChange={commitConfig} slug={slug || ''} />
+            </TabsContent>
+          )}
         </Tabs>
       {assetPickerTarget && (
         <AssetPicker

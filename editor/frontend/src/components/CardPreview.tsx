@@ -8,12 +8,13 @@ import barFrame from '../assets/ui/bar/bar-frame.webp';
 
 interface CardPreviewProps {
   slug: string;
+  type?: 'hero' | 'action';
   transparent?: boolean;
   onAspectRatioLoaded?: (ratio: number) => void;
   showPoseBadge?: boolean;
 }
 
-export function CardPreview({ slug, transparent, onAspectRatioLoaded, showPoseBadge }: CardPreviewProps) {
+export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge }: CardPreviewProps) {
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,7 +31,8 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded, showPoseBa
   // Fetch config and preload frame
   useEffect(() => {
     let mounted = true;
-    fetch(`/api/card/${slug}`)
+    const apiEndpoint = type === 'action' ? `/api/action/${slug}` : `/api/card/${slug}`;
+    fetch(apiEndpoint)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch card');
         return res.json();
@@ -99,13 +101,13 @@ export function CardPreview({ slug, transparent, onAspectRatioLoaded, showPoseBa
     if (!ctx) return;
 
     const activeFrameSrc = config.frame_image || frameImage;
-    const bgUrl = `/api/card-char/${slug}/char-bg`;
-    const fgUrl = `/api/card-char/${slug}/char-fg`;
+    const bgUrl = type === 'action' ? `/api/action-char/${slug}/char-bg` : `/api/card-char/${slug}/char-bg`;
+    const fgUrl = type === 'action' ? `/api/action-char/${slug}/char-fg` : `/api/card-char/${slug}/char-fg`;
     
     // Add timestamp to bypass browser cache for static mask files
     const timestamp = Date.now();
-    const maskBgUrl = `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
-    const maskFgUrl = `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
+    const maskBgUrl = type === 'action' ? `/data/action/${slug}/img/mask-bg.webp?t=${timestamp}` : `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
+    const maskFgUrl = type === 'action' ? `/data/action/${slug}/img/mask-fg.webp?t=${timestamp}` : `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
 
     const loadImg = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
