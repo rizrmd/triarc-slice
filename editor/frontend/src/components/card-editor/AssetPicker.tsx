@@ -9,16 +9,17 @@ interface AssetPickerProps {
   onSelect: (item: AssetItem) => void;
   onClose: () => void;
   applying: boolean;
+  isAction?: boolean;
 }
 
-export function AssetPicker({ target, onSelect, onClose, applying }: AssetPickerProps) {
+export function AssetPicker({ target, onSelect, onClose, applying, isAction }: AssetPickerProps) {
   const [items, setItems] = useState<AssetItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!target) return;
-    const category = target === 'card' ? 'ui' : 'characters';
+    const category = target === 'card' ? 'ui' : (isAction ? 'actions' : 'characters');
     requestAnimationFrame(() => {
         setLoading(true);
         setError(null);
@@ -39,7 +40,7 @@ export function AssetPicker({ target, onSelect, onClose, applying }: AssetPicker
       .finally(() => {
         setLoading(false);
       });
-  }, [target]);
+  }, [target, isAction]);
 
   if (!target) return null;
 
@@ -48,7 +49,9 @@ export function AssetPicker({ target, onSelect, onClose, applying }: AssetPicker
       <div className="flex h-full max-h-[80vh] w-full max-w-5xl flex-col rounded-xl border bg-card">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">
-            {target === 'card' ? 'Pilih Card Image dari assets/ui' : 'Pilih Character dari assets/characters'}
+            {target === 'card' 
+              ? 'Pilih Card Image dari assets/ui' 
+              : (isAction ? 'Pilih Action Image dari assets/actions' : 'Pilih Character dari assets/characters')}
           </h2>
           <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={applying}>
             Tutup

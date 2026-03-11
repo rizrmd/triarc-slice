@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { HeroConfig, LayerId, PoseLayer, MaskLayer, PoseVisibleLayers, GameLayout, AssetPickerTarget, CharProperty } from '@/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PoseLayerControls } from './PoseLayerControls';
@@ -92,6 +92,8 @@ export function HeroPoseTab({
   const [previewZoom, setPreviewZoom] = useState(40);
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [previewPanning, setPreviewPanning] = useState(false);
+  const canvasContainerRef = useRef<HTMLDivElement | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
   
   const [layout, setLayout] = useState<GameLayout | null>(null);
   
@@ -152,12 +154,12 @@ export function HeroPoseTab({
     };
   }, []);
 
-  const handlePreviewWheel = (event: React.WheelEvent) => {
+  const handlePreviewWheel = useCallback((event: WheelEvent) => {
+    if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!event.ctrlKey && !event.metaKey) return;
     setPreviewZoom((prev) => Math.max(10, Math.min(300, Math.round(prev - event.deltaY * 0.08))));
-  };
+  }, []);
 
   const handlePreviewPointerDown = (event: React.PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -181,12 +183,24 @@ export function HeroPoseTab({
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const handleCanvasWheel = (event: React.WheelEvent) => {
+  const handleCanvasWheel = useCallback((event: WheelEvent) => {
+    if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!event.ctrlKey && !event.metaKey) return;
     setCanvasZoom((prev) => Math.max(25, Math.min(300, Math.round(prev - event.deltaY * 0.08))));
-  };
+  }, []);
+
+  useEffect(() => {
+    const element = previewContainerRef.current;
+    if (!element) return;
+
+    const onWheel = (event: WheelEvent) => handlePreviewWheel(event);
+    element.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener('wheel', onWheel);
+    };
+  }, [handlePreviewWheel]);
 
   const handleCanvasPointerDown = (event: React.PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -335,20 +349,22 @@ export function HeroPoseTab({
       };
 
       const draw = (p1: {x: number, y: number}, p2: {x: number, y: number}) => {
+          const alpha = brushOpacity / 100;
+          const brushColor = `rgba(0, 0, 0, ${alpha})`;
           context.save();
           context.globalCompositeOperation = brushMode === 'erase'
               ? 'source-over'
               : 'destination-out';
           context.lineCap = 'round';
           context.lineJoin = 'round';
-          const alpha = brushOpacity / 100;
-          context.strokeStyle = `rgba(0, 0, 0, ${alpha})`;
+          context.strokeStyle = brushColor;
+          context.fillStyle = brushColor;
           context.lineWidth = brushSize;
           
           if (brushHardness < 100) {
               const blurAmount = (brushSize / 2) * ((100 - brushHardness) / 100);
               context.shadowBlur = blurAmount;
-              context.shadowColor = `rgba(0, 0, 0, ${alpha})`;
+              context.shadowColor = brushColor;
           } else {
               context.shadowBlur = 0;
           }
@@ -356,6 +372,9 @@ export function HeroPoseTab({
           context.moveTo(p1.x, p1.y);
           context.lineTo(p2.x, p2.y);
           context.stroke();
+          context.beginPath();
+          context.arc(p2.x, p2.y, Math.max(brushSize / 2, 0.5), 0, Math.PI * 2);
+          context.fill();
           context.restore();
       };
 
@@ -389,14 +408,68 @@ export function HeroPoseTab({
   };
 
   const enemy2Box = layout?.boxes?.['enemy2'];
-  const baseSize = enemy2Box ? { width: enemy2Box.width, height: enemy2Box.height } : { width: 320, height: 517 };
+  const baseSize = useMemo(
+    () => (enemy2Box ? { width: enemy2Box.width, height: enemy2Box.height } : { width: 320, height: 517 }),
+    [enemy2Box?.width, enemy2Box?.height],
+  );
+  const PREVIEW_VIEWPORT_SIZE = useMemo(() => ({ width: 1080, height: 1920 }), []);
+
+  const fitZoom = useCallback(
+    (
+      container: HTMLDivElement | null,
+      contentSize: { width: number; height: number },
+      setZoom: React.Dispatch<React.SetStateAction<number>>,
+      setPan: React.Dispatch<React.SetStateAction<{ x: number; y: number }>>,
+      minZoom: number,
+      maxZoom: number,
+      fillPercent: number,
+    ) => {
+      if (!container || contentSize.width <= 0 || contentSize.height <= 0) {
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+
+      const { width, height } = container.getBoundingClientRect();
+      const scaleX = width / contentSize.width;
+      const scaleY = height / contentSize.height;
+      const scale = Math.min(scaleX, scaleY) * fillPercent;
+
+      setZoom(Math.max(minZoom, Math.min(maxZoom, Math.floor(scale))));
+      setPan({ x: 0, y: 0 });
+    },
+    [],
+  );
+
+  const handleFitCanvas = useCallback(() => {
+    fitZoom(canvasContainerRef.current, baseSize, setCanvasZoom, setCanvasPan, 25, 300, 90);
+  }, [baseSize, fitZoom]);
+
+  const handleFitPreview = useCallback(() => {
+    fitZoom(previewContainerRef.current, PREVIEW_VIEWPORT_SIZE, setPreviewZoom, setPreviewPan, 10, 300, 95);
+  }, [fitZoom]);
+
+  const handleResetZoom = useCallback(() => {
+    if (activeTab === 'preview') {
+      handleFitPreview();
+      return;
+    }
+    handleFitCanvas();
+  }, [activeTab, handleFitCanvas, handleFitPreview]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      handleFitCanvas();
+    }, 100);
+
+    return () => window.clearTimeout(timer);
+  }, [handleFitCanvas]);
 
   // Preview logic
   const renderPreview = () => {
       if (!layout) return <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin" /></div>;
       
-      const VIEWPORT_W = 1080;
-      const VIEWPORT_H = 1920;
+      const VIEWPORT_W = PREVIEW_VIEWPORT_SIZE.width;
+      const VIEWPORT_H = PREVIEW_VIEWPORT_SIZE.height;
       // const bgW = bgDimensions.width || 1640;
       // const bgH = bgDimensions.height || 2460;
       // const scaleX = VIEWPORT_W / bgW;
@@ -425,8 +498,8 @@ export function HeroPoseTab({
 
       return (
           <div 
+              ref={previewContainerRef}
               className={`relative w-full h-full flex items-center justify-center overflow-hidden bg-black select-none ${previewPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
-              onWheel={handlePreviewWheel}
               onPointerDown={handlePreviewPointerDown}
           >
               <div 
@@ -553,6 +626,7 @@ export function HeroPoseTab({
                       onResizePointerDown={handleResizePointerDown}
                       brushSize={brushSize}
                       baseSize={baseSize}
+                      containerRef={canvasContainerRef}
                    />
                 </TabsContent>
                 <TabsContent value="preview" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
@@ -569,6 +643,7 @@ export function HeroPoseTab({
                 canvasZoom={activeTab === 'preview' ? previewZoom : canvasZoom}
                 setCanvasZoom={activeTab === 'preview' ? setPreviewZoom : setCanvasZoom}
                 setCanvasPan={activeTab === 'preview' ? setPreviewPan : setCanvasPan}
+                onResetZoom={handleResetZoom}
                 showCardLayers={false}
              />
           </div>

@@ -58,17 +58,28 @@ type HeroConfig struct {
 type ActionConfig struct {
 	FullName        string                 `json:"full_name"`
 	FrameImage      string                 `json:"frame_image,omitempty"`
-	CharBgPos       struct{ X, Y int }     `json:"char_bg_pos"`
-	CharFgPos       struct{ X, Y int }     `json:"char_fg_pos"`
+	CharBgPos       struct {
+		X int `json:"x"`
+		Y int `json:"y"`
+	} `json:"char_bg_pos"`
+	CharFgPos       struct {
+		X int `json:"x"`
+		Y int `json:"y"`
+	} `json:"char_fg_pos"`
 	CharBgScale     float64                `json:"char_bg_scale"`
 	CharFgScale     float64                `json:"char_fg_scale"`
-	NamePos         struct{ X, Y int }     `json:"name_pos"`
+	NamePos         struct {
+		X int `json:"x"`
+		Y int `json:"y"`
+	} `json:"name_pos"`
 	NameScale       float64                `json:"name_scale"`
 	TextShadowColor string                 `json:"text_shadow_color"`
 	Tint            string                 `json:"tint"`
 	Description     string                 `json:"description"`
 	Cost            int                    `json:"cost"`
 	Element         string                 `json:"element"`
+	TargetRule      string                 `json:"target_rule"`
+	VisibleLayers   map[string]bool        `json:"visible_layers,omitempty"`
 }
 
 func resolvePath(path string) string {
@@ -593,13 +604,16 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		var config ActionConfig
 		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+			log.Printf("[actionHandler] Failed to decode JSON: %v", err)
 			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 			return
 		}
+		log.Printf("[actionHandler] Received config for %s: full_name=%s, char_bg_scale=%.0f", slug, config.FullName, config.CharBgScale)
 
 		// Ensure directory exists
 		dir := filepath.Dir(actionPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Printf("[actionHandler] Failed to create directory: %v", err)
 			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
 			return
 		}
@@ -607,6 +621,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		// Write formatted JSON
 		file, err := os.Create(actionPath)
 		if err != nil {
+			log.Printf("[actionHandler] Failed to create file: %v", err)
 			http.Error(w, "Failed to open file for writing", http.StatusInternalServerError)
 			return
 		}
@@ -615,9 +630,12 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 		encoder := json.NewEncoder(file)
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(config); err != nil {
+			log.Printf("[actionHandler] Failed to encode JSON: %v", err)
 			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
 			return
 		}
+		
+		log.Printf("[actionHandler] Successfully saved config to %s", actionPath)
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})

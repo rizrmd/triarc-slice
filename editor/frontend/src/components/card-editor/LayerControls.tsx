@@ -16,7 +16,7 @@ interface LayerControlsProps {
   config: HeroConfig;
   commitConfig: (updater: (prev: HeroConfig) => HeroConfig) => void;
   setAssetPickerTarget: (target: AssetPickerTarget) => void;
-  
+
   // Char Layer Props
   copyAllLayerProperties: (layer: CharLayer | TextLayer | BarLayer) => void;
   pasteAllLayerProperties: (layer: CharLayer | TextLayer | BarLayer) => void;
@@ -41,10 +41,13 @@ interface LayerControlsProps {
   brushMode: 'erase' | 'restore';
   setBrushMode: (mode: 'erase' | 'restore') => void;
   clearMaskLayer: (layer: MaskLayer) => void;
-  
+  copyMaskLayer: (layer: MaskLayer) => void;
+  pasteMaskLayer: (layer: MaskLayer) => void;
+  maskClipboard: string | null;
+
   // Image URLs for preview
   charLayerUrls: Record<CharLayer, string>;
-  
+
   onRename: (newName: string) => void;
 }
 
@@ -75,6 +78,9 @@ export function LayerControls({
   brushMode,
   setBrushMode,
   clearMaskLayer,
+  copyMaskLayer,
+  pasteMaskLayer,
+  maskClipboard,
   charLayerUrls,
   onRename,
 }: LayerControlsProps) {
@@ -102,7 +108,9 @@ export function LayerControls({
     const pos = layer === 'char-bg' ? config.char_bg_pos : config.char_fg_pos;
     const scale = layer === 'char-bg' ? config.char_bg_scale : config.char_fg_scale;
     const imageUrl = charLayerUrls[layer];
-    const layerLabel = isAction && layer === 'char-bg' ? 'action bg' : layer;
+    const layerLabel = isAction 
+      ? (layer === 'char-bg' ? 'action bg' : layer === 'char-fg' ? 'action fg' : layer)
+      : layer;
 
     return (
       <section className="space-y-4">
@@ -845,7 +853,7 @@ export function LayerControls({
             </section>
           )}
 
-          {(activeLayer === 'char-bg' || (!isAction && activeLayer === 'char-fg')) && (
+          {(activeLayer === 'char-bg' || activeLayer === 'char-fg') && (
             renderCharControls(activeLayer)
           )}
 
@@ -853,7 +861,7 @@ export function LayerControls({
 
           {!isAction && activeLayer === 'hp-bar' && renderHpBarControls()}
 
-          {!isAction && (activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && (
+          {(activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && (
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Mask Layer</Label>
@@ -862,6 +870,40 @@ export function LayerControls({
               <p className="text-xs text-muted-foreground">
                 Draw langsung pada mask. Posisi dan scale mengikuti {activeLayer === 'mask-bg' ? 'char-bg' : 'char-fg'}.
               </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => copyMaskLayer(activeLayer)}
+                  aria-label={`Copy ${activeLayer}`}
+                  title="Copy Mask"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  onClick={() => pasteMaskLayer(activeLayer)}
+                  disabled={!maskClipboard}
+                  aria-label={`Paste ${activeLayer}`}
+                  title="Paste Mask"
+                >
+                  <ClipboardPaste className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => clearMaskLayer(activeLayer)}
+                  aria-label={`Clear ${activeLayer}`}
+                  title="Clear Mask"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              </div>
               
               <div className="flex w-full items-center gap-1 rounded-lg border p-1 bg-muted/50">
                 <Button
@@ -927,10 +969,6 @@ export function LayerControls({
                   />
                 </div>
               </div>
-              <Button type="button" variant="outline" onClick={() => clearMaskLayer(activeLayer)}>
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Clear Mask
-              </Button>
             </section>
           )}
         </CardContent>

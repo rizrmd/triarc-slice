@@ -31,6 +31,7 @@ export interface HeroConfig {
   hp_bar_font_size?: number;
   pose?: PoseConfig;
   stats?: HeroStats;
+  visible_layers?: Partial<VisibleLayers>;
 }
 
 export interface ActionConfig {
@@ -56,7 +57,13 @@ export interface ActionConfig {
   description?: string;
   cost?: number;
   element?: string;
+  target_rule?: TargetRule;
+  visible_layers?: Partial<VisibleLayers>;
 }
+
+export type TargetRule = 'enemy_single' | 'ally_single' | 'self';
+
+export type CardConfig = HeroConfig | ActionConfig;
 
 export interface HeroStats {
   max_hp: number;

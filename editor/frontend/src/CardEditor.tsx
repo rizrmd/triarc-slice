@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import type { HeroConfig, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers, PoseLayer } from '@/types';
+import type { ActionConfig, CardConfig, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers, PoseLayer, HeroConfig } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,10 +15,12 @@ import { AssetPicker } from '@/components/card-editor/AssetPicker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HeroInfoTab } from '@/components/card-editor/HeroInfoTab';
 import { HeroStatsTab } from '@/components/card-editor/HeroStatsTab';
+import { ActionStatsTab } from '@/components/card-editor/ActionStatsTab';
 import { HeroAudioTab } from '@/components/card-editor/HeroAudioTab';
 import { HeroPoseTab } from '@/components/card-editor/HeroPoseTab';
 
 const frameImage = '/assets/ui/hero-frame.webp';
+const actionFrameImage = '/assets/ui/action-frame.webp';
 
 interface CardEditorProps {
   mode: 'hero' | 'action';
@@ -42,15 +44,15 @@ export default function CardEditor({ mode }: CardEditorProps) {
     );
   };
 
-  const [config, setConfig] = useState<HeroConfig | null>(null);
-  const [initialConfig, setInitialConfig] = useState<HeroConfig | null>(null);
-  const [undoStack, setUndoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } }[]>([]);
-  const [redoStack, setRedoStack] = useState<{ config: HeroConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } }[]>([]);
+  const [config, setConfig] = useState<CardConfig | null>(null);
+  const [initialConfig, setInitialConfig] = useState<CardConfig | null>(null);
+  const [undoStack, setUndoStack] = useState<{ config: CardConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } }[]>([]);
+  const [redoStack, setRedoStack] = useState<{ config: CardConfig; masks: { 'mask-bg': string; 'mask-fg': string; 'pose-mask-fg': string; 'pose-shadow': string } }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeLayer, setActiveLayer] = useState<LayerId>(isAction ? 'char-bg' : 'char-fg');
-  const [visibleLayers, setVisibleLayers] = useState<VisibleLayers>({
+  const getDefaultVisibleLayers = (): VisibleLayers => ({
     'char-bg': true,
     'mask-bg': !isAction,
     card: true,
@@ -58,25 +60,115 @@ export default function CardEditor({ mode }: CardEditorProps) {
     'char-fg': !isAction,
     name: !isAction,
     'hp-bar': !isAction,
-    'pose-frame': true,
-    'pose-char-fg': true,
-    'pose-mask-fg': true,
-    'pose-shadow': true,
+    'pose-frame': !isAction,
+    'pose-char-fg': !isAction,
+    'pose-mask-fg': !isAction,
+    'pose-shadow': !isAction,
   });
+  
+  const [visibleLayers, setVisibleLayersState] = useState<VisibleLayers>(getDefaultVisibleLayers());
+  const zoomStorageKey = isAction ? 'action-editor-zoom' : 'card-editor-zoom';
+  
+  // Wrapper untuk setVisibleLayers
+  const setVisibleLayers = useCallback((updater: React.SetStateAction<VisibleLayers>) => {
+    setVisibleLayersState(updater);
+  }, []);
+  
+  // Sinkronisasi visibleLayers ke config untuk auto-save
+  useEffect(() => {
+    if (!config || loading) return;
+    setConfig((prev) => {
+      if (!prev) return prev;
+      // Hindari update jika sudah sama
+      if (JSON.stringify(prev.visible_layers) === JSON.stringify(visibleLayers)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        visible_layers: visibleLayers,
+      };
+    });
+  }, [visibleLayers, loading]);
   const [canvasZoom, setCanvasZoom] = useState(() => {
     if (typeof window === 'undefined') return 100;
-    const saved = localStorage.getItem('card-editor-zoom');
+    const saved = localStorage.getItem(zoomStorageKey);
     return saved ? parseInt(saved, 10) : 100;
   });
 
+  const [cardBaseSize, setCardBaseSize] = useState({ width: 0, height: 0 });
+  const cardFrameRef = useRef<HTMLDivElement | null>(null);
+  const maskBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const maskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const poseShadowCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const poseMaskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  
+  const [brushSize, setBrushSize] = useState(20);
+  const activeFrameSrc = isAction ? (config?.frame_image || actionFrameImage) : (config?.frame_image || frameImage);
+
+  const applyFitZoom = useCallback((frameSize: { width: number; height: number }) => {
+    const container = canvasContainerRef.current;
+    if (!container || frameSize.width <= 0 || frameSize.height <= 0) return false;
+
+    const { width: containerWidth, height: containerHeight } = container.getBoundingClientRect();
+    const fillPercent = isAction ? 95 : 90;
+    const scaleX = containerWidth / frameSize.width;
+    const scaleY = containerHeight / frameSize.height;
+    const scale = Math.min(scaleX, scaleY) * fillPercent;
+
+    setCanvasZoom(Math.max(25, Math.min(300, Math.floor(scale))));
+    setCanvasPan({ x: 0, y: 0 });
+    return true;
+  }, [isAction]);
+
+  // ... Zoom fit logic ...
+  const handleFitToScreen = useCallback(() => {
+    if (!canvasContainerRef.current) {
+      return;
+    }
+
+    if (applyFitZoom(cardBaseSize)) return;
+
+    if (!activeFrameSrc) {
+      setCanvasPan({ x: 0, y: 0 });
+      return;
+    }
+
+    const image = new window.Image();
+    const applyLoadedSize = () => {
+      if (image.naturalWidth <= 0 || image.naturalHeight <= 0) return;
+      const nextSize = { width: image.naturalWidth, height: image.naturalHeight };
+      setCardBaseSize(nextSize);
+      applyFitZoom(nextSize);
+    };
+
+    image.onload = applyLoadedSize;
+    image.src = activeFrameSrc;
+    if (image.complete) {
+      applyLoadedSize();
+    } else {
+      void image.decode().then(applyLoadedSize).catch(() => {});
+    }
+  }, [activeFrameSrc, applyFitZoom, cardBaseSize]);
+
+  // Initial fit when card size is loaded
   useEffect(() => {
-    localStorage.setItem('card-editor-zoom', canvasZoom.toString());
-  }, [canvasZoom]);
+    if (cardBaseSize.width > 0 && cardBaseSize.height > 0 && !loading) {
+      // Small delay to ensure layout is settled
+      setTimeout(() => {
+         handleFitToScreen();
+      }, 100);
+    }
+  }, [cardBaseSize, loading, handleFitToScreen]);
+  useEffect(() => {
+    localStorage.setItem(zoomStorageKey, canvasZoom.toString());
+  }, [canvasZoom, zoomStorageKey]);
 
   const [canvasPan, setCanvasPan] = useState({ x: 0, y: 0 });
   const [canvasPanning, setCanvasPanning] = useState(false);
   const [spacePressed, setSpacePressed] = useState(false);
   const [layerClipboard, setLayerClipboard] = useState<{ x: number; y: number; scale: number } | null>(null);
+  const [maskClipboard, setMaskClipboard] = useState<string | null>(null);
   const [propertyClipboard, setPropertyClipboard] = useState<{ property: CharProperty; value: number } | null>(null);
   const [charImageVersion, setCharImageVersion] = useState<Record<CharLayer | PoseLayer, number>>({ 'char-bg': 0, 'char-fg': 0, 'pose-char-fg': 0, 'pose-shadow': 0 });
   const [uploadingCharLayer, setUploadingCharLayer] = useState<CharLayer | PoseLayer | null>(null);
@@ -87,18 +179,10 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const [assetPickerTarget, setAssetPickerTarget] = useState<AssetPickerTarget>(null);
   // Asset items state is moved to AssetPicker, but we need apply logic here
   const [assetApplying, setAssetApplying] = useState(false);
-  
-  const [cardBaseSize, setCardBaseSize] = useState({ width: 0, height: 0 });
-  const cardFrameRef = useRef<HTMLDivElement | null>(null);
-  const maskBgCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const maskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const poseShadowCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const poseMaskFgCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  
-  const [brushSize, setBrushSize] = useState(20);
   const [brushOpacity, setBrushOpacity] = useState(90);
   const [brushHardness, setBrushHardness] = useState(100);
   const [brushMode, setBrushMode] = useState<'erase' | 'restore'>('erase');
+  const [layerAspectRatios, setLayerAspectRatios] = useState<Record<string, number>>({});
   
   const [serverMaskVersion, setServerMaskVersion] = useState(() => Date.now());
   const [maskLoadState, setMaskLoadState] = useState<Record<MaskLayer, boolean>>({
@@ -106,8 +190,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
     'mask-fg': false,
     'pose-mask-fg': false,
   });
-  const [frameLoadReady, setFrameLoadReady] = useState(false);
-  const [charLoadState, setCharLoadState] = useState<Record<CharLayer | PoseLayer, boolean>>({
+  const [, setFrameLoadReady] = useState(false);
+  const [, setCharLoadState] = useState<Record<CharLayer | PoseLayer, boolean>>({
     'char-bg': false,
     'char-fg': false,
     'pose-char-fg': false,
@@ -133,28 +217,31 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const cardHeight = cardBaseSize.height;
 
   // ... Helper functions ...
-  const cloneConfig = (source: HeroConfig): HeroConfig => ({
-    ...source,
-    char_bg_pos: { ...source.char_bg_pos },
-    char_fg_pos: { ...source.char_fg_pos },
-    name_pos: { ...source.name_pos },
-    name_scale: source.name_scale,
-    full_name: source.full_name,
-    text_shadow_color: source.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
-    hp_bar_pos: { ...source.hp_bar_pos },
-    hp_bar_scale: source.hp_bar_scale,
-    hp_bar_current: source.hp_bar_current,
-    hp_bar_max: source.hp_bar_max,
-    hp_bar_hue: source.hp_bar_hue,
-    hp_bar_font_size: source.hp_bar_font_size,
-  });
-  const isSameConfig = (left: HeroConfig, right: HeroConfig) => {
-    // Explicit checks for hp_bar properties to ensure reliable change detection
-    if (left.hp_bar_hue !== right.hp_bar_hue) return false;
-    if (left.hp_bar_font_size !== right.hp_bar_font_size) return false;
-    if (left.hp_bar_scale !== right.hp_bar_scale) return false;
-    if (left.hp_bar_pos.x !== right.hp_bar_pos.x) return false;
-    if (left.hp_bar_pos.y !== right.hp_bar_pos.y) return false;
+  const cloneConfig = (source: CardConfig): CardConfig => {
+    const s = source as any;
+    const clone: any = { ...s };
+    if (s.char_bg_pos) clone.char_bg_pos = { ...s.char_bg_pos };
+    if (s.char_fg_pos) clone.char_fg_pos = { ...s.char_fg_pos };
+    if (s.name_pos) clone.name_pos = { ...s.name_pos };
+    if (s.hp_bar_pos) clone.hp_bar_pos = { ...s.hp_bar_pos };
+    return clone;
+  };
+
+  const isSameConfig = (left: CardConfig, right: CardConfig) => {
+    const l = left as any;
+    const r = right as any;
+    
+    if (l.hp_bar_hue !== r.hp_bar_hue) return false;
+    if (l.hp_bar_font_size !== r.hp_bar_font_size) return false;
+    if (l.hp_bar_scale !== r.hp_bar_scale) return false;
+    if (l?.hp_bar_pos?.x !== r?.hp_bar_pos?.x) return false;
+    if (l?.hp_bar_pos?.y !== r?.hp_bar_pos?.y) return false;
+    
+    // Action fields
+    if (l.cost !== r.cost) return false;
+    if (l.element !== r.element) return false;
+    if (l.target_rule !== r.target_rule) return false;
+    if (l.description !== r.description) return false;
     
     return JSON.stringify(left) === JSON.stringify(right);
   };
@@ -200,12 +287,12 @@ export default function CardEditor({ mode }: CardEditorProps) {
     setMaskVersion((v) => v + 1);
   }, []);
 
-  const pushUndoSnapshot = (snapshot: HeroConfig) => {
+  const pushUndoSnapshot = (snapshot: CardConfig) => {
     const masks = getMaskSnapshot();
     setUndoStack((prev) => [...prev.slice(-49), { config: cloneConfig(snapshot), masks }]);
     setRedoStack([]);
   };
-  const commitConfig = (updater: (prev: HeroConfig) => HeroConfig) => {
+  const commitConfig = (updater: (prev: CardConfig) => CardConfig) => {
     setConfig((prev) => {
       if (!prev) return prev;
       const next = updater(prev);
@@ -239,6 +326,11 @@ export default function CardEditor({ mode }: CardEditorProps) {
           hp_bar_max: typeof data.hp_bar_max === 'number' ? data.hp_bar_max : (data.stats?.max_hp > 0 ? data.stats.max_hp : 100),
           hp_bar_hue: typeof data.hp_bar_hue === 'number' ? data.hp_bar_hue : 0,
           hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 31,
+          pose: data.pose || undefined,
+          cost: data.cost,
+          element: data.element,
+          target_rule: data.target_rule,
+          description: data.description,
         };
 
         const loadImageSize = (src: string) =>
@@ -250,7 +342,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
             const image = new window.Image();
             image.src = src;
             const applySize = () => {
-              if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+              if (image.naturalWidth > 1 && image.naturalHeight > 1) {
                 setCardBaseSize({ width: image.naturalWidth, height: image.naturalHeight });
                 resolve(true);
                 return;
@@ -275,6 +367,22 @@ export default function CardEditor({ mode }: CardEditorProps) {
         ).then(() => {
           setConfig(normalized);
           setInitialConfig(cloneConfig(normalized));
+          // Load visible layers from config if available
+          if (data.visible_layers && typeof data.visible_layers === 'object') {
+            const mergedLayers = {
+              ...getDefaultVisibleLayers(),
+              ...data.visible_layers,
+            };
+            // For action mode, pose-related layers should never be visible
+            // because they're not rendered in CardCanvas
+            if (isAction) {
+              mergedLayers['pose-frame'] = false;
+              mergedLayers['pose-char-fg'] = false;
+              mergedLayers['pose-mask-fg'] = false;
+              mergedLayers['pose-shadow'] = false;
+            }
+            setVisibleLayers(() => mergedLayers);
+          }
           setUndoStack([]);
           setRedoStack([]);
           setMaskVersion(0);
@@ -294,7 +402,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     fetch('/api/rename-card', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oldSlug: slug, newName }),
+      body: JSON.stringify({ oldSlug: slug, newName, type: isAction ? 'action' : 'hero' }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -305,7 +413,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       })
       .then((data) => {
         if (data.newSlug && data.newSlug !== slug) {
-          navigate(`/edit/${data.newSlug}`, { replace: true });
+          navigate(`/edit/${data.newSlug}${isAction ? '?type=action' : ''}`, { replace: true });
         } else {
           setConfig((prev) => (prev ? { ...prev, full_name: newName } : prev));
           setInitialConfig((prev) => (prev ? { ...prev, full_name: newName } : prev));
@@ -318,8 +426,6 @@ export default function CardEditor({ mode }: CardEditorProps) {
         setSaving(false);
       });
   };
-
-  const activeFrameSrc = isAction ? (config?.frame_image || '') : (config?.frame_image || frameImage);
 
   useEffect(() => {
     let mounted = true;
@@ -343,7 +449,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
         height: image.naturalHeight,
         complete: image.complete 
       });
-      if (!isAction && image.naturalWidth > 0 && image.naturalHeight > 0) {
+      if (image.naturalWidth > 1 && image.naturalHeight > 1) {
         setCardBaseSize({ width: image.naturalWidth, height: image.naturalHeight });
       }
       markFrameReady();
@@ -389,9 +495,60 @@ export default function CardEditor({ mode }: CardEditorProps) {
     };
   }, [activeFrameSrc, isAction]);
 
+
+
+  const isMaskBgReady = !visibleLayers['mask-bg'] || maskLoadState['mask-bg'];
+  const isMaskFgReady = !visibleLayers['mask-fg'] || maskLoadState['mask-fg'];
+  const isPoseMaskFgReady = !visibleLayers['pose-mask-fg'] || maskLoadState['pose-mask-fg'];
+  
+  const charApiBase = isAction ? '/api/action-char' : '/api/card-char';
+  
+  const bgUrl = slug && isMaskBgReady
+    ? `${charApiBase}/${slug}/char-bg?v=${charImageVersion['char-bg']}`
+    : '';
+  const fgUrl = slug && isMaskFgReady
+    ? `${charApiBase}/${slug}/char-fg?v=${charImageVersion['char-fg']}`
+    : '';
+  const poseFgUrl = slug && isPoseMaskFgReady
+    ? `${charApiBase}/${slug}/pose-char-fg?v=${charImageVersion['pose-char-fg']}`
+    : '';
+  const poseShadowUrl = slug
+    ? `${charApiBase}/${slug}/pose-shadow?v=${charImageVersion['pose-shadow']}`
+    : '';
+
+  // Update card size when action background changes (since actions don't have a fixed frame)
+  // DISABLED: We now enforce a fixed frame for actions (action-frame.webp)
+  /*
+  useEffect(() => {
+    if (!isAction || !bgUrl) return;
+
+    const image = new window.Image();
+    image.src = bgUrl;
+
+    const updateSize = () => {
+      if (image.naturalWidth > 1 && image.naturalHeight > 1) {
+        setCardBaseSize((prev) => {
+          if (prev.width === image.naturalWidth && prev.height === image.naturalHeight) return prev;
+          return { width: image.naturalWidth, height: image.naturalHeight };
+        });
+      }
+    };
+
+    if (image.complete) {
+      updateSize();
+    } else {
+      image.onload = updateSize;
+    }
+
+    return () => {
+      image.onload = null;
+    };
+  }, [isAction, bgUrl]);
+  */
+
   // ... Save logic ...
   const saveConfig = useCallback(
-    (targetConfig: HeroConfig, showAlertOnError = false) => {
+    (targetConfig: CardConfig, showAlertOnError = false) => {
       if (!slug) return Promise.resolve(false);
       setSaveError(null);
       const endpoint = isAction ? `/api/action/${slug}` : `/api/card/${slug}`;
@@ -428,23 +585,40 @@ export default function CardEditor({ mode }: CardEditorProps) {
         pose_mask_fg: poseFgCanvas ? poseFgCanvas.toDataURL('image/png') : '',
       };
       const uploadShadowPromise = (() => {
-        if (!shadowCanvas) return Promise.resolve(true);
+        if (!shadowCanvas) {
+          console.log('[saveMasks] No shadow canvas, skipping shadow upload');
+          return Promise.resolve(true);
+        }
+        // Check if canvas has valid dimensions
+        if (shadowCanvas.width === 0 || shadowCanvas.height === 0) {
+          console.log('[saveMasks] Shadow canvas has zero dimensions, skipping');
+          return Promise.resolve(true);
+        }
         return new Promise<boolean>((resolve) => {
-          shadowCanvas.toBlob((blob) => {
-            if (!blob) {
-              resolve(false);
-              return;
-            }
-            const formData = new FormData();
-            formData.append('file', blob, 'pose-shadow.png');
-            const endpoint = isAction ? `/api/action-char/${slug}/pose-shadow` : `/api/card-char/${slug}/pose-shadow`;
-            fetch(endpoint, {
-              method: 'POST',
-              body: formData,
-            })
-              .then((res) => resolve(res.ok))
-              .catch(() => resolve(false));
-          }, 'image/png');
+          try {
+            shadowCanvas.toBlob((blob) => {
+              if (!blob) {
+                console.log('[saveMasks] Shadow canvas toBlob returned null');
+                resolve(false);
+                return;
+              }
+              const formData = new FormData();
+              formData.append('file', blob, 'pose-shadow.png');
+              const endpoint = isAction ? `/api/action-char/${slug}/pose-shadow` : `/api/card-char/${slug}/pose-shadow`;
+              fetch(endpoint, {
+                method: 'POST',
+                body: formData,
+              })
+                .then((res) => resolve(res.ok))
+                .catch((err) => {
+                  console.error('[saveMasks] Shadow upload error:', err);
+                  resolve(false);
+                });
+            }, 'image/png');
+          } catch (err) {
+            console.error('[saveMasks] Shadow toBlob error:', err);
+            resolve(false);
+          }
         });
       })();
       const maskEndpoint = isAction ? `/api/action-mask/${slug}` : `/api/card-mask/${slug}`;
@@ -466,8 +640,9 @@ export default function CardEditor({ mode }: CardEditorProps) {
           if (savedShadow) {
             setCharImageVersion((prev) => ({ ...prev, 'pose-shadow': prev['pose-shadow'] + 1 }));
           }
-          if (!savedMasks || !savedShadow) {
-            throw new Error('Failed to save pose layers');
+          // For action cards, shadow upload might be skipped (no pose), so only check mask save
+          if (!savedMasks) {
+            throw new Error('Failed to save masks');
           }
           return true;
         })
@@ -477,7 +652,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
           return false;
         });
     },
-    [slug]
+    [slug, isAction]
   );
 
   const handleSave = (showAlertOnError = true) => {
@@ -526,22 +701,23 @@ export default function CardEditor({ mode }: CardEditorProps) {
   // ... Layer manipulation logic ...
   const getLayerState = (layer: CharLayer | TextLayer | BarLayer | PoseLayer) => {
     if (!config) return { x: 0, y: 0, scale: layer === 'hp-bar' ? 250 : 100 };
+    const c = config as any;
     if (layer === 'char-bg') {
       return {
-        x: config.char_bg_pos.x,
-        y: config.char_bg_pos.y,
-        scale: config.char_bg_scale,
+        x: c.char_bg_pos.x,
+        y: c.char_bg_pos.y,
+        scale: c.char_bg_scale,
       };
     }
     if (layer === 'char-fg') {
       return {
-        x: config.char_fg_pos.x,
-        y: config.char_fg_pos.y,
-        scale: config.char_fg_scale,
+        x: c.char_fg_pos.x,
+        y: c.char_fg_pos.y,
+        scale: c.char_fg_scale,
       };
     }
     if (layer === 'pose-char-fg') {
-      const pose = config.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      const pose = c.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
       return {
         x: pose.char_fg_pos.x,
         y: pose.char_fg_pos.y,
@@ -549,7 +725,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       };
     }
     if (layer === 'pose-shadow') {
-      const pose = config.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      const pose = c.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
       return {
         x: pose.shadow_pos.x,
         y: pose.shadow_pos.y,
@@ -558,26 +734,27 @@ export default function CardEditor({ mode }: CardEditorProps) {
     }
     if (layer === 'hp-bar') {
       return {
-        x: config.hp_bar_pos.x,
-        y: config.hp_bar_pos.y,
-        scale: config.hp_bar_scale,
+        x: c.hp_bar_pos?.x || 0,
+        y: c.hp_bar_pos?.y || 0,
+        scale: c.hp_bar_scale || 250,
       };
     }
     return {
-      x: config.name_pos.x,
-      y: config.name_pos.y,
-      scale: config.name_scale,
+      x: c.name_pos.x,
+      y: c.name_pos.y,
+      scale: c.name_scale,
     };
   };
 
   const updateLayerPosition = (layer: CharLayer | TextLayer | BarLayer | PoseLayer, dx: number, dy: number, trackHistory = true) => {
-    const updater = (prev: HeroConfig) => {
+    const updater = (prev: CardConfig) => {
+      const p = prev as any;
       if (layer === 'char-bg') {
         return {
           ...prev,
           char_bg_pos: {
-            x: prev.char_bg_pos.x + dx,
-            y: prev.char_bg_pos.y + dy,
+            x: p.char_bg_pos.x + dx,
+            y: p.char_bg_pos.y + dy,
           },
         };
       }
@@ -585,13 +762,13 @@ export default function CardEditor({ mode }: CardEditorProps) {
         return {
           ...prev,
           char_fg_pos: {
-            x: prev.char_fg_pos.x + dx,
-            y: prev.char_fg_pos.y + dy,
+            x: p.char_fg_pos.x + dx,
+            y: p.char_fg_pos.y + dy,
           },
         };
       }
       if (layer === 'pose-char-fg') {
-        const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+        const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
         return {
           ...prev,
           pose: {
@@ -604,7 +781,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
         };
       }
       if (layer === 'pose-shadow') {
-        const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+        const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
         return {
           ...prev,
           pose: {
@@ -620,16 +797,16 @@ export default function CardEditor({ mode }: CardEditorProps) {
         return {
           ...prev,
           hp_bar_pos: {
-            x: prev.hp_bar_pos.x + dx,
-            y: prev.hp_bar_pos.y + dy,
+            x: (p.hp_bar_pos?.x || 0) + dx,
+            y: (p.hp_bar_pos?.y || 0) + dy,
           },
         };
       }
       return {
         ...prev,
         name_pos: {
-          x: prev.name_pos.x + dx,
-          y: prev.name_pos.y + dy,
+          x: p.name_pos.x + dx,
+          y: p.name_pos.y + dy,
         },
       };
     };
@@ -645,6 +822,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     const clamped = Math.max(minScale, Math.min(300, Math.round(scale)));
     commitConfig((prev) => {
       if (!prev) return prev;
+      const p = prev as any;
       if (layer === 'char-bg') {
         return {
           ...prev,
@@ -657,14 +835,26 @@ export default function CardEditor({ mode }: CardEditorProps) {
           char_fg_scale: clamped,
         };
       }
-      if (layer === 'pose-char-fg') {
-         const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
-         return { ...prev, pose: { ...pose, char_fg_scale: clamped } };
-      }
-      if (layer === 'pose-shadow') {
-         const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
-         return { ...prev, pose: { ...pose, shadow_scale: clamped } };
-      }
+    if (layer === 'pose-char-fg') {
+      const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      return {
+        ...prev,
+        pose: {
+          ...pose,
+          char_fg_scale: clamped,
+        }
+      };
+    }
+    if (layer === 'pose-shadow') {
+       const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+       return { 
+         ...prev, 
+         pose: { 
+           ...pose, 
+           shadow_scale: clamped 
+         } 
+       };
+    }
       if (layer === 'hp-bar') {
         return {
           ...prev,
@@ -683,6 +873,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     const clampedScale = Math.max(minScale, Math.min(300, Math.round(state.scale)));
     commitConfig((prev) => {
       if (!prev) return prev;
+      const p = prev as any;
       if (layer === 'char-bg') {
         return {
           ...prev,
@@ -698,12 +889,26 @@ export default function CardEditor({ mode }: CardEditorProps) {
         };
       }
       if (layer === 'pose-char-fg') {
-          const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
-          return { ...prev, pose: { ...pose, char_fg_pos: { x: Math.round(state.x), y: Math.round(state.y) }, char_fg_scale: clampedScale } };
+        const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+        return {
+          ...prev,
+          pose: {
+            ...pose,
+            char_fg_pos: { x: Math.round(state.x), y: Math.round(state.y) },
+            char_fg_scale: clampedScale,
+          },
+        };
       }
       if (layer === 'pose-shadow') {
-          const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
-          return { ...prev, pose: { ...pose, shadow_pos: { x: Math.round(state.x), y: Math.round(state.y) }, shadow_scale: clampedScale } };
+        const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+        return {
+          ...prev,
+          pose: {
+            ...pose,
+            shadow_pos: { x: Math.round(state.x), y: Math.round(state.y) },
+            shadow_scale: clampedScale,
+          },
+        };
       }
       if (layer === 'hp-bar') {
         return {
@@ -727,12 +932,13 @@ export default function CardEditor({ mode }: CardEditorProps) {
     }
     commitConfig((prev) => {
       if (!prev) return prev;
+      const p = prev as any;
       const rounded = Math.round(value);
       if (layer === 'char-bg') {
         return {
           ...prev,
           char_bg_pos: {
-            ...prev.char_bg_pos,
+            ...p.char_bg_pos,
             [property]: rounded,
           },
         };
@@ -741,42 +947,42 @@ export default function CardEditor({ mode }: CardEditorProps) {
         return {
           ...prev,
           char_fg_pos: {
-            ...prev.char_fg_pos,
+            ...p.char_fg_pos,
             [property]: rounded,
           },
         };
       }
-      if (layer === 'pose-char-fg') {
-        const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
-        return {
-          ...prev,
-          pose: {
-            ...pose,
-            char_fg_pos: {
-              ...pose.char_fg_pos,
-              [property]: rounded,
-            },
+    if (layer === 'pose-char-fg') {
+      const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      return {
+        ...prev,
+        pose: {
+          ...pose,
+          char_fg_pos: {
+            ...pose.char_fg_pos,
+            [property]: rounded,
           },
-        };
-      }
-      if (layer === 'pose-shadow') {
-        const pose = prev.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
-        return {
-          ...prev,
-          pose: {
-            ...pose,
-            shadow_pos: {
-              ...pose.shadow_pos,
-              [property]: rounded,
-            },
+        },
+      };
+    }
+    if (layer === 'pose-shadow') {
+      const pose = p.pose || { char_fg_pos: { x: 0, y: 0 }, char_fg_scale: 100, shadow_pos: { x: 0, y: 0 }, shadow_scale: 100 };
+      return {
+        ...prev,
+        pose: {
+          ...pose,
+          shadow_pos: {
+            ...pose.shadow_pos,
+            [property]: rounded,
           },
-        };
-      }
+        },
+      };
+    }
       if (layer === 'hp-bar') {
         return {
           ...prev,
           hp_bar_pos: {
-            ...prev.hp_bar_pos,
+            ...p.hp_bar_pos,
             [property]: rounded,
           },
         };
@@ -784,7 +990,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       return {
         ...prev,
         name_pos: {
-          ...prev.name_pos,
+          ...p.name_pos,
           [property]: rounded,
         },
       };
@@ -864,81 +1070,121 @@ export default function CardEditor({ mode }: CardEditorProps) {
         handleRedo();
       }
       if (isEditableTarget(event.target)) return;
-      if (event.code === 'KeyC' && isMod && activeCharLayer && config) {
-        event.preventDefault();
-        if (activeCharLayer === 'char-bg') {
-          setLayerClipboard({ x: config.char_bg_pos.x, y: config.char_bg_pos.y, scale: config.char_bg_scale });
-        } else if (activeCharLayer === 'char-fg') {
-          setLayerClipboard({ x: config.char_fg_pos.x, y: config.char_fg_pos.y, scale: config.char_fg_scale });
-        } else if (activeCharLayer === 'hp-bar') {
-          setLayerClipboard({ x: config.hp_bar_pos.x, y: config.hp_bar_pos.y, scale: config.hp_bar_scale });
-        } else {
-          setLayerClipboard({ x: config.name_pos.x, y: config.name_pos.y, scale: config.name_scale });
+      if (event.code === 'KeyC' && isMod) {
+        if (activeCharLayer && config) {
+          event.preventDefault();
+          const c = config as any;
+          if (activeCharLayer === 'char-bg') {
+            setLayerClipboard({ x: c.char_bg_pos.x, y: c.char_bg_pos.y, scale: c.char_bg_scale });
+          } else if (activeCharLayer === 'char-fg') {
+            setLayerClipboard({ x: c.char_fg_pos.x, y: c.char_fg_pos.y, scale: c.char_fg_scale });
+          } else if (activeCharLayer === 'hp-bar') {
+            setLayerClipboard({ x: c.hp_bar_pos?.x || 0, y: c.hp_bar_pos?.y || 0, scale: c.hp_bar_scale || 250 });
+          } else if (activeCharLayer === 'name') {
+            setLayerClipboard({ x: c.name_pos.x, y: c.name_pos.y, scale: c.name_scale });
+          }
+        }
+        
+        // Handle mask copy
+        const maskLayer = activeLayer === 'mask-bg' || activeLayer === 'mask-fg' || activeLayer === 'pose-mask-fg' ? activeLayer : null;
+        if (maskLayer) {
+           event.preventDefault();
+           const canvas = getMaskCanvasRef(maskLayer).current;
+           if (canvas) {
+             setMaskClipboard(canvas.toDataURL('image/png'));
+             // Optional: visual feedback could be added here
+           }
         }
       }
-      if (event.code === 'KeyV' && isMod && activeCharLayer && layerClipboard) {
-        event.preventDefault();
-        const minScale = activeCharLayer === 'name' ? 30 : 40;
-        const clampedScale = Math.max(minScale, Math.min(300, Math.round(layerClipboard.scale)));
-        commitConfig((prev) => {
-          if (!prev) return prev;
-          if (activeCharLayer === 'char-bg') {
+      if (event.code === 'KeyV' && isMod) {
+        if (activeCharLayer && layerClipboard) {
+          event.preventDefault();
+          const minScale = activeCharLayer === 'name' ? 30 : 40;
+          const clampedScale = Math.max(minScale, Math.min(300, Math.round(layerClipboard.scale)));
+          commitConfig((prev) => {
+            if (!prev) return prev;
+            if (activeCharLayer === 'char-bg') {
+              return {
+                ...prev,
+                char_bg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+                char_bg_scale: clampedScale,
+              };
+            }
+            if (activeCharLayer === 'char-fg') {
+              return {
+                ...prev,
+                char_fg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+                char_fg_scale: clampedScale,
+              };
+            }
+            if (activeCharLayer === 'hp-bar') {
+              return {
+                ...prev,
+                hp_bar_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+                hp_bar_scale: clampedScale,
+              };
+            }
             return {
               ...prev,
-              char_bg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
-              char_bg_scale: clampedScale,
+              name_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+              name_scale: clampedScale,
             };
+          });
+        }
+
+        // Handle mask paste
+        const maskLayer = activeLayer === 'mask-bg' || activeLayer === 'mask-fg' || activeLayer === 'pose-mask-fg' ? activeLayer : null;
+        if (maskLayer && maskClipboard) {
+          event.preventDefault();
+          if (config) {
+             pushUndoSnapshot(config);
           }
-          if (activeCharLayer === 'char-fg') {
-            return {
-              ...prev,
-              char_fg_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
-              char_fg_scale: clampedScale,
-            };
+          
+          const canvas = getMaskCanvasRef(maskLayer).current;
+          if (canvas) {
+            const context = canvas.getContext('2d');
+            if (context) {
+              const img = new Image();
+              img.onload = () => {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(img, 0, 0, canvas.width, canvas.height); // Scale to fit current canvas
+                setMaskVersion(v => v + 1);
+              };
+              img.src = maskClipboard;
+            }
           }
-          if (activeCharLayer === 'hp-bar') {
-            return {
-              ...prev,
-              hp_bar_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
-              hp_bar_scale: clampedScale,
-            };
-          }
-          return {
-            ...prev,
-            name_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
-            name_scale: clampedScale,
-          };
-        });
+        }
       }
       if ((event.code === 'Backspace' || event.code === 'Delete') && activeCharLayer && initialConfig) {
         event.preventDefault();
         commitConfig((prev) => {
           if (!prev) return prev;
+          const i = initialConfig as any;
           if (activeCharLayer === 'char-bg') {
             return {
               ...prev,
-              char_bg_pos: { x: initialConfig.char_bg_pos.x, y: initialConfig.char_bg_pos.y },
-              char_bg_scale: initialConfig.char_bg_scale,
+              char_bg_pos: { x: i.char_bg_pos.x, y: i.char_bg_pos.y },
+              char_bg_scale: i.char_bg_scale,
             };
           }
           if (activeCharLayer === 'char-fg') {
             return {
               ...prev,
-              char_fg_pos: { x: initialConfig.char_fg_pos.x, y: initialConfig.char_fg_pos.y },
-              char_fg_scale: initialConfig.char_fg_scale,
+              char_fg_pos: { x: i.char_fg_pos.x, y: i.char_fg_pos.y },
+              char_fg_scale: i.char_fg_scale,
             };
           }
           if (activeCharLayer === 'hp-bar') {
             return {
               ...prev,
-              hp_bar_pos: { x: initialConfig.hp_bar_pos.x, y: initialConfig.hp_bar_pos.y },
-              hp_bar_scale: initialConfig.hp_bar_scale,
+              hp_bar_pos: { x: i.hp_bar_pos?.x || 0, y: i.hp_bar_pos?.y || 0 },
+              hp_bar_scale: i.hp_bar_scale || 250,
             };
           }
           return {
             ...prev,
-            name_pos: { x: initialConfig.name_pos.x, y: initialConfig.name_pos.y },
-            name_scale: initialConfig.name_scale,
+            name_pos: { x: i.name_pos.x, y: i.name_pos.y },
+            name_scale: i.name_scale,
           };
         });
       }
@@ -953,17 +1199,23 @@ export default function CardEditor({ mode }: CardEditorProps) {
       window.removeEventListener('keyup', onKeyUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undoStack, redoStack, saving, config, slug, activeLayer, layerClipboard, initialConfig, maskVersion]);
+  }, [undoStack, redoStack, saving, config, slug, activeLayer, layerClipboard, maskClipboard, initialConfig, maskVersion]);
 
   useEffect(() => {
-    if (!slug || !config || !initialConfig || loading || saving) return;
+    if (!slug || !config || !initialConfig || loading || saving) {
+      console.log('[AutoSave] Skipped:', { slug: !!slug, config: !!config, initialConfig: !!initialConfig, loading, saving });
+      return;
+    }
     
     const configChanged = !isSameConfig(config, initialConfig);
     const maskChanged = maskVersion !== lastSavedMaskVersion.current;
 
+    console.log('[AutoSave] Checking:', { configChanged, maskChanged, maskVersion, savedMaskVersion: lastSavedMaskVersion.current });
+
     if (!configChanged && !maskChanged) return;
 
     const timer = window.setTimeout(() => {
+      console.log('[AutoSave] Triggering save...');
       setSaving(true);
       
       const promises = [];
@@ -1129,25 +1381,6 @@ export default function CardEditor({ mode }: CardEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, cardWidth, cardHeight, serverMaskVersion, visibleLayers['mask-bg'], visibleLayers['mask-fg'], visibleLayers['pose-mask-fg']]);
 
-  const isMaskBgReady = !visibleLayers['mask-bg'] || maskLoadState['mask-bg'];
-  const isMaskFgReady = !visibleLayers['mask-fg'] || maskLoadState['mask-fg'];
-  const isPoseMaskFgReady = !visibleLayers['pose-mask-fg'] || maskLoadState['pose-mask-fg'];
-  
-  const charApiBase = isAction ? '/api/action-char' : '/api/card-char';
-  
-  const bgUrl = slug && isMaskBgReady
-    ? `${charApiBase}/${slug}/char-bg?v=${charImageVersion['char-bg']}`
-    : '';
-  const fgUrl = slug && isMaskFgReady
-    ? `${charApiBase}/${slug}/char-fg?v=${charImageVersion['char-fg']}`
-    : '';
-  const poseFgUrl = slug && isPoseMaskFgReady
-    ? `${charApiBase}/${slug}/pose-char-fg?v=${charImageVersion['pose-char-fg']}`
-    : '';
-  const poseShadowUrl = slug
-    ? `${charApiBase}/${slug}/pose-shadow?v=${charImageVersion['pose-shadow']}`
-    : '';
-
   useEffect(() => {
     const loadCharLayer = (layer: CharLayer | PoseLayer, src: string) => {
       if (!visibleLayers[layer]) {
@@ -1176,9 +1409,13 @@ export default function CardEditor({ mode }: CardEditorProps) {
       image.src = src;
 
       if (image.complete && image.naturalWidth > 0) {
+        setLayerAspectRatios(prev => ({ ...prev, [layer]: image.naturalWidth / image.naturalHeight }));
         markReady();
       } else {
-        image.decode().then(markReady).catch(() => {});
+        image.decode().then(() => {
+          setLayerAspectRatios(prev => ({ ...prev, [layer]: image.naturalWidth / image.naturalHeight }));
+          markReady();
+        }).catch(() => {});
       }
 
       return () => {
@@ -1202,38 +1439,51 @@ export default function CardEditor({ mode }: CardEditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bgUrl, fgUrl, poseFgUrl, poseShadowUrl, visibleLayers['char-bg'], visibleLayers['char-fg'], visibleLayers['pose-char-fg'], visibleLayers['pose-shadow']]);
 
-  const isCharBgReady = !visibleLayers['char-bg'] || charLoadState['char-bg'];
-  const isCharFgReady = !visibleLayers['char-fg'] || charLoadState['char-fg'];
-  const isFrameReady = !visibleLayers.card || frameLoadReady;
-  const isAllEditorImagesReady = isFrameReady && isMaskBgReady && isMaskFgReady && isCharBgReady && isCharFgReady;
+  const applyMaskBrush = useCallback(
+    (
+      context: CanvasRenderingContext2D,
+      from: { x: number; y: number },
+      to: { x: number; y: number }
+    ) => {
+      const alpha = brushOpacity / 100;
+      const brushColor = `rgba(0, 0, 0, ${alpha})`;
+
+      context.save();
+      context.globalCompositeOperation = brushMode === 'erase' ? 'source-over' : 'destination-out';
+      context.lineCap = 'round';
+      context.lineJoin = 'round';
+      context.strokeStyle = brushColor;
+      context.fillStyle = brushColor;
+      context.lineWidth = brushSize;
+
+      if (brushHardness < 100) {
+        const blurAmount = (brushSize / 2) * ((100 - brushHardness) / 100);
+        context.shadowBlur = blurAmount;
+        context.shadowColor = brushColor;
+      } else {
+        context.shadowBlur = 0;
+      }
+
+      context.beginPath();
+      context.moveTo(from.x, from.y);
+      context.lineTo(to.x, to.y);
+      context.stroke();
+
+      const radius = Math.max(brushSize / 2, 0.5);
+      context.beginPath();
+      context.arc(to.x, to.y, radius, 0, Math.PI * 2);
+      context.fill();
+      context.restore();
+    },
+    [brushHardness, brushMode, brushOpacity, brushSize]
+  );
 
   const drawOnMaskLayer = (layer: MaskLayer, from: { x: number; y: number }, to: { x: number; y: number }) => {
     const canvas = getMaskCanvasRef(layer).current;
     if (!canvas) return;
     const context = canvas.getContext('2d');
     if (!context) return;
-    context.save();
-    context.globalCompositeOperation = brushMode === 'erase' ? 'source-over' : 'destination-out';
-    context.lineCap = 'round';
-    context.lineJoin = 'round';
-    
-    const alpha = brushOpacity / 100;
-    context.strokeStyle = `rgba(0, 0, 0, ${alpha})`;
-    context.lineWidth = brushSize;
-
-    if (brushHardness < 100) {
-      const blurAmount = (brushSize / 2) * ((100 - brushHardness) / 100);
-      context.shadowBlur = blurAmount;
-      context.shadowColor = `rgba(0, 0, 0, ${alpha})`;
-    } else {
-      context.shadowBlur = 0;
-    }
-
-    context.beginPath();
-    context.moveTo(from.x, from.y);
-    context.lineTo(to.x, to.y);
-    context.stroke();
-    context.restore();
+    applyMaskBrush(context, from, to);
   };
 
   const mapPointerToMaskCanvas = (canvas: HTMLCanvasElement, event: PointerEvent | ReactPointerEvent<Element>) => {
@@ -1247,7 +1497,6 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const handleMaskPointerDown = (layer: MaskLayer, event: ReactPointerEvent<Element>) => {
     if (activeLayer === 'canvas') return;
     if (activeLayer !== layer) return;
-    if (!isAllEditorImagesReady) return;
     if (spacePressed) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     event.preventDefault();
@@ -1260,7 +1509,6 @@ export default function CardEditor({ mode }: CardEditorProps) {
 
     const canvas = getMaskCanvasRef(layer).current;
     if (!canvas) return;
-    canvas.setPointerCapture(event.pointerId);
     let lastPoint = mapPointerToMaskCanvas(canvas, event);
     drawOnMaskLayer(layer, lastPoint, lastPoint);
     const onPointerMove = (moveEvent: PointerEvent) => {
@@ -1268,8 +1516,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       drawOnMaskLayer(layer, lastPoint, nextPoint);
       lastPoint = nextPoint;
     };
-    const onPointerUp = (e: PointerEvent) => {
-      canvas.releasePointerCapture(e.pointerId);
+    const onPointerUp = () => {
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
       setMaskVersion((v) => v + 1);
@@ -1457,12 +1704,12 @@ export default function CardEditor({ mode }: CardEditorProps) {
     window.addEventListener('pointerup', onPointerUp);
   };
 
-  const handleCanvasWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+  const handleCanvasWheel = useCallback((event: WheelEvent) => {
+    if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!event.ctrlKey && !event.metaKey) return;
     setCanvasZoom((prev) => Math.max(25, Math.min(300, Math.round(prev - event.deltaY * 0.08))));
-  };
+  }, []);
 
   const handleCharUpload = (layer: CharLayer | PoseLayer, file: File | null) => {
     if (!slug || !file) return;
@@ -1551,7 +1798,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link to="/">Kembali ke daftar</Link>
+              <Link to={isAction ? '/?tab=actions' : '/?tab=heroes'}>Kembali ke daftar</Link>
             </Button>
           </CardContent>
         </Card>
@@ -1565,7 +1812,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
         <header className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" asChild>
-              <Link to="/">
+              <Link to={isAction ? '/?tab=actions' : '/?tab=heroes'}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
@@ -1577,8 +1824,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
           <TabsList>
             <TabsTrigger value="card">Card</TabsTrigger>
             {!isAction && <TabsTrigger value="pose">Pose</TabsTrigger>}
-            {!isAction && <TabsTrigger value="stats">Stats</TabsTrigger>}
-            <TabsTrigger value="info">Info</TabsTrigger>
+            <TabsTrigger value="stats">Stats</TabsTrigger>
+            {!isAction && <TabsTrigger value="info">Info</TabsTrigger>}
             {!isAction && <TabsTrigger value="audio">Audio</TabsTrigger>}
           </TabsList>
 
@@ -1606,8 +1853,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
               <LayerControls
                 isAction={isAction}
                 activeLayer={activeLayer}
-                config={config}
-                commitConfig={commitConfig}
+                config={config as any}
+                commitConfig={commitConfig as any}
                 setAssetPickerTarget={setAssetPickerTarget}
                 copyAllLayerProperties={copyAllLayerProperties}
                 pasteAllLayerProperties={pasteAllLayerProperties}
@@ -1630,6 +1877,32 @@ export default function CardEditor({ mode }: CardEditorProps) {
                 brushMode={brushMode}
                 setBrushMode={setBrushMode}
                 clearMaskLayer={clearMaskLayer}
+                copyMaskLayer={(layer: MaskLayer) => {
+                  const canvas = getMaskCanvasRef(layer).current;
+                  if (canvas) {
+                    setMaskClipboard(canvas.toDataURL('image/png'));
+                  }
+                }}
+                pasteMaskLayer={(layer: MaskLayer) => {
+                  if (!maskClipboard) return;
+                  if (config) {
+                    pushUndoSnapshot(config);
+                  }
+                  const canvas = getMaskCanvasRef(layer).current;
+                  if (canvas) {
+                    const context = canvas.getContext('2d');
+                    if (context) {
+                      const img = new Image();
+                      img.onload = () => {
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+                        context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        setMaskVersion(v => v + 1);
+                      };
+                      img.src = maskClipboard;
+                    }
+                  }
+                }}
+                maskClipboard={maskClipboard}
                 charLayerUrls={{ 'char-bg': bgUrl, 'char-fg': fgUrl }}
                 onRename={handleRename}
               />
@@ -1637,7 +1910,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
               <CardCanvas
                 activeLayer={activeLayer}
                 setActiveLayer={setActiveLayer}
-                config={config}
+                config={config as any}
                 visibleLayers={visibleLayers}
                 canvasZoom={canvasZoom}
                 canvasPan={canvasPan}
@@ -1656,6 +1929,9 @@ export default function CardEditor({ mode }: CardEditorProps) {
                 onMaskPointerDown={handleMaskPointerDown}
                 onResizePointerDown={handleResizeFromCornerPointerDown}
                 brushSize={brushSize}
+                containerRef={canvasContainerRef}
+                layerAspectRatios={layerAspectRatios}
+                isAction={isAction}
               />
 
               <LayerList
@@ -1667,6 +1943,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
                 canvasZoom={canvasZoom}
                 setCanvasZoom={setCanvasZoom}
                 setCanvasPan={setCanvasPan}
+                onResetZoom={handleFitToScreen}
                 showPoseLayers={false}
               />
             </main>
@@ -1675,8 +1952,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
           {!isAction && (
             <TabsContent value="pose" forceMount className="mt-0 flex-1 min-h-0 data-[state=active]:flex flex-col data-[state=inactive]:hidden">
               <HeroPoseTab 
-                  config={config} 
-                  onChange={commitConfig}
+                  config={config as HeroConfig} 
+                  onChange={commitConfig as any}
                   updateLayerScale={updateLayerScale}
                   updateLayerPosition={updateLayerPosition}
                   applyLayerState={applyLayerState}
@@ -1709,19 +1986,23 @@ export default function CardEditor({ mode }: CardEditorProps) {
             </TabsContent>
           )}
 
-          {!isAction && (
-            <TabsContent value="stats">
-              <HeroStatsTab config={config} onChange={commitConfig} />
-            </TabsContent>
-          )}
-
-          <TabsContent value="info">
-            <HeroInfoTab config={config} onChange={commitConfig} />
+          <TabsContent value="stats">
+            {isAction ? (
+              <ActionStatsTab config={config as unknown as ActionConfig} onChange={commitConfig as any} />
+            ) : (
+              <HeroStatsTab config={config as HeroConfig} onChange={commitConfig as any} />
+            )}
           </TabsContent>
 
           {!isAction && (
+            <TabsContent value="info">
+              <HeroInfoTab config={config as HeroConfig} onChange={commitConfig as any} />
+            </TabsContent>
+          )}
+
+          {!isAction && (
             <TabsContent value="audio">
-              <HeroAudioTab config={config} onChange={commitConfig} slug={slug || ''} />
+              <HeroAudioTab config={config as HeroConfig} onChange={commitConfig as any} slug={slug || ''} />
             </TabsContent>
           )}
         </Tabs>
@@ -1731,6 +2012,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
           onSelect={applySelectedAsset}
           onClose={() => setAssetPickerTarget(null)}
           applying={assetApplying}
+          isAction={isAction}
         />
       )}
     </div>

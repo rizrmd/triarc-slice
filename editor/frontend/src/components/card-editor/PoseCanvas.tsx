@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent, type RefObject } from 'react';
+import React, { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import type { HeroConfig, LayerId, PoseVisibleLayers, PoseLayer, MaskLayer } from '@/types';
 
@@ -99,7 +99,7 @@ interface PoseCanvasProps {
   fgUrl: string;
   
   onCanvasPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  onCanvasWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
+  onCanvasWheel: (event: WheelEvent) => void;
   onLayerPointerDown: (layer: PoseLayer, event: ReactPointerEvent<HTMLElement>) => void;
   onMaskPointerDown: (layer: MaskLayer, event: ReactPointerEvent<HTMLCanvasElement>) => void;
   onResizePointerDown: (
@@ -109,6 +109,7 @@ interface PoseCanvasProps {
   ) => void;
   brushSize: number;
   baseSize?: { width: number; height: number };
+  containerRef?: RefObject<HTMLDivElement | null>;
 }
 
 export function PoseCanvas({
@@ -130,8 +131,10 @@ export function PoseCanvas({
   brushSize,
   spacePressed,
   baseSize = { width: 320, height: 517 },
+  containerRef,
 }: PoseCanvasProps) {
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const isBrushLayerActive = activeLayer === 'pose-mask-fg';
   
   const baseWidth = baseSize.width;
@@ -173,12 +176,29 @@ export function PoseCanvas({
       : 100;
   const visualBrushSize = brushSize * (activeScale / 100);
 
+  useEffect(() => {
+    const element = rootRef.current;
+    if (!element) return;
+
+    const handleWheel = (event: WheelEvent) => onCanvasWheel(event);
+    element.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener('wheel', handleWheel);
+    };
+  }, [onCanvasWheel]);
+
   return (
     <Card className="bg-[#14161b] border-0 h-full flex flex-1 flex-col rounded-none">
       <CardContent className="flex flex-1 items-center justify-center p-6">
         <div
+          ref={(node) => {
+            rootRef.current = node;
+            if (containerRef) {
+              containerRef.current = node;
+            }
+          }}
           onPointerDown={onCanvasPointerDown}
-          onWheel={onCanvasWheel}
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
           className={`relative h-full w-full overflow-hidden select-none ${

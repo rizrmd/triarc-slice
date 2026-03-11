@@ -15,6 +15,7 @@ interface LayerListProps<T extends Record<string, boolean>> {
   canvasZoom: number;
   setCanvasZoom: (zoom: number) => void;
   setCanvasPan: (pan: { x: number; y: number }) => void;
+  onResetZoom?: () => void;
   showCardLayers?: boolean;
   showPoseLayers?: boolean;
 }
@@ -28,6 +29,7 @@ export function LayerList<T extends Record<string, boolean>>({
   canvasZoom,
   setCanvasZoom,
   setCanvasPan,
+  onResetZoom,
   showCardLayers = true,
   showPoseLayers = true,
 }: LayerListProps<T>) {
@@ -82,7 +84,10 @@ export function LayerList<T extends Record<string, boolean>>({
             {isAction ? (
               <>
                 {renderLayerItem('card', 'frame', Image)}
+                {renderLayerItem('char-fg', 'action fg', Sparkles)}
+                {renderLayerItem('mask-fg', 'mask-fg', Image)}
                 {renderLayerItem('char-bg', 'action bg', Image)}
+                {renderLayerItem('mask-bg', 'mask-bg', Image)}
               </>
             ) : (
               <>
@@ -128,8 +133,20 @@ export function LayerList<T extends Record<string, boolean>>({
             onValueChange={([value]) => setCanvasZoom(value)}
           />
           <div className="flex items-center gap-2">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setCanvasZoom(100)}>
-              Reset Zoom
+            <Button 
+              type="button" 
+              variant="secondary" 
+              size="sm" 
+              onClick={() => {
+                if (onResetZoom) {
+                  onResetZoom();
+                } else {
+                  setCanvasZoom(100);
+                  setCanvasPan({ x: 0, y: 0 });
+                }
+              }}
+            >
+              {isAction ? 'Fit Frame' : 'Reset Zoom'}
             </Button>
             <Button type="button" variant="secondary" size="sm" onClick={() => setCanvasPan({ x: 0, y: 0 })}>
               Center Canvas

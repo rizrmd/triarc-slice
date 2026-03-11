@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Loader2, Search, Layout, Plus } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Loader2, Search, Layout, Plus, Trash } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,20 @@ export default function CardList() {
   const [isCreating, setIsCreating] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [creatingLoading, setCreatingLoading] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ slug: string, type: 'hero' | 'action' } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState("heroes");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'actions' ? 'actions' : 'heroes';
+
+  const setActiveTab = (tab: string) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      newParams.set('tab', tab);
+      return newParams;
+    }, { replace: true });
+  };
 
   useEffect(() => {
     Promise.all([
@@ -85,6 +97,38 @@ export default function CardList() {
       alert(`Gagal membuat ${activeTab === 'heroes' ? 'hero' : 'action'}: ` + (error instanceof Error ? error.message : String(error)));
     } finally {
       setCreatingLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!itemToDelete) return;
+
+    setDeleteLoading(true);
+    try {
+      const endpoint = itemToDelete.type === 'hero' 
+        ? `/api/card/${itemToDelete.slug}` 
+        : `/api/action/${itemToDelete.slug}`;
+      
+      const res = await fetch(endpoint, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        throw new Error(`Gagal menghapus ${itemToDelete.type}`);
+      }
+
+      // Success
+      if (itemToDelete.type === 'hero') {
+        setCards(cards.filter(c => c !== itemToDelete.slug));
+      } else {
+        setActions(actions.filter(a => a !== itemToDelete.slug));
+      }
+      setItemToDelete(null);
+
+    } catch (error) {
+      alert(`Gagal menghapus: ` + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -165,9 +209,22 @@ export default function CardList() {
               <section className="p-4 overflow-auto w-full flex-1 min-h-[500px] relative bg-[#1c1e24] rounded-lg">
                 <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
                   {filteredCards.map((slug) => (
-                    <Link key={slug} to={`/edit/${slug}`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
-                      <CardPreview slug={slug} showPoseBadge showSoundBadge />
-                    </Link>
+                    <div key={slug} className="group relative w-[200px]">
+                      <Link to={`/edit/${slug}`} className="block w-full hover:opacity-50 transition-opacity duration-200">
+                        <CardPreview slug={slug} showPoseBadge showSoundBadge />
+                      </Link>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setItemToDelete({ slug, type: 'hero' });
+                        }}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
                   {filteredCards.length === 0 && searchQuery && (
                     <div className="col-span-full py-10 text-center text-muted-foreground w-full">
@@ -197,9 +254,22 @@ export default function CardList() {
               <section className="p-4 overflow-auto w-full flex-1 min-h-[500px] relative bg-[#1c1e24] rounded-lg">
                 <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
                   {filteredActions.map((slug) => (
-                    <Link key={slug} to={`/edit/${slug}?type=action`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
-                      <CardPreview slug={slug} type="action" />
-                    </Link>
+                    <div key={slug} className="group relative w-[200px]">
+                      <Link to={`/edit/${slug}?type=action`} className="block w-full hover:opacity-50 transition-opacity duration-200">
+                        <CardPreview slug={slug} type="action" />
+                      </Link>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setItemToDelete({ slug, type: 'action' });
+                        }}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
                   {filteredActions.length === 0 && searchQuery && (
                     <div className="col-span-full py-10 text-center text-muted-foreground w-full">
@@ -248,6 +318,32 @@ export default function CardList() {
                   </Button>
                 </div>
               </form>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <Card className="border-destructive/50">
+              <CardHeader>
+                <CardTitle className="text-destructive">Hapus {itemToDelete.type === 'hero' ? 'Hero' : 'Action'}</CardTitle>
+                <CardDescription>
+                  Apakah Anda yakin ingin menghapus <strong>{itemToDelete.slug}</strong>? 
+                  Tindakan ini tidak dapat dibatalkan dan akan menghapus semua data terkait.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-end gap-3">
+                <Button variant="ghost" onClick={() => setItemToDelete(null)} disabled={deleteLoading}>
+                  Batal
+                </Button>
+                <Button variant="destructive" onClick={handleDelete} disabled={deleteLoading}>
+                  {deleteLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Hapus
+                </Button>
+              </CardContent>
             </Card>
           </div>
         </div>
