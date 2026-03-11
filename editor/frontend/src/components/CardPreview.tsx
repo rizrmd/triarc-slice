@@ -12,13 +12,28 @@ interface CardPreviewProps {
   transparent?: boolean;
   onAspectRatioLoaded?: (ratio: number) => void;
   showPoseBadge?: boolean;
+  showSoundBadge?: boolean;
 }
 
-export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge }: CardPreviewProps) {
+export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge, showSoundBadge }: CardPreviewProps) {
   const [config, setConfig] = useState<HeroConfig | null>(null);
+  const [poseFileExists, setPoseFileExists] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [baseSize, setBaseSize] = useState({ width: 400, height: 600 });
+  
+  // Check for pose file existence if type is hero
+  useEffect(() => {
+    if (type !== 'hero' || !slug) return;
+    
+    // Reset state when slug changes
+    setPoseFileExists(false);
+
+    const img = new Image();
+    img.src = `/data/hero/${slug}/img/pose-char-fg.webp`;
+    img.onload = () => setPoseFileExists(true);
+    img.onerror = () => setPoseFileExists(false);
+  }, [slug, type]);
   
   // Notify parent of aspect ratio changes
   useEffect(() => {
@@ -326,13 +341,22 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
           objectFit: 'contain'
         }}
       />
-      {showPoseBadge && config?.pose && (
-        <Badge 
-          className="absolute top-2 right-2 z-10 bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md pointer-events-none"
-        >
-          POSE
-        </Badge>
-      )}
+      <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 items-end pointer-events-none">
+        {showPoseBadge && (config?.pose || poseFileExists) && (
+          <Badge 
+            className="bg-blue-600 hover:bg-blue-700 text-white border-none shadow-md"
+          >
+            POSE
+          </Badge>
+        )}
+        {showSoundBadge && config?.audio && Object.keys(config.audio).length > 0 && (
+          <Badge 
+            className="bg-purple-600 hover:bg-purple-700 text-white border-none shadow-md"
+          >
+            SOUND
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }

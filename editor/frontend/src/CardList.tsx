@@ -1,3 +1,12 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Loader2, Search, Layout, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { CardPreview } from '@/components/CardPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function CardList() {
@@ -101,46 +110,42 @@ export default function CardList() {
   return (
     <>
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8 md:py-10 min-h-screen">
-        <header className="flex flex-col gap-4 rounded-2xl border bg-card p-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl flex gap-4">
-              Card Studio
-            </h1>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative w-full sm:w-auto">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder={`Cari ${activeTab === 'heroes' ? 'hero' : 'action'}...`}
-                className="pl-8 w-full sm:w-[200px] lg:w-[300px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
-                {activeTab === 'heroes' ? filteredCards.length : filteredActions.length} Item
-              </Badge>
-              <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
-                <Link to="/game-layout">
-                  <Layout className="mr-2 h-4 w-4" />
-                  Game Layout
-                </Link>
-              </Button>
-              <Button size="sm" onClick={() => setIsCreating(true)} className="whitespace-nowrap">
-                <Plus className="mr-2 h-4 w-4" />
-                Buat Baru
-              </Button>
-            </div>
-          </div>
-        </header>
-
         <Tabs defaultValue="heroes" value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
-          <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-4">
-            <TabsTrigger value="heroes">Heroes</TabsTrigger>
-            <TabsTrigger value="actions">Actions</TabsTrigger>
-          </TabsList>
+          <header className="flex flex-col gap-4 rounded-2xl pb-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <TabsList className="grid w-full grid-cols-2 w-[300px]">
+                <TabsTrigger value="heroes">Heroes</TabsTrigger>
+                <TabsTrigger value="actions">Actions</TabsTrigger>
+              </TabsList>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder={`Cari ${activeTab === 'heroes' ? 'hero' : 'action'}...`}
+                  className="pl-8 w-full sm:w-[200px] lg:w-[300px]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
+                  {activeTab === 'heroes' ? filteredCards.length : filteredActions.length} Item
+                </Badge>
+                <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
+                  <Link to="/game-layout">
+                    <Layout className="mr-2 h-4 w-4" />
+                    Game Layout
+                  </Link>
+                </Button>
+                <Button size="sm" onClick={() => setIsCreating(true)} className="whitespace-nowrap">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Buat Baru
+                </Button>
+              </div>
+            </div>
+          </header>
           
           <TabsContent value="heroes" className="flex-1 flex flex-col mt-0 h-full">
             {cards.length === 0 ? (
@@ -161,7 +166,7 @@ export default function CardList() {
                 <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
                   {filteredCards.map((slug) => (
                     <Link key={slug} to={`/edit/${slug}`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
-                      <CardPreview slug={slug} showPoseBadge />
+                      <CardPreview slug={slug} showPoseBadge showSoundBadge />
                     </Link>
                   ))}
                   {filteredCards.length === 0 && searchQuery && (

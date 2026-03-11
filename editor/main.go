@@ -1086,7 +1086,7 @@ func listActionsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var actions []string
+	actions := []string{}
 	for _, entry := range entries {
 		if entry.IsDir() {
 			actions = append(actions, entry.Name())
