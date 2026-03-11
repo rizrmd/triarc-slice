@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import type { LayerId } from '@/types';
 
 interface LayerListProps<T extends Record<string, boolean>> {
+  isAction?: boolean;
   activeLayer: LayerId;
   setActiveLayer: (layer: LayerId) => void;
   visibleLayers: T;
@@ -19,6 +20,7 @@ interface LayerListProps<T extends Record<string, boolean>> {
 }
 
 export function LayerList<T extends Record<string, boolean>>({
+  isAction = false,
   activeLayer,
   setActiveLayer,
   visibleLayers,
@@ -77,13 +79,22 @@ export function LayerList<T extends Record<string, boolean>>({
         {/* Card Layers */}
         {showCardLayers && (
           <>
-            {renderLayerItem('hp-bar', 'HP Bar', Activity)}
-            {renderLayerItem('name', 'Name', Type)}
-            {renderLayerItem('char-fg', 'char-fg', Sparkles)}
-            {renderLayerItem('mask-fg', 'mask-fg', Image)}
-            {renderLayerItem('card', 'card', Image)}
-            {renderLayerItem('char-bg', 'char-bg', Image)}
-            {renderLayerItem('mask-bg', 'mask-bg', Image)}
+            {isAction ? (
+              <>
+                {renderLayerItem('card', 'frame', Image)}
+                {renderLayerItem('char-bg', 'action bg', Image)}
+              </>
+            ) : (
+              <>
+                {renderLayerItem('hp-bar', 'HP Bar', Activity)}
+                {renderLayerItem('name', 'Name', Type)}
+                {renderLayerItem('char-fg', 'char-fg', Sparkles)}
+                {renderLayerItem('mask-fg', 'mask-fg', Image)}
+                {renderLayerItem('card', 'card', Image)}
+                {renderLayerItem('char-bg', 'char-bg', Image)}
+                {renderLayerItem('mask-bg', 'mask-bg', Image)}
+              </>
+            )}
           </>
         )}
 

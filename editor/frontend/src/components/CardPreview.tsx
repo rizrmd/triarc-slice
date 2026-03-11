@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { HeroConfig } from '@/types';
 import { Badge } from '@/components/ui/badge';
-import frameImage from '../assets/ui/hero-frame.webp';
-import barBg from '../assets/ui/bar/bar-bg.webp';
-import barFg from '../assets/ui/bar/bar-fg.webp';
-import barFrame from '../assets/ui/bar/bar-frame.webp';
+
+const frameImage = '/assets/ui/hero-frame.webp';
+const barBg = '/assets/ui/bar/bar-bg.webp';
+const barFg = '/assets/ui/bar/bar-fg.webp';
+const barFrame = '/assets/ui/bar/bar-frame.webp';
 
 interface CardPreviewProps {
   slug: string;
@@ -16,6 +17,7 @@ interface CardPreviewProps {
 }
 
 export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge, showSoundBadge }: CardPreviewProps) {
+  const isAction = type === 'action';
   const [config, setConfig] = useState<HeroConfig | null>(null);
   const [poseFileExists, setPoseFileExists] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,6 +49,25 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
   useEffect(() => {
     let mounted = true;
     const apiEndpoint = type === 'action' ? `/api/action/${slug}` : `/api/card/${slug}`;
+    const loadImageSize = (src: string) =>
+      new Promise<{ width: number; height: number } | null>((resolve) => {
+        if (!src) {
+          resolve(null);
+          return;
+        }
+        const img = new Image();
+        img.src = src;
+        if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+          resolve({ width: img.naturalWidth, height: img.naturalHeight });
+          return;
+        }
+        img.onload = () => resolve(
+          img.naturalWidth > 0 && img.naturalHeight > 0
+            ? { width: img.naturalWidth, height: img.naturalHeight }
+            : null
+        );
+        img.onerror = () => resolve(null);
+      });
     fetch(apiEndpoint)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch card');
@@ -70,26 +91,22 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
             hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 31,
           };
 
-          const frameSrc = frameImage;
-          const img = new Image();
-          img.src = frameSrc;
+          const sizeCandidates = isAction
+            ? [`/api/action-char/${slug}/char-bg?size=${Date.now()}`, normalized.frame_image || '']
+            : [normalized.frame_image || frameImage];
 
-          return new Promise<void>((resolve) => {
-            if (img.complete && img.naturalWidth > 0) {
-              setBaseSize({ width: img.naturalWidth, height: img.naturalHeight });
-              resolve();
-              return;
-            }
-            img.onload = () => {
-              if (img.naturalWidth > 0 && img.naturalHeight > 0) {
-                setBaseSize({ width: img.naturalWidth, height: img.naturalHeight });
-              }
-              resolve();
-            };
-            img.onerror = () => {
-              resolve();
-            };
-          }).then(() => {
+          return sizeCandidates.reduce<Promise<boolean>>(
+            (chain, src) =>
+              chain.then((loaded) => {
+                if (loaded || !src) return loaded;
+                return loadImageSize(src).then((size) => {
+                  if (!size) return false;
+                  setBaseSize(size);
+                  return true;
+                });
+              }),
+            Promise.resolve(false)
+          ).then(() => {
             if (mounted) {
               setConfig(normalized);
             }
@@ -102,7 +119,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
     return () => {
       mounted = false;
     };
-  }, [slug]);
+  }, [isAction, slug, type]);
 
   // Render to canvas
   useEffect(() => {
@@ -115,7 +132,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const activeFrameSrc = config.frame_image || frameImage;
+    const activeFrameSrc = isAction ? (config.frame_image || '') : (config.frame_image || frameImage);
     const bgUrl = type === 'action' ? `/api/action-char/${slug}/char-bg` : `/api/card-char/${slug}/char-bg`;
     const fgUrl = type === 'action' ? `/api/action-char/${slug}/char-fg` : `/api/card-char/${slug}/char-fg`;
     
@@ -151,12 +168,17 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
 
       const [frameImg, defaultFrameImg, bgImg, fgImg, maskBgImg, maskFgImg, barBgImg, barFgImg, barFrameImg] = results;
 
-      const activeFrame = frameImg && frameImg.naturalWidth > 0 ? frameImg : defaultFrameImg;
-      const cardW = activeFrame?.naturalWidth && activeFrame.naturalWidth > 0 ? activeFrame.naturalWidth : baseSize.width;
-      const cardH = activeFrame?.naturalHeight && activeFrame.naturalHeight > 0 ? activeFrame.naturalHeight : baseSize.height;
+      const activeFrame = isAction
+        ? frameImg
+        : (frameImg && frameImg.naturalWidth > 0 ? frameImg : defaultFrameImg);
+      const sizeSource = isAction
+        ? (bgImg && bgImg.naturalWidth > 0 ? bgImg : activeFrame)
+        : activeFrame;
+      const cardW = sizeSource?.naturalWidth && sizeSource.naturalWidth > 0 ? sizeSource.naturalWidth : baseSize.width;
+      const cardH = sizeSource?.naturalHeight && sizeSource.naturalHeight > 0 ? sizeSource.naturalHeight : baseSize.height;
 
-      if (activeFrame && activeFrame.naturalWidth > 0 && activeFrame.naturalHeight > 0) {
-        setBaseSize({ width: activeFrame.naturalWidth, height: activeFrame.naturalHeight });
+      if (sizeSource && sizeSource.naturalWidth > 0 && sizeSource.naturalHeight > 0) {
+        setBaseSize({ width: sizeSource.naturalWidth, height: sizeSource.naturalHeight });
       }
 
       canvas.width = cardW;
@@ -205,7 +227,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
         scale: config.char_bg_scale
       });
 
-      if (frameImg) {
+      if (activeFrame) {
         const fx = cx - cardW / 2;
         const fy = cy - cardH / 2;
         
@@ -214,7 +236,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
           ctx.shadowColor = config.tint;
           ctx.shadowBlur = 10;
         }
-        ctx.drawImage(frameImg, fx, fy, cardW, cardH);
+        ctx.drawImage(activeFrame, fx, fy, cardW, cardH);
         ctx.restore();
 
         if (config.tint) {
@@ -223,7 +245,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
             scratchCanvas.width = cardW;
             scratchCanvas.height = cardH;
             scratchCtx.clearRect(0, 0, cardW, cardH);
-            scratchCtx.drawImage(frameImg, 0, 0, cardW, cardH);
+            scratchCtx.drawImage(activeFrame, 0, 0, cardW, cardH);
             scratchCtx.globalCompositeOperation = 'source-in';
             scratchCtx.fillStyle = config.tint;
             scratchCtx.fillRect(0, 0, cardW, cardH);
@@ -236,13 +258,15 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
         }
       }
 
-      drawLayer(fgImg, maskFgImg, {
-        x: config.char_fg_pos.x,
-        y: config.char_fg_pos.y,
-        scale: config.char_fg_scale
-      });
+      if (!isAction) {
+        drawLayer(fgImg, maskFgImg, {
+          x: config.char_fg_pos.x,
+          y: config.char_fg_pos.y,
+          scale: config.char_fg_scale
+        });
+      }
 
-      if (config.full_name) {
+      if (!isAction && config.full_name) {
         ctx.save();
         ctx.fillStyle = 'white';
         const fontSize = config.name_scale || 40;
@@ -263,7 +287,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
         ctx.restore();
       }
 
-      if (config.hp_bar_pos && barBgImg && barFgImg && barFrameImg) {
+      if (!isAction && config.hp_bar_pos && barBgImg && barFgImg && barFrameImg) {
         const barScale = (config.hp_bar_scale || 100) / 100;
         // The HP bar width is 33% of the card frame width (standard reference)
         const baseWidth = cardW * 0.33;
@@ -324,7 +348,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, slug]); // Removed baseSize from dependency array to prevent infinite loop
+  }, [baseSize.height, baseSize.width, config, isAction, slug, type]);
 
   return (
     <div

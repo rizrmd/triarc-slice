@@ -11,6 +11,7 @@ import { ensureHexColor } from '@/lib/utils';
 import type { HeroConfig, LayerId, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, AssetPickerTarget, PoseLayer } from '@/types';
 
 interface LayerControlsProps {
+  isAction?: boolean;
   activeLayer: LayerId;
   config: HeroConfig;
   commitConfig: (updater: (prev: HeroConfig) => HeroConfig) => void;
@@ -48,6 +49,7 @@ interface LayerControlsProps {
 }
 
 export function LayerControls({
+  isAction = false,
   activeLayer,
   config,
   commitConfig,
@@ -100,6 +102,7 @@ export function LayerControls({
     const pos = layer === 'char-bg' ? config.char_bg_pos : config.char_fg_pos;
     const scale = layer === 'char-bg' ? config.char_bg_scale : config.char_fg_scale;
     const imageUrl = charLayerUrls[layer];
+    const layerLabel = isAction && layer === 'char-bg' ? 'action bg' : layer;
 
     return (
       <section className="space-y-4">
@@ -138,13 +141,13 @@ export function LayerControls({
         </div>
         
         <div className="space-y-2">
-          <Label>Gambar {layer}</Label>
+          <Label>Gambar {layerLabel}</Label>
           <div className="flex gap-3">
             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-md border bg-muted/50">
               {imageUrl ? (
                 <img 
                   src={imageUrl} 
-                  alt={layer} 
+                  alt={layerLabel} 
                   className="h-full w-full object-contain p-1" 
                 />
               ) : (
@@ -785,7 +788,7 @@ export function LayerControls({
       <ScrollArea className="h-[calc(100vh-160px)]">
         <CardContent className="space-y-6 p-4">
           <section className="space-y-2">
-            <Label>Nama Hero</Label>
+            <Label>{isAction ? 'Nama Action' : 'Nama Hero'}</Label>
             <div className="flex items-center gap-2">
               <Input
                 type="text"
@@ -842,15 +845,15 @@ export function LayerControls({
             </section>
           )}
 
-          {(activeLayer === 'char-bg' || activeLayer === 'char-fg') && (
+          {(activeLayer === 'char-bg' || (!isAction && activeLayer === 'char-fg')) && (
             renderCharControls(activeLayer)
           )}
 
-          {activeLayer === 'name' && renderNameControls()}
+          {!isAction && activeLayer === 'name' && renderNameControls()}
 
-          {activeLayer === 'hp-bar' && renderHpBarControls()}
+          {!isAction && activeLayer === 'hp-bar' && renderHpBarControls()}
 
-          {(activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && (
+          {!isAction && (activeLayer === 'mask-bg' || activeLayer === 'mask-fg') && (
             <section className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Mask Layer</Label>

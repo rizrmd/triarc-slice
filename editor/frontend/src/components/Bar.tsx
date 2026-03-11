@@ -1,6 +1,6 @@
-import barBg from '@/assets/ui/bar/bar-bg.webp';
-import barFg from '@/assets/ui/bar/bar-fg.webp';
-import barFrame from '@/assets/ui/bar/bar-frame.webp';
+const barBg = '/assets/ui/bar/bar-bg.webp';
+const barFg = '/assets/ui/bar/bar-fg.webp';
+const barFrame = '/assets/ui/bar/bar-frame.webp';
 
 interface BarProps {
   current: number;
