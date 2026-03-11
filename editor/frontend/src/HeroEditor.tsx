@@ -1628,7 +1628,7 @@ export default function HeroEditor() {
                 canvasZoom={canvasZoom}
                 setCanvasZoom={setCanvasZoom}
                 setCanvasPan={setCanvasPan}
-                showPoseLayers={!isAction}
+                showPoseLayers={false}
               />
             </main>
           </TabsContent>
