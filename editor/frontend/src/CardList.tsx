@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { CardPreview } from '@/components/CardPreview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+const heroFrameImage = '/assets/ui/hero-frame.webp';
+const actionFrameImage = '/assets/ui/action-frame.webp';
+
 export default function CardList() {
   const [cards, setCards] = useState<string[]>([]);
   const [actions, setActions] = useState<string[]>([]);
@@ -56,14 +59,15 @@ export default function CardList() {
     const slug = newItemName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
     // Default config
+    const isAction = activeTab === 'actions';
     const defaultConfig = {
       full_name: newItemName,
-      frame_image: '',
+      frame_image: isAction ? actionFrameImage : heroFrameImage,
       char_bg_pos: { x: 0, y: 0 },
       char_fg_pos: { x: 0, y: 0 },
       char_bg_scale: 100,
       char_fg_scale: 100,
-      tint: '#000000'
+      tint: '#ffffff'
     };
 
     try {
@@ -256,7 +260,7 @@ export default function CardList() {
                   {filteredActions.map((slug) => (
                     <div key={slug} className="group relative w-[200px]">
                       <Link to={`/edit/${slug}?type=action`} className="block w-full hover:opacity-50 transition-opacity duration-200">
-                        <CardPreview slug={slug} type="action" />
+                        <CardPreview slug={slug} type="action" showHoverName />
                       </Link>
                       <Button
                         variant="destructive"

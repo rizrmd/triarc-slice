@@ -31,9 +31,9 @@ type HeroConfig struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"char_fg_pos"`
-	CharBgScale     float64 `json:"char_bg_scale"`
-	CharFgScale     float64 `json:"char_fg_scale"`
-	NamePos         struct {
+	CharBgScale float64 `json:"char_bg_scale"`
+	CharFgScale float64 `json:"char_fg_scale"`
+	NamePos     struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"name_pos"`
@@ -44,42 +44,42 @@ type HeroConfig struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"hp_bar_pos"`
-	HpBarScale   float64 `json:"hp_bar_scale"`
-	HpBarCurrent int     `json:"hp_bar_current"`
-	HpBarMax     int     `json:"hp_bar_max"`
-	HpBarHue     float64 `json:"hp_bar_hue"`
-	HpBarFontSize float64 `json:"hp_bar_font_size,omitempty"`
-	Lore         string                 `json:"lore"`
-	Stats           map[string]interface{} `json:"stats"`
-	Audio           map[string]string      `json:"audio"`
-	Pose            map[string]interface{} `json:"pose"`
+	HpBarScale    float64                `json:"hp_bar_scale"`
+	HpBarCurrent  int                    `json:"hp_bar_current"`
+	HpBarMax      int                    `json:"hp_bar_max"`
+	HpBarHue      float64                `json:"hp_bar_hue"`
+	HpBarFontSize float64                `json:"hp_bar_font_size,omitempty"`
+	Lore          string                 `json:"lore"`
+	Stats         map[string]interface{} `json:"stats"`
+	Audio         map[string]string      `json:"audio"`
+	Pose          map[string]interface{} `json:"pose"`
 }
 
 type ActionConfig struct {
-	FullName        string                 `json:"full_name"`
-	FrameImage      string                 `json:"frame_image,omitempty"`
-	CharBgPos       struct {
+	FullName   string `json:"full_name"`
+	FrameImage string `json:"frame_image,omitempty"`
+	CharBgPos  struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"char_bg_pos"`
-	CharFgPos       struct {
+	CharFgPos struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"char_fg_pos"`
-	CharBgScale     float64                `json:"char_bg_scale"`
-	CharFgScale     float64                `json:"char_fg_scale"`
-	NamePos         struct {
+	CharBgScale float64 `json:"char_bg_scale"`
+	CharFgScale float64 `json:"char_fg_scale"`
+	NamePos     struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"name_pos"`
-	NameScale       float64                `json:"name_scale"`
-	TextShadowColor string                 `json:"text_shadow_color"`
-	Tint            string                 `json:"tint"`
-	Description     string                 `json:"description"`
-	Cost            int                    `json:"cost"`
-	Element         string                 `json:"element"`
-	TargetRule      string                 `json:"target_rule"`
-	VisibleLayers   map[string]bool        `json:"visible_layers,omitempty"`
+	NameScale       float64         `json:"name_scale"`
+	TextShadowColor string          `json:"text_shadow_color"`
+	Tint            string          `json:"tint"`
+	Description     string          `json:"description"`
+	Cost            int             `json:"cost"`
+	Element         string          `json:"element"`
+	TargetRule      string          `json:"target_rule"`
+	VisibleLayers   map[string]bool `json:"visible_layers,omitempty"`
 }
 
 func resolvePath(path string) string {
@@ -204,7 +204,7 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		
+
 		temp := filepath.Join(imgDir, filename+".tmp")
 		if err := saveAsWebP(bytes, temp); err != nil {
 			return err
@@ -277,7 +277,7 @@ func actionMaskHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
-		
+
 		temp := filepath.Join(imgDir, filename+".tmp")
 		if err := saveAsWebP(bytes, temp); err != nil {
 			return err
@@ -634,11 +634,29 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
 			return
 		}
-		
+
 		log.Printf("[actionHandler] Successfully saved config to %s", actionPath)
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+
+	case http.MethodDelete:
+		actionDir := filepath.Join(resolvePath("./data"), "action", slug)
+		if _, err := os.Stat(actionDir); err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Action not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Failed to access action", http.StatusInternalServerError)
+			return
+		}
+		if err := os.RemoveAll(actionDir); err != nil {
+			log.Printf("[actionHandler] Failed to delete action dir %s: %v", actionDir, err)
+			http.Error(w, "Failed to delete action", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -777,6 +795,7 @@ func renameCardHandler(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		OldSlug string `json:"oldSlug"`
 		NewName string `json:"newName"`
+		Type    string `json:"type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
@@ -809,18 +828,43 @@ func renameCardHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	heroDir := filepath.Join(resolvePath("./data"), "hero")
-	oldPath := filepath.Join(heroDir, payload.OldSlug)
-	newPath := filepath.Join(heroDir, newSlug)
+	baseType := payload.Type
+	if baseType == "" {
+		baseType = "hero"
+	}
+
+	var baseDir string
+	var jsonFilename string
+	var notFoundMsg string
+	var existsMsg string
+
+	switch baseType {
+	case "hero":
+		baseDir = filepath.Join(resolvePath("./data"), "hero")
+		jsonFilename = "hero.json"
+		notFoundMsg = "Card not found"
+		existsMsg = "Card with this name already exists"
+	case "action":
+		baseDir = filepath.Join(resolvePath("./data"), "action")
+		jsonFilename = "action.json"
+		notFoundMsg = "Action not found"
+		existsMsg = "Action with this name already exists"
+	default:
+		http.Error(w, "Invalid type", http.StatusBadRequest)
+		return
+	}
+
+	oldPath := filepath.Join(baseDir, payload.OldSlug)
+	newPath := filepath.Join(baseDir, newSlug)
 
 	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-		http.Error(w, "Card not found", http.StatusNotFound)
+		http.Error(w, notFoundMsg, http.StatusNotFound)
 		return
 	}
 
 	if newSlug != payload.OldSlug {
 		if _, err := os.Stat(newPath); err == nil {
-			http.Error(w, "Card with this name already exists", http.StatusConflict)
+			http.Error(w, existsMsg, http.StatusConflict)
 			return
 		}
 
@@ -830,34 +874,45 @@ func renameCardHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Update hero.json
-	jsonPath := filepath.Join(newPath, "hero.json")
+	jsonPath := filepath.Join(newPath, jsonFilename)
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
-		http.Error(w, "Failed to read hero.json", http.StatusInternalServerError)
+		http.Error(w, "Failed to read config file", http.StatusInternalServerError)
 		return
 	}
-
-	var config HeroConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		http.Error(w, "Failed to parse hero.json", http.StatusInternalServerError)
-		return
-	}
-
-	config.FullName = payload.NewName
 
 	file, err := os.Create(jsonPath)
 	if err != nil {
-		http.Error(w, "Failed to open hero.json for writing", http.StatusInternalServerError)
+		http.Error(w, "Failed to open config file for writing", http.StatusInternalServerError)
 		return
 	}
 	defer file.Close()
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(config); err != nil {
-		http.Error(w, "Failed to update hero.json", http.StatusInternalServerError)
-		return
+
+	if baseType == "action" {
+		var config ActionConfig
+		if err := json.Unmarshal(data, &config); err != nil {
+			http.Error(w, "Failed to parse action.json", http.StatusInternalServerError)
+			return
+		}
+		config.FullName = payload.NewName
+		if err := encoder.Encode(config); err != nil {
+			http.Error(w, "Failed to update action.json", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		var config HeroConfig
+		if err := json.Unmarshal(data, &config); err != nil {
+			http.Error(w, "Failed to parse hero.json", http.StatusInternalServerError)
+			return
+		}
+		config.FullName = payload.NewName
+		if err := encoder.Encode(config); err != nil {
+			http.Error(w, "Failed to update hero.json", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -960,8 +1015,8 @@ func actionCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
 	}
-	charAssetsDir := filepath.Join(resolvePath("./assets"), "characters")
-	sourcePath, err := resolveImageAssetPath(charAssetsDir, payload.Filename)
+	actionAssetsDir := filepath.Join(resolvePath("./assets"), "actions")
+	sourcePath, err := resolveImageAssetPath(actionAssetsDir, payload.Filename)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -1033,6 +1088,9 @@ func assetsListHandler(w http.ResponseWriter, r *http.Request) {
 	case "characters":
 		baseDir = filepath.Join(assetsDir, "characters")
 		publicPrefix = "/assets/characters"
+	case "action", "actions":
+		baseDir = filepath.Join(assetsDir, "actions")
+		publicPrefix = "/assets/actions"
 	case "ui":
 		baseDir = filepath.Join(assetsDir, "ui")
 		publicPrefix = "/assets/ui"
@@ -1176,6 +1234,23 @@ func cardHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+
+	case http.MethodDelete:
+		cardDir := filepath.Join(resolvePath("./data"), "hero", slug)
+		if _, err := os.Stat(cardDir); err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Card not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Failed to access card", http.StatusInternalServerError)
+			return
+		}
+		if err := os.RemoveAll(cardDir); err != nil {
+			http.Error(w, "Failed to delete card", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

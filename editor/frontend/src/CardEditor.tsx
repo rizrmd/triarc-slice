@@ -316,10 +316,14 @@ export default function CardEditor({ mode }: CardEditorProps) {
           ...data,
           char_bg_scale: typeof data.char_bg_scale === 'number' && data.char_bg_scale > 0 ? data.char_bg_scale : 100,
           char_fg_scale: typeof data.char_fg_scale === 'number' && data.char_fg_scale > 0 ? data.char_fg_scale : 100,
-          frame_image: typeof data.frame_image === 'string' ? data.frame_image : '',
+          frame_image:
+            typeof data.frame_image === 'string' && data.frame_image
+              ? data.frame_image
+              : (isAction ? actionFrameImage : frameImage),
           name_pos: data.name_pos || { x: 0, y: 0 },
           name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? Math.max(30, data.name_scale) : 40,
           text_shadow_color: data.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
+          tint: typeof data.tint === 'string' && data.tint ? data.tint : '#ffffff',
           hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
           hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 250,
           hp_bar_current: typeof data.hp_bar_current === 'number' ? data.hp_bar_current : (data.stats?.max_hp > 0 ? data.stats.max_hp : 100),
