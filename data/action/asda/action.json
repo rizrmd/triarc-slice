@@ -1,0 +1,23 @@
+{
+  "full_name": "asda",
+  "char_bg_pos": {
+    "X": 0,
+    "Y": 0
+  },
+  "char_fg_pos": {
+    "X": 0,
+    "Y": 0
+  },
+  "char_bg_scale": 100,
+  "char_fg_scale": 100,
+  "name_pos": {
+    "X": 0,
+    "Y": 0
+  },
+  "name_scale": 0,
+  "text_shadow_color": "",
+  "tint": "#000000",
+  "description": "",
+  "cost": 0,
+  "element": ""
+}

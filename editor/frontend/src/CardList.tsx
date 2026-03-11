@@ -1,44 +1,51 @@
-import { CardPreview } from '@/components/CardPreview';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Loader2, Search, Layout, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Layout, Loader2, Plus, Search } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { CardPreview } from '@/components/CardPreview';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function CardList() {
   const [cards, setCards] = useState<string[]>([]);
+  const [actions, setActions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [newHeroName, setNewHeroName] = useState('');
+  const [newItemName, setNewItemName] = useState('');
   const [creatingLoading, setCreatingLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState("heroes");
 
   useEffect(() => {
-    fetch('/api/cards')
-      .then((res) => res.json())
-      .then((data) => {
-        setCards(data || []);
+    Promise.all([
+      fetch('/api/cards').then((res) => res.json()),
+      fetch('/api/actions').then((res) => res.json())
+    ])
+      .then(([cardsData, actionsData]) => {
+        setCards(cardsData || []);
+        setActions(actionsData || []);
         setLoading(false);
       })
       .catch(() => {
         setCards([]);
+        setActions([]);
         setLoading(false);
       });
   }, []);
 
-  const handleCreateHero = async (e: React.FormEvent) => {
+  const handleCreateItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newHeroName.trim()) return;
+    if (!newItemName.trim()) return;
 
     setCreatingLoading(true);
-    const slug = newHeroName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const slug = newItemName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
     // Default config
     const defaultConfig = {
-      full_name: newHeroName,
+      full_name: newItemName,
       frame_image: '',
       char_bg_pos: { x: 0, y: 0 },
       char_fg_pos: { x: 0, y: 0 },
@@ -48,27 +55,34 @@ export default function CardList() {
     };
 
     try {
-      const res = await fetch(`/api/card/${slug}`, {
+      const endpoint = activeTab === 'heroes' ? `/api/card/${slug}` : `/api/action/${slug}`;
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(defaultConfig)
       });
 
       if (!res.ok) {
-        throw new Error('Gagal membuat hero');
+        throw new Error(`Gagal membuat ${activeTab === 'heroes' ? 'hero' : 'action'}`);
       }
 
       // Success, close modal and refresh list
-      setNewHeroName('');
+      setNewItemName('');
       setIsCreating(false);
 
       // Refresh list
-      const listRes = await fetch('/api/cards');
-      const listData = await listRes.json();
-      setCards(listData || []);
+      if (activeTab === 'heroes') {
+        const listRes = await fetch('/api/cards');
+        const listData = await listRes.json();
+        setCards(listData || []);
+      } else {
+        const listRes = await fetch('/api/actions');
+        const listData = await listRes.json();
+        setActions(listData || []);
+      }
 
     } catch (error) {
-      alert('Gagal membuat hero: ' + (error instanceof Error ? error.message : String(error)));
+      alert(`Gagal membuat ${activeTab === 'heroes' ? 'hero' : 'action'}: ` + (error instanceof Error ? error.message : String(error)));
     } finally {
       setCreatingLoading(false);
     }
@@ -77,13 +91,17 @@ export default function CardList() {
   const filteredCards = cards.filter(slug =>
     slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const filteredActions = actions.filter(slug =>
+    slug.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Memuat daftar hero...
+          Memuat data...
         </div>
       </div>
     );
@@ -92,94 +110,131 @@ export default function CardList() {
   return (
     <>
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 md:px-8 md:py-10 min-h-screen">
-        <header className="flex flex-col gap-4 rounded-2xl border bg-card p-5 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl flex gap-4">
-              Hero Card Studio
-            </h1>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative w-full sm:w-auto">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Cari hero..."
-                className="pl-8 w-full sm:w-[200px] lg:w-[300px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+        <Tabs defaultValue="heroes" value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
+          <header className="flex flex-col gap-4 rounded-2xl pb-5 md:flex-row md:items-center md:justify-between">
+            <div>
+              <TabsList className="grid w-full grid-cols-2 w-[300px]">
+                <TabsTrigger value="heroes">Heroes</TabsTrigger>
+                <TabsTrigger value="actions">Actions</TabsTrigger>
+              </TabsList>
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-              <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
-                {filteredCards.length} Hero
-              </Badge>
-              <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
-                <Link to="/game-layout">
-                  <Layout className="mr-2 h-4 w-4" />
-                  Game Layout
-                </Link>
-              </Button>
-              <Button size="sm" onClick={() => setIsCreating(true)} className="whitespace-nowrap">
-                <Plus className="mr-2 h-4 w-4" />
-                Hero Baru
-              </Button>
+            <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder={`Cari ${activeTab === 'heroes' ? 'hero' : 'action'}...`}
+                  className="pl-8 w-full sm:w-[200px] lg:w-[300px]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
+                  {activeTab === 'heroes' ? filteredCards.length : filteredActions.length} Item
+                </Badge>
+                <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
+                  <Link to="/game-layout">
+                    <Layout className="mr-2 h-4 w-4" />
+                    Game Layout
+                  </Link>
+                </Button>
+                <Button size="sm" onClick={() => setIsCreating(true)} className="whitespace-nowrap">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Buat Baru
+                </Button>
+              </div>
             </div>
-          </div>
-        </header>
-
-        {cards.length === 0 ? (
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Belum ada hero</CardTitle>
-              <CardDescription>Buat hero baru untuk memulai.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setIsCreating(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Buat Hero Baru
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <section className="p-4 overflow-auto w-full flex-1 h-full relative bg-[#1c1e24] rounded-lg">
-            <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
-              {filteredCards.map((slug) => (
-                <Link key={slug} to={`/edit/${slug}`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
-                  <CardPreview slug={slug} showPoseBadge />
-                </Link>
-              ))}
-              {filteredCards.length === 0 && searchQuery && (
-                <div className="col-span-full py-10 text-center text-muted-foreground w-full">
-                  Tidak ada hero yang cocok dengan pencarian "{searchQuery}"
+          </header>
+          
+          <TabsContent value="heroes" className="flex-1 flex flex-col mt-0 h-full">
+            {cards.length === 0 ? (
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle>Belum ada hero</CardTitle>
+                  <CardDescription>Buat hero baru untuk memulai.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => setIsCreating(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Buat Hero Baru
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <section className="p-4 overflow-auto w-full flex-1 min-h-[500px] relative bg-[#1c1e24] rounded-lg">
+                <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
+                  {filteredCards.map((slug) => (
+                    <Link key={slug} to={`/edit/${slug}`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
+                      <CardPreview slug={slug} showPoseBadge showSoundBadge />
+                    </Link>
+                  ))}
+                  {filteredCards.length === 0 && searchQuery && (
+                    <div className="col-span-full py-10 text-center text-muted-foreground w-full">
+                      Tidak ada hero yang cocok dengan pencarian "{searchQuery}"
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </section>
-        )}
+              </section>
+            )}
+          </TabsContent>
+
+          <TabsContent value="actions" className="flex-1 flex flex-col mt-0 h-full">
+            {actions.length === 0 ? (
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle>Belum ada action</CardTitle>
+                  <CardDescription>Buat action baru untuk memulai.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => setIsCreating(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Buat Action Baru
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <section className="p-4 overflow-auto w-full flex-1 min-h-[500px] relative bg-[#1c1e24] rounded-lg">
+                <div className="flex flex-wrap gap-4 items-center justify-center absolute inset-4">
+                  {filteredActions.map((slug) => (
+                    <Link key={slug} to={`/edit/${slug}?type=action`} className="group block w-[200px] hover:opacity-50 transition-opacity duration-200">
+                      <CardPreview slug={slug} type="action" />
+                    </Link>
+                  ))}
+                  {filteredActions.length === 0 && searchQuery && (
+                    <div className="col-span-full py-10 text-center text-muted-foreground w-full">
+                      Tidak ada action yang cocok dengan pencarian "{searchQuery}"
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Create Hero Modal */}
+      {/* Create Item Modal */}
       {isCreating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
             <Card>
               <CardHeader>
-                <CardTitle>Buat Hero Baru</CardTitle>
-                <CardDescription>Masukkan nama hero untuk membuat folder baru.</CardDescription>
+                <CardTitle>Buat {activeTab === 'heroes' ? 'Hero' : 'Action'} Baru</CardTitle>
+                <CardDescription>Masukkan nama {activeTab === 'heroes' ? 'hero' : 'action'} untuk membuat folder baru.</CardDescription>
               </CardHeader>
-              <form onSubmit={handleCreateHero}>
+              <form onSubmit={handleCreateItem}>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="hero-name">Nama Hero</Label>
+                    <Label htmlFor="item-name">Nama {activeTab === 'heroes' ? 'Hero' : 'Action'}</Label>
                     <Input
-                      id="hero-name"
-                      placeholder="Contoh: Dark Knight"
-                      value={newHeroName}
-                      onChange={(e) => setNewHeroName(e.target.value)}
+                      id="item-name"
+                      placeholder={activeTab === 'heroes' ? "Contoh: Dark Knight" : "Contoh: Fireball"}
+                      value={newItemName}
+                      onChange={(e) => setNewItemName(e.target.value)}
                       autoFocus
                     />
                     <p className="text-xs text-muted-foreground">
-                      Slug akan digenerate otomatis: {newHeroName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}
+                      Slug akan digenerate otomatis: {newItemName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}
                     </p>
                   </div>
                 </CardContent>
@@ -187,9 +242,9 @@ export default function CardList() {
                   <Button type="button" variant="ghost" onClick={() => setIsCreating(false)} disabled={creatingLoading}>
                     Batal
                   </Button>
-                  <Button type="submit" disabled={!newHeroName.trim() || creatingLoading}>
+                  <Button type="submit" disabled={!newItemName.trim() || creatingLoading}>
                     {creatingLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Buat Hero
+                    Buat {activeTab === 'heroes' ? 'Hero' : 'Action'}
                   </Button>
                 </div>
               </form>

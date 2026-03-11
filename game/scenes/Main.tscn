@@ -44,11 +44,6 @@ theme_override_constants/separation = 8
 layout_mode = 2
 text = "Vanguard's Gambit"
 
-[node name="ServerUrlEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-placeholder_text = "Server URL (ws://127.0.0.1:8080)"
-text = "ws://127.0.0.1:8080"
-
 [node name="ConnectButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
 text = "Connect"
@@ -84,9 +79,9 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Leave Queue"
 
-[node name="PlayerIdLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+[node name="ConnectionLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Player: -"
+text = "Status: Offline"
 autowrap_mode = 2
 
 [node name="QueueLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]

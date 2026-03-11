@@ -1,27 +1,30 @@
 extends RefCounted
 class_name GameServerClient
 
-const DEFAULT_SERVER_URL := "ws://127.0.0.1:8080"
+const DEFAULT_SERVER_URL := "wss://sg.vangambit.com"
 const SESSION_PATH := "user://game_session.cfg"
 
 var server_url: String = DEFAULT_SERVER_URL
 var player_id: String = ""
 var current_match_id: String = ""
+var current_team: int = 0
+var display_name: String = ""
 var ws: WebSocketPeer = null
 var connected: bool = false
 var message_queue: Array = []
-var _pending_callbacks: Dictionary = {}
-var _request_id_counter: int = 0
 
 signal connected_to_server(player_id: String)
 signal disconnected_from_server()
-signal match_state_updated(state: Dictionary)
+signal profile_updated(profile: Dictionary)
+signal matchmaking_queued()
+signal matchmaking_left()
+signal match_state_updated(match_data: Dictionary, players: Array, team_states: Array, heroes: Array, hand: Array, statuses: Array, casts: Array)
 signal match_found(match_id: String, team: int)
 signal event_received(event_type: String, data: Dictionary)
 signal error_received(code: String, message: String)
-
-func configure(url: String) -> void:
-	server_url = url.strip_edges()
+signal match_history_received(matches: Array)
+signal leaderboard_received(entries: Array)
+signal player_stats_received(stats: Dictionary)
 
 func load_session() -> bool:
 	var config := ConfigFile.new()
@@ -30,13 +33,13 @@ func load_session() -> bool:
 		return false
 	
 	player_id = str(config.get_value("session", "player_id", ""))
-	server_url = str(config.get_value("session", "server_url", server_url))
+	display_name = str(config.get_value("session", "display_name", ""))
 	return not player_id.is_empty()
 
 func save_session() -> void:
 	var config := ConfigFile.new()
 	config.set_value("session", "player_id", player_id)
-	config.set_value("session", "server_url", server_url)
+	config.set_value("session", "display_name", display_name)
 	config.save(SESSION_PATH)
 
 func connect_to_server() -> bool:
@@ -44,7 +47,12 @@ func connect_to_server() -> bool:
 		return true
 	
 	ws = WebSocketPeer.new()
-	var err := ws.connect_to_url(server_url)
+	# Append /ws path if not already present
+	var ws_url := server_url
+	if not ws_url.ends_with("/ws"):
+		ws_url = ws_url.rstrip("/") + "/ws"
+	
+	var err := ws.connect_to_url(ws_url)
 	if err != OK:
 		push_error("Failed to connect to WebSocket server: %s" % err)
 		return false
@@ -58,6 +66,7 @@ func disconnect_from_server() -> void:
 	connected = false
 	player_id = ""
 	current_match_id = ""
+	current_team = 0
 	disconnected_from_server.emit()
 
 func process() -> void:
@@ -113,13 +122,34 @@ func _handle_message(text: String) -> void:
 			save_session()
 			connected_to_server.emit(player_id)
 		
+		"profile_updated":
+			var profile = msg.get("profile", {})
+			display_name = str(profile.get("display_name", ""))
+			save_session()
+			profile_updated.emit(profile)
+		
+		"matchmaking_queued":
+			matchmaking_queued.emit()
+		
+		"matchmaking_left":
+			matchmaking_left.emit()
+		
 		"state_update":
-			match_state_updated.emit(msg.get("data", {}))
+			# Server sends flat structure, not nested under "data"
+			var match_data = msg.get("match", {})
+			var players = msg.get("players", [])
+			var team_states = msg.get("team_states", [])
+			var heroes = msg.get("heroes", [])
+			var hand = msg.get("hand", [])
+			var statuses = msg.get("statuses", [])
+			var casts = msg.get("casts", [])
+			match_state_updated.emit(match_data, players, team_states, heroes, hand, statuses, casts)
 		
 		"match_found":
 			var match_id = str(msg.get("match_id", ""))
 			var team = int(msg.get("team", 0))
 			current_match_id = match_id
+			current_team = team
 			match_found.emit(match_id, team)
 		
 		"event":
@@ -131,6 +161,18 @@ func _handle_message(text: String) -> void:
 			var code = str(msg.get("code", ""))
 			var message = str(msg.get("message", ""))
 			error_received.emit(code, message)
+		
+		"match_history":
+			var matches = msg.get("matches", [])
+			match_history_received.emit(matches)
+		
+		"leaderboard":
+			var entries = msg.get("entries", [])
+			leaderboard_received.emit(entries)
+		
+		"player_stats":
+			var stats = msg.get("stats", {})
+			player_stats_received.emit(stats)
 		
 		_:
 			print("Unknown message type: %s" % msg_type)
@@ -149,10 +191,10 @@ func _send_message(msg: Dictionary) -> void:
 # API Methods
 # ============================================================================
 
-func register_profile(display_name: String) -> void:
+func register_profile(name: String) -> void:
 	_send_message({
 		"type": "upsert_profile",
-		"display_name": display_name
+		"display_name": name
 	})
 
 func queue_for_matchmaking(hero_slug_1: String, hero_slug_2: String, hero_slug_3: String) -> void:
@@ -164,29 +206,20 @@ func queue_for_matchmaking(hero_slug_1: String, hero_slug_2: String, hero_slug_3
 	})
 
 func leave_matchmaking() -> void:
-	_send_message({
-		"type": "leave_matchmaking"
-	})
+	# Note: Server doesn't have a specific "leave_matchmaking" message
+	# Players are removed from queue when match is found or on disconnect
+	# This is a no-op for now - server handles queue management automatically
+	matchmaking_left.emit()
 
-func select_caster(slot_index: int) -> void:
-	if current_match_id.is_empty():
-		push_error("Not in a match")
-		return
-	_send_message({
-		"type": "select_caster",
-		"match_id": current_match_id,
-		"slot_index": slot_index
-	})
-
-func cast_action(hand_slot_index: int, target_slot: int) -> void:
+func cast_action(caster_slot: int, hand_slot_index: int) -> void:
 	if current_match_id.is_empty():
 		push_error("Not in a match")
 		return
 	_send_message({
 		"type": "cast_action",
 		"match_id": current_match_id,
-		"hand_slot_index": hand_slot_index,
-		"target_slot": target_slot
+		"caster_slot": caster_slot,
+		"hand_slot_index": hand_slot_index
 	})
 
 func reroll_hand() -> void:
@@ -199,10 +232,25 @@ func reroll_hand() -> void:
 	})
 
 func request_state() -> void:
-	if current_match_id.is_empty():
-		push_error("Not in a match")
-		return
+	# State updates are pushed automatically by the server
+	# after cast actions and periodically
+	pass
+
+func get_match_history(limit: int = 10, offset: int = 0) -> void:
 	_send_message({
-		"type": "get_state",
-		"match_id": current_match_id
+		"type": "get_match_history",
+		"limit": limit,
+		"offset": offset
+	})
+
+func get_leaderboard(limit: int = 10) -> void:
+	_send_message({
+		"type": "get_leaderboard",
+		"limit": limit
+	})
+
+func get_player_stats(target_player_id: String) -> void:
+	_send_message({
+		"type": "get_player_stats",
+		"target_player_id": target_player_id
 	})

@@ -33,6 +33,31 @@ export interface HeroConfig {
   stats?: HeroStats;
 }
 
+export interface ActionConfig {
+  full_name: string;
+  frame_image?: string;
+  char_bg_pos: {
+    x: number;
+    y: number;
+  };
+  char_fg_pos: {
+    x: number;
+    y: number;
+  };
+  char_bg_scale: number;
+  char_fg_scale: number;
+  name_pos: {
+    x: number;
+    y: number;
+  };
+  name_scale: number;
+  text_shadow_color: string;
+  tint: string;
+  description?: string;
+  cost?: number;
+  element?: string;
+}
+
 export interface HeroStats {
   max_hp: number;
   attack: number;

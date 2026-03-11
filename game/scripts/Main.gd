@@ -2,22 +2,16 @@ extends Control
 
 var card_scene = preload("res://scenes/Card.tscn")
 var current_cards: Array = []
-var _extra_box_nodes := {}
 var available_heroes: Array[String] = []
 var _client := GameServerClient.new()
-var _refresh_in_flight := false
-var _busy := false
 var _current_match_id: String = ""
 var _current_team: int = 0
 var _displayed_hero_slugs: Array[String] = []
 var _selected_caster_slot: int = 0
 var _pending_hand_slot: int = 0
 var _pending_action_target_rule: String = ""
-var _action_defs := {}
-var _last_state: Dictionary = {}
 
 @onready var bg_texture = $Background
-@onready var server_url_edit: LineEdit = $UI/LobbyPanel/MarginContainer/LobbyVBox/ServerUrlEdit
 @onready var display_name_edit: LineEdit = $UI/LobbyPanel/MarginContainer/LobbyVBox/DisplayNameEdit
 @onready var hero_1_select: OptionButton = $UI/LobbyPanel/MarginContainer/LobbyVBox/Hero1Select
 @onready var hero_2_select: OptionButton = $UI/LobbyPanel/MarginContainer/LobbyVBox/Hero2Select
@@ -27,7 +21,7 @@ var _last_state: Dictionary = {}
 @onready var queue_button: Button = $UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons/QueueButton
 @onready var leave_queue_button: Button = $UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons/LeaveQueueButton
 @onready var status_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/StatusLabel
-@onready var player_id_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/PlayerIdLabel
+@onready var connection_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/ConnectionLabel
 @onready var match_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/MatchLabel
 @onready var energy_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/EnergyLabel
 @onready var caster_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/CasterLabel
@@ -66,9 +60,9 @@ func _ready():
 	call_deferred("update_layout")
 	get_tree().root.size_changed.connect(update_layout)
 
-	# Load saved session
+	# Setup client
 	_client.load_session()
-	server_url_edit.text = _client.server_url
+	_client.server_url = GameServerClient.DEFAULT_SERVER_URL
 
 	# Connect buttons
 	connect_button.pressed.connect(_on_connect_pressed)
@@ -93,6 +87,9 @@ func _ready():
 	_client.match_found.connect(_on_match_found)
 	_client.event_received.connect(_on_event_received)
 	_client.error_received.connect(_on_error_received)
+	_client.profile_updated.connect(_on_profile_updated)
+	_client.matchmaking_queued.connect(_on_matchmaking_queued)
+	_client.matchmaking_left.connect(_on_matchmaking_left)
 
 func _process(_delta):
 	_client.process()
@@ -111,22 +108,30 @@ func _on_connect_pressed() -> void:
 	_client.connect_to_server()
 
 func _on_connected(player_id: String) -> void:
-	_set_status("Connected! Player ID: %s" % _short_id(player_id))
-	player_id_label.text = "Player: %s" % _short_id(player_id)
+	_set_status("Connected!")
+	connection_label.text = "Status: Online"
 	connect_button.text = "Disconnect"
+	queue_label.text = "Queue: Not in Queue"
 	_update_ui_for_connection(true)
 
 func _on_disconnected() -> void:
 	_set_status("Disconnected from server")
-	player_id_label.text = "Player: -"
+	connection_label.text = "Status: Offline"
 	connect_button.text = "Connect"
 	_update_ui_for_connection(false)
 	_reset_match_state()
 
 func _update_ui_for_connection(connected: bool) -> void:
 	register_button.disabled = not connected
-	queue_button.disabled = not connected
-	leave_queue_button.disabled = not connected
+	queue_button.disabled = not connected or not _current_match_id.is_empty()
+	leave_queue_button.disabled = true  # Only enabled when actually in queue
+	reroll_button.disabled = not connected or _current_match_id.is_empty()
+	
+	for button in caster_buttons:
+		button.disabled = not connected or _current_match_id.is_empty()
+	
+	_update_caster_buttons()
+	_update_target_buttons()
 
 # ============================================================================
 # Registration & Matchmaking
@@ -171,8 +176,9 @@ func _on_leave_queue_pressed() -> void:
 func _on_caster_button_pressed(slot_index: int) -> void:
 	if not _client.connected or _current_match_id.is_empty():
 		return
-	_set_status("Selecting caster %s..." % slot_index)
-	_client.select_caster(slot_index)
+	_selected_caster_slot = slot_index
+	_set_status("Caster %s selected" % slot_index)
+	_update_caster_buttons()
 
 func _on_action_button_pressed(hand_slot_index: int) -> void:
 	if not _client.connected or _current_match_id.is_empty():
@@ -197,7 +203,7 @@ func _on_target_button_pressed(target_side: String, slot_index: int) -> void:
 		return
 	
 	_set_status("Casting action...")
-	_client.cast_action(_pending_hand_slot, slot_index)
+	_client.cast_action(_selected_caster_slot, _pending_hand_slot)
 	_pending_hand_slot = 0
 	_pending_action_target_rule = ""
 	_update_target_buttons()
@@ -212,15 +218,46 @@ func _on_reroll_pressed() -> void:
 # Client Event Handlers
 # ============================================================================
 
-func _on_match_state_updated(state: Dictionary) -> void:
+func _on_profile_updated(profile: Dictionary) -> void:
+	var display_name = str(profile.get("display_name", ""))
+	_set_status("Welcome, %s!" % display_name)
+
+func _on_matchmaking_queued() -> void:
+	_set_status("Queued for matchmaking!")
+	queue_label.text = "Queue: In Queue"
+	queue_button.disabled = true
+	leave_queue_button.disabled = false
+
+func _on_matchmaking_left() -> void:
+	_set_status("Left matchmaking queue")
+	queue_label.text = "Queue: Not in Queue"
+	queue_button.disabled = false
+	leave_queue_button.disabled = true
+
+func _on_match_state_updated(match_data: Dictionary, players: Array, team_states: Array, heroes: Array, hand: Array, statuses: Array, casts: Array) -> void:
+	# Build state dict for compatibility with existing UI code
+	var state = {
+		"match": match_data,
+		"players": players,
+		"team_states": team_states,
+		"heroes": heroes,
+		"hand": hand,
+		"statuses": statuses,
+		"casts": casts,
+	}
 	_last_state = state
 	_update_match_ui(state)
 
 func _on_match_found(match_id: String, team: int) -> void:
 	_current_match_id = match_id
 	_current_team = team
+	_client.current_match_id = match_id
+	_client.current_team = team
 	match_label.text = "Match: %s (Team %s)" % [match_id, team]
+	queue_label.text = "Queue: Match Found"
 	_set_status("Match found!")
+	# Update UI to reflect we're now in a match
+	_update_ui_for_connection(_client.connected)
 
 func _on_event_received(event_type: String, data: Dictionary) -> void:
 	match event_type:
@@ -250,20 +287,41 @@ func _on_error_received(code: String, message: String) -> void:
 
 func _update_match_ui(state: Dictionary) -> void:
 	var match_data = state.get("match", {})
-	var team_state = state.get("team_state", {})
+	var team_states = state.get("team_states", [])
 	var hand = state.get("hand", [])
-	var my_heroes = state.get("my_heroes", [])
-	var enemy_heroes = state.get("enemy_heroes", [])
+	var heroes = state.get("heroes", [])
+	
+	# Find my team state from team_states array
+	var my_team_state = {}
+	for ts in team_states:
+		if int(ts.get("team", 0)) == _current_team:
+			my_team_state = ts
+			break
+	
+	# Filter heroes by team
+	var my_heroes: Array = []
+	var enemy_heroes: Array = []
+	for hero in heroes:
+		var hero_team = int(hero.get("team", 0))
+		if hero_team == _current_team:
+			my_heroes.append(hero)
+		else:
+			enemy_heroes.append(hero)
 	
 	# Update energy
-	var energy = int(team_state.get("energy", 0))
-	var energy_max = int(team_state.get("energy_max", 10))
-	_selected_caster_slot = int(team_state.get("selected_caster_slot", 0))
+	var energy = int(my_team_state.get("energy", 0))
+	var energy_max = int(my_team_state.get("energy_max", 10))
+	_selected_caster_slot = int(my_team_state.get("selected_caster_slot", 0))
 	energy_label.text = "Energy: %s / %s" % [energy, energy_max]
 	caster_label.text = "Caster: %s" % (_selected_caster_slot if _selected_caster_slot > 0 else "none")
 	
-	# Update hand
-	_update_hand_buttons(hand)
+	# Update hand - filter by my team
+	var my_hand: Array = []
+	for slot in hand:
+		if int(slot.get("team", 0)) == _current_team:
+			my_hand.append(slot)
+	_update_hand_buttons(my_hand)
+	hand_label.text = "Hand: %s cards" % my_hand.size()
 	_update_target_buttons()
 	
 	# Update heroes if changed
@@ -281,10 +339,13 @@ func _update_hand_buttons(hand: Array) -> void:
 		
 		for card in hand:
 			if int(card.get("slot_index", 0)) == slot:
-				var action_name = str(card.get("display_name", "Unknown"))
-				var energy_cost = int(card.get("energy_cost", 0))
-				var target_rule = str(card.get("target_rule", ""))
-				button.text = "%s. %s (%sE)" % [slot, action_name, energy_cost]
+				# Hand slot only has action_slug, we need to look up action details
+				var action_slug = str(card.get("action_slug", ""))
+				# Default values since we don't have full action defs on client
+				var action_name = action_slug.capitalize() if action_slug else "Unknown"
+				var energy_cost = 0  # Will be validated server-side
+				var target_rule = "enemy_single"  # Default assumption
+				button.text = "%s. %s" % [slot, action_name]
 				button.set_meta("target_rule", target_rule)
 				button.set_meta("action_name", action_name)
 				button.disabled = false
@@ -329,14 +390,19 @@ func _is_target_side_valid(target_side: String) -> bool:
 func _reset_match_state() -> void:
 	_current_match_id = ""
 	_current_team = 0
+	_client.current_match_id = ""
+	_client.current_team = 0
 	_selected_caster_slot = 0
 	_pending_hand_slot = 0
 	_pending_action_target_rule = ""
 	match_label.text = "Match: none"
 	energy_label.text = "Energy: -"
 	caster_label.text = "Caster: none"
+	hand_label.text = "Hand: -"
+	queue_label.text = "Queue: Not in Queue"
 	_update_caster_buttons()
 	_update_target_buttons()
+	_update_ui_for_connection(_client.connected)
 
 # ============================================================================
 # Helper Functions
@@ -416,8 +482,3 @@ func update_layout():
 
 func _set_status(message: String) -> void:
 	status_label.text = "Status: %s" % message
-
-func _short_id(full_id: String) -> String:
-	if full_id.length() <= 12:
-		return full_id
-	return "%s...%s" % [full_id.substr(0, 6), full_id.substr(full_id.length() - 4, 4)]

@@ -55,6 +55,22 @@ type HeroConfig struct {
 	Pose            map[string]interface{} `json:"pose"`
 }
 
+type ActionConfig struct {
+	FullName        string                 `json:"full_name"`
+	FrameImage      string                 `json:"frame_image,omitempty"`
+	CharBgPos       struct{ X, Y int }     `json:"char_bg_pos"`
+	CharFgPos       struct{ X, Y int }     `json:"char_fg_pos"`
+	CharBgScale     float64                `json:"char_bg_scale"`
+	CharFgScale     float64                `json:"char_fg_scale"`
+	NamePos         struct{ X, Y int }     `json:"name_pos"`
+	NameScale       float64                `json:"name_scale"`
+	TextShadowColor string                 `json:"text_shadow_color"`
+	Tint            string                 `json:"tint"`
+	Description     string                 `json:"description"`
+	Cost            int                    `json:"cost"`
+	Element         string                 `json:"element"`
+}
+
 func resolvePath(path string) string {
 	if _, err := os.Stat(path); err == nil {
 		return path
@@ -90,10 +106,15 @@ func main() {
 	// API endpoints
 	http.HandleFunc("/api/cards", listCardsHandler)
 	http.HandleFunc("/api/card/", cardHandler) // Handles both GET and POST for specific card
+	http.HandleFunc("/api/actions", listActionsHandler)
+	http.HandleFunc("/api/action/", actionHandler)
 	http.HandleFunc("/api/card-mask/", cardMaskHandler)
+	http.HandleFunc("/api/action-mask/", actionMaskHandler)
 	http.HandleFunc("/api/card-char/", cardCharHandler)
+	http.HandleFunc("/api/action-char/", actionCharHandler)
 	http.HandleFunc("/api/card-audio/", heroAudioHandler)
 	http.HandleFunc("/api/card-char-select/", cardCharSelectHandler)
+	http.HandleFunc("/api/action-char-select/", actionCharSelectHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
 	http.HandleFunc("/api/game-layout", gameLayoutHandler)
 	http.HandleFunc("/api/assets/", assetsListHandler)
@@ -205,6 +226,79 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 }
 
+func actionMaskHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	slug := strings.TrimPrefix(r.URL.Path, "/api/action-mask/")
+	if slug == "" {
+		http.Error(w, "Missing action slug", http.StatusBadRequest)
+		return
+	}
+	if strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		http.Error(w, "Invalid slug", http.StatusBadRequest)
+		return
+	}
+
+	// Limit body size to 20MB to prevent DoS (increased for more masks)
+	r.Body = http.MaxBytesReader(w, r.Body, 20<<20)
+
+	var payload CardMaskPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		log.Printf("Mask decode error: %v", err)
+		http.Error(w, "Invalid JSON body or payload too large", http.StatusBadRequest)
+		return
+	}
+
+	imgDir := filepath.Join(resolvePath("./data"), "action", slug, "img")
+	if err := os.MkdirAll(imgDir, 0755); err != nil {
+		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
+		return
+	}
+
+	saveMask := func(dataUrl string, filename string) error {
+		if dataUrl == "" {
+			return nil
+		}
+		bytes, err := decodeMaskDataURL(dataUrl)
+		if err != nil {
+			return err
+		}
+		
+		temp := filepath.Join(imgDir, filename+".tmp")
+		if err := saveAsWebP(bytes, temp); err != nil {
+			return err
+		}
+		if err := os.Rename(temp, filepath.Join(imgDir, filename)); err != nil {
+			os.Remove(temp) // Clean up
+			return err
+		}
+		return nil
+	}
+
+	if err := saveMask(payload.MaskBg, "mask-bg.webp"); err != nil {
+		http.Error(w, "BG: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := saveMask(payload.MaskFg, "mask-fg.webp"); err != nil {
+		http.Error(w, "FG: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := saveMask(payload.PoseMaskBg, "pose-mask-bg.webp"); err != nil {
+		http.Error(w, "Pose BG: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := saveMask(payload.PoseMaskFg, "pose-mask-fg.webp"); err != nil {
+		http.Error(w, "Pose FG: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+}
+
 func parseCharRequestPath(path string) (string, string, bool) {
 	trimmed := strings.TrimPrefix(path, "/api/card-char/")
 	parts := strings.Split(trimmed, "/")
@@ -217,6 +311,23 @@ func parseCharRequestPath(path string) (string, string, bool) {
 		return "", "", false
 	}
 	if layer != "char-bg" && layer != "char-fg" && layer != "card" && layer != "pose-char-fg" && layer != "pose-shadow" {
+		return "", "", false
+	}
+	return slug, layer, true
+}
+
+func parseActionCharRequestPath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/api/action-char/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	slug := parts[0]
+	layer := parts[1]
+	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		return "", "", false
+	}
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
 		return "", "", false
 	}
 	return slug, layer, true
@@ -239,8 +350,25 @@ func parseCardCharSelectPath(path string) (string, string, bool) {
 	return slug, layer, true
 }
 
-func readPreferredCharImage(slug string, layer string) ([]byte, error) {
-	heroDir := filepath.Join(resolvePath("./data"), "hero")
+func parseActionCharSelectPath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/api/action-char-select/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	slug := parts[0]
+	layer := parts[1]
+	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		return "", "", false
+	}
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
+		return "", "", false
+	}
+	return slug, layer, true
+}
+
+func readPreferredCharImage(baseDirName, slug, layer string) ([]byte, error) {
+	heroDir := filepath.Join(resolvePath("./data"), baseDirName)
 	imgDir := filepath.Join(heroDir, slug, "img")
 
 	// Priority order: webp (standard), then legacy overrides
@@ -297,7 +425,7 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		data, err := readPreferredCharImage(slug, layer)
+		data, err := readPreferredCharImage("hero", slug, layer)
 		if err != nil {
 			if os.IsNotExist(err) {
 				http.Error(w, "Character image not found", http.StatusNotFound)
@@ -355,6 +483,145 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func actionCharHandler(w http.ResponseWriter, r *http.Request) {
+	slug, layer, ok := parseActionCharRequestPath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Invalid action char path", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		data, err := readPreferredCharImage("action", slug, layer)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Character image not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Failed to read character image", http.StatusInternalServerError)
+			return
+		}
+		contentType := http.DetectContentType(data)
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+	case http.MethodPost:
+		r.Body = http.MaxBytesReader(w, r.Body, 20<<20)
+		if err := r.ParseMultipartForm(20 << 20); err != nil {
+			http.Error(w, "Invalid multipart form", http.StatusBadRequest)
+			return
+		}
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, "Missing file", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		data, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, "Failed to read upload", http.StatusBadRequest)
+			return
+		}
+		if len(data) == 0 {
+			http.Error(w, "Empty file", http.StatusBadRequest)
+			return
+		}
+
+		imgDir := filepath.Join(resolvePath("./data"), "action", slug, "img")
+		if err := os.MkdirAll(imgDir, 0755); err != nil {
+			http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
+			return
+		}
+
+		// Always save as .webp
+		target := filepath.Join(imgDir, layer+".webp")
+		if err := saveAsWebP(data, target); err != nil {
+			log.Printf("Save WebP error: %v", err)
+			http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Cleanup conflicting overrides
+		cleanupExts := []string{".upload", ".gif", ".png", ".jpg", ".jpeg"}
+		for _, e := range cleanupExts {
+			_ = os.Remove(filepath.Join(imgDir, layer+e))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func actionHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract slug from URL path: /api/action/{slug}
+	slug := strings.TrimPrefix(r.URL.Path, "/api/action/")
+	if slug == "" {
+		http.Error(w, "Missing action slug", http.StatusBadRequest)
+		return
+	}
+
+	// Sanitize slug to prevent directory traversal
+	if strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		http.Error(w, "Invalid slug", http.StatusBadRequest)
+		return
+	}
+
+	actionPath := filepath.Join(resolvePath("./data"), "action", slug, "action.json")
+
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(actionPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Action not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Failed to read action data", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+
+	case http.MethodPost:
+		var config ActionConfig
+		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		// Ensure directory exists
+		dir := filepath.Dir(actionPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
+			return
+		}
+
+		// Write formatted JSON
+		file, err := os.Create(actionPath)
+		if err != nil {
+			http.Error(w, "Failed to open file for writing", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(config); err != nil {
+			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -660,6 +927,56 @@ func cardCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 }
 
+func actionCharSelectHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	slug, layer, ok := parseActionCharSelectPath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Invalid action char select path", http.StatusBadRequest)
+		return
+	}
+	var payload AssetPickPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	charAssetsDir := filepath.Join(resolvePath("./assets"), "characters")
+	sourcePath, err := resolveImageAssetPath(charAssetsDir, payload.Filename)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	data, err := os.ReadFile(sourcePath)
+	if err != nil {
+		http.Error(w, "Failed to read source image", http.StatusInternalServerError)
+		return
+	}
+	imgDir := filepath.Join(resolvePath("./data"), "action", slug, "img")
+	if err := os.MkdirAll(imgDir, 0755); err != nil {
+		http.Error(w, "Failed to create image directory", http.StatusInternalServerError)
+		return
+	}
+
+	// Always save as .webp
+	target := filepath.Join(imgDir, layer+".webp")
+	if err := saveAsWebP(data, target); err != nil {
+		log.Printf("Save WebP error: %v", err)
+		http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Cleanup conflicting overrides
+	cleanupExts := []string{".upload", ".gif", ".png", ".jpg", ".jpeg"}
+	for _, e := range cleanupExts {
+		_ = os.Remove(filepath.Join(imgDir, layer+e))
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+}
+
 func listImageAssets(baseDir string, publicPrefix string) ([]map[string]string, error) {
 	entries, err := os.ReadDir(baseDir)
 	if err != nil {
@@ -749,6 +1066,35 @@ func listCardsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cards)
+}
+
+func listActionsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	actionsDir := filepath.Join(resolvePath("./data"), "action")
+	entries, err := os.ReadDir(actionsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Return empty list if directory doesn't exist yet
+			json.NewEncoder(w).Encode([]string{})
+			return
+		}
+		http.Error(w, "Failed to read actions directory", http.StatusInternalServerError)
+		return
+	}
+
+	actions := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			actions = append(actions, entry.Name())
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(actions)
 }
 
 func cardHandler(w http.ResponseWriter, r *http.Request) {
