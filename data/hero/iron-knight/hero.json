@@ -41,7 +41,15 @@
     },
     "max_hp": 3500
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/iron-knight/audio/Iron_Knight_7_-_Hold_position..wav",
+    "CastingHighAffinity": "/data/hero/iron-knight/audio/Iron_Knight_2_-_By_steel_and_light!.wav",
+    "CastingLowAffinity": "/data/hero/iron-knight/audio/Iron_Knight_1_-_Steel_endures..wav",
+    "DamageBlocked": "/data/hero/iron-knight/audio/Iron_Knight_5_-_Your_strength_fails..wav",
+    "DamageCritical": "/data/hero/iron-knight/audio/Iron_Knight_4_-_Armor…_cracking!.wav",
+    "DamageNormal": "/data/hero/iron-knight/audio/Iron_Knight_3_-_I've_taken_worse..wav",
+    "Die": "/data/hero/iron-knight/audio/Iron_Knight_6_-_The_shield…_falls….wav"
+  },
   "pose": {
     "char_fg_pos": {
       "x": 0,

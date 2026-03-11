@@ -41,6 +41,14 @@
     },
     "max_hp": 2500
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/gunslinger/audio/Gunslinger_7_-_Not_yet..wav",
+    "CastingHighAffinity": "/data/hero/gunslinger/audio/Gunslinger_2_-_Try_dodging_this!.wav",
+    "CastingLowAffinity": "/data/hero/gunslinger/audio/Gunslinger_1_-_Just_a_spark..wav",
+    "DamageBlocked": "/data/hero/gunslinger/audio/Gunslinger_5_-_Too_slow..wav",
+    "DamageCritical": "/data/hero/gunslinger/audio/Gunslinger_4_-_That_one_hurt!.wav",
+    "DamageNormal": "/data/hero/gunslinger/audio/Gunslinger_3_-_Lucky_shot..wav",
+    "Die": "/data/hero/gunslinger/audio/Gunslinger_6_-_Not…_my_best_day….wav"
+  },
   "pose": null
 }

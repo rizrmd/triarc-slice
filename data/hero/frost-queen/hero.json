@@ -40,6 +40,14 @@
     },
     "max_hp": 2800
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/frost-queen/audio/Frost_Queen_7_-_Not_yet..wav",
+    "CastingHighAffinity": "/data/hero/frost-queen/audio/Frost_Queen_2_-_Eternal_winter!.wav",
+    "CastingLowAffinity": "/data/hero/frost-queen/audio/Frost_Queen_1_-_A_touch_of_frost..wav",
+    "DamageBlocked": "/data/hero/frost-queen/audio/Frost_Queen_5_-_Ice_does_not_yield..wav",
+    "DamageCritical": "/data/hero/frost-queen/audio/Frost_Queen_4_-_The_ice…_cracks!.wav",
+    "DamageNormal": "/data/hero/frost-queen/audio/Frost_Queen_3_-_Insolent_warmth..wav",
+    "Die": "/data/hero/frost-queen/audio/Frost_Queen_6_-_The_frost…_melts….wav"
+  },
   "pose": null
 }
