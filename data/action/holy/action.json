@@ -1,0 +1,40 @@
+{
+  "full_name": "Holy",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 10,
+    "y": 1
+  },
+  "char_fg_pos": {
+    "x": -3,
+    "y": -18
+  },
+  "char_bg_scale": 138,
+  "char_fg_scale": 138,
+  "name_pos": {
+    "x": 0,
+    "y": 0
+  },
+  "name_scale": 40,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#ffffff",
+  "description": "Test description",
+  "cost": 3,
+  "element": [
+    "fire"
+  ],
+  "target_rule": "",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": false,
+    "pose-char-fg": false,
+    "pose-frame": false,
+    "pose-mask-fg": false,
+    "pose-shadow": false
+  }
+}

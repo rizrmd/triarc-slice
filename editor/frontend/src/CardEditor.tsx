@@ -239,7 +239,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     
     // Action fields
     if (l.cost !== r.cost) return false;
-    if (l.element !== r.element) return false;
+    if (JSON.stringify(l.element ?? []) !== JSON.stringify(r.element ?? [])) return false;
     if (l.target_rule !== r.target_rule) return false;
     if (l.description !== r.description) return false;
     
@@ -332,7 +332,11 @@ export default function CardEditor({ mode }: CardEditorProps) {
           hp_bar_font_size: typeof data.hp_bar_font_size === 'number' ? data.hp_bar_font_size : 31,
           pose: data.pose || undefined,
           cost: data.cost,
-          element: data.element,
+          element: Array.isArray(data.element)
+            ? data.element
+            : typeof data.element === 'string' && data.element
+              ? [data.element]
+              : [],
           target_rule: data.target_rule,
           description: data.description,
         };

@@ -56,7 +56,7 @@ export interface ActionConfig {
   tint: string;
   description?: string;
   cost?: number;
-  element?: string;
+  element?: string[];
   target_rule?: TargetRule;
   visible_layers?: Partial<VisibleLayers>;
 }

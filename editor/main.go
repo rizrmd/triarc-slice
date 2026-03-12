@@ -55,6 +55,40 @@ type HeroConfig struct {
 	Pose          map[string]interface{} `json:"pose"`
 }
 
+type ElementList []string
+
+func (e *ElementList) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*e = nil
+		return nil
+	}
+
+	var list []string
+	if err := json.Unmarshal(data, &list); err == nil {
+		*e = list
+		return nil
+	}
+
+	var single string
+	if err := json.Unmarshal(data, &single); err == nil {
+		if single == "" {
+			*e = []string{}
+		} else {
+			*e = []string{single}
+		}
+		return nil
+	}
+
+	return fmt.Errorf("element must be a string or array of strings")
+}
+
+func (e ElementList) MarshalJSON() ([]byte, error) {
+	if e == nil {
+		return json.Marshal([]string{})
+	}
+	return json.Marshal([]string(e))
+}
+
 type ActionConfig struct {
 	FullName   string `json:"full_name"`
 	FrameImage string `json:"frame_image,omitempty"`
@@ -77,7 +111,7 @@ type ActionConfig struct {
 	Tint            string          `json:"tint"`
 	Description     string          `json:"description"`
 	Cost            int             `json:"cost"`
-	Element         string          `json:"element"`
+	Element         ElementList     `json:"element"`
 	TargetRule      string          `json:"target_rule"`
 	VisibleLayers   map[string]bool `json:"visible_layers,omitempty"`
 }

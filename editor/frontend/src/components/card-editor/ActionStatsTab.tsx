@@ -1,20 +1,13 @@
-import { type ActionConfig, type TargetRule } from '@/types';
+import { type ActionConfig } from '@/types';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 
 interface ActionStatsTabProps {
   config: ActionConfig;
   onChange: (updater: (prev: ActionConfig) => ActionConfig) => void;
 }
-
-const TARGET_RULES: { value: TargetRule; label: string; desc: string }[] = [
-  { value: 'enemy_single', label: 'Single Enemy', desc: 'Targets one enemy unit' },
-  { value: 'ally_single', label: 'Single Ally', desc: 'Targets one ally unit' },
-  { value: 'self', label: 'Self', desc: 'Targets the caster' },
-];
 
 const ELEMENTS = [
   { key: 'fire', label: 'Fire', color: 'bg-red-500', text: 'text-red-500', border: 'border-red-500' },
@@ -33,12 +26,22 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
     }));
   };
 
+  const selectedElements = Array.isArray(config.element) ? config.element : [];
+
+  const toggleElement = (elementKey: string) => {
+    const nextElements = selectedElements.includes(elementKey)
+      ? selectedElements.filter((key) => key !== elementKey)
+      : [...selectedElements, elementKey];
+
+    updateField('element', nextElements);
+  };
+
   return (
-    <div className="space-y-6 p-4 max-w-4xl mx-auto">
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="h-full p-4">
+      <div className="grid h-full gap-6 md:grid-cols-2">
         {/* Cost & Element */}
-        <Card>
-          <CardContent className="pt-6 space-y-6">
+        <Card className="h-full">
+          <CardContent className="space-y-6 pt-6">
             {/* Energy Cost */}
             <div className="space-y-3">
               <div className="flex justify-between items-center">
@@ -65,15 +68,20 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
 
             {/* Element Selection */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Element</Label>
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-base font-semibold">Element</Label>
+                <span className="text-xs uppercase text-muted-foreground">
+                  {selectedElements.length} selected
+                </span>
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {ELEMENTS.map((el) => {
-                  const isSelected = config.element === el.key;
+                  const isSelected = selectedElements.includes(el.key);
                   return (
                     <button
                       key={el.key}
                       type="button"
-                      onClick={() => updateField('element', el.key)}
+                      onClick={() => toggleElement(el.key)}
                       className={`
                         relative flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all
                         ${isSelected ? `${el.border} bg-accent` : 'border-transparent bg-muted hover:bg-accent/50'}
@@ -94,48 +102,16 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
           </CardContent>
         </Card>
 
-        {/* Targeting & Description */}
-        <Card>
-          <CardContent className="pt-6 space-y-6">
-            {/* Target Rule */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Targeting Rule</Label>
-              <div className="grid gap-2">
-                {TARGET_RULES.map((rule) => {
-                  const isSelected = config.target_rule === rule.value;
-                  return (
-                    <button
-                      key={rule.value}
-                      type="button"
-                      onClick={() => updateField('target_rule', rule.value)}
-                      className={`
-                        flex items-center justify-between p-3 rounded-lg border text-left transition-all
-                        ${isSelected ? 'border-primary bg-primary/5' : 'border-border bg-card hover:bg-accent'}
-                      `}
-                    >
-                      <div>
-                        <div className={`font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>
-                          {rule.label}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {rule.desc}
-                        </div>
-                      </div>
-                      {isSelected && <Badge variant="default">Active</Badge>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="space-y-3">
+        {/* Description */}
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col pt-6">
+            <div className="flex flex-1 flex-col space-y-3">
               <Label className="text-base font-semibold">Description</Label>
               <Textarea
                 value={config.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
                 placeholder="Describe the action's effect..."
-                className="min-h-[100px] resize-none"
+                className="min-h-0 flex-1 w-full resize-none"
               />
               <p className="text-xs text-muted-foreground">
                 This text appears on the card tooltip in-game.

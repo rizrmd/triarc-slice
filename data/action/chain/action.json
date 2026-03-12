@@ -19,9 +19,12 @@
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ffffff",
   "description": "",
-  "cost": 0,
-  "element": "",
-  "target_rule": "",
+  "cost": 3,
+  "element": [
+    "fire",
+    "ice"
+  ],
+  "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,
     "char-bg": true,

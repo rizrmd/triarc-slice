@@ -1,5 +1,6 @@
 {
   "full_name": "Frost Queen",
+  "frame_image": "/assets/ui/hero-frame.webp",
   "char_bg_pos": {
     "x": -33,
     "y": 69
