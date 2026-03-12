@@ -1,5 +1,6 @@
 {
   "full_name": "Tyrant Overlord",
+  "frame_image": "/assets/ui/hero-frame.webp",
   "char_bg_pos": {
     "x": -31,
     "y": 231
@@ -17,9 +18,17 @@
   "name_scale": 51,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ff570f",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 3800,
+  "hp_bar_max": 3800,
+  "hp_bar_hue": 0,
+  "hp_bar_font_size": 31,
   "lore": "A conqueror who forged his empire in blood, shadow, and iron. He crushes resistance with overwhelming force, fearing only the light of truth that could reveal the cracks in his rule.",
   "stats": {
-    "max_hp": 3800,
     "attack": 165,
     "defense": 150,
     "element_affinity": {
@@ -29,7 +38,8 @@
       "light": -35,
       "shadow": 25,
       "wind": -10
-    }
+    },
+    "max_hp": 3800
   },
   "audio": null,
   "pose": null

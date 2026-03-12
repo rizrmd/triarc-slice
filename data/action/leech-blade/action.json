@@ -1,0 +1,38 @@
+{
+  "full_name": "Leech Blade",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -57,
+    "y": -13
+  },
+  "char_fg_pos": {
+    "x": 0,
+    "y": 0
+  },
+  "char_bg_scale": 135,
+  "char_fg_scale": 100,
+  "name_pos": {
+    "x": 0,
+    "y": 0
+  },
+  "name_scale": 40,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#ff2600",
+  "description": "",
+  "cost": 0,
+  "element": [],
+  "target_rule": "",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": false,
+    "pose-char-fg": false,
+    "pose-frame": false,
+    "pose-mask-fg": false,
+    "pose-shadow": false
+  }
+}

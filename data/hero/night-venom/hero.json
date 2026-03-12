@@ -1,5 +1,6 @@
 {
   "full_name": "Night Venom",
+  "frame_image": "/assets/ui/hero-frame.webp",
   "char_bg_pos": {
     "x": -9,
     "y": 106
