@@ -18,9 +18,12 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#d5a8ff",
-  "description": "",
+  "description": "Burst into obscuring smoke that breaks clarity and creates a tactical opening.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "shadow",
+    "wind"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

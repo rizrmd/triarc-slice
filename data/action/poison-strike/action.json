@@ -18,9 +18,12 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#d4ff38",
-  "description": "",
+  "description": "Cut the target with a venom-laced attack that delivers toxic internal damage.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "earth",
+    "shadow"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

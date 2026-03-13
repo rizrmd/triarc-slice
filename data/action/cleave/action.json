@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#f28d4a",
-  "description": "",
+  "description": "Swing through the target with a broad brutal strike meant to overwhelm armor and posture.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

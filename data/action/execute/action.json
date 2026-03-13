@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#5c5c5c",
-  "description": "",
+  "description": "Deliver a ruthless finishing blow designed to punish weakened enemies.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

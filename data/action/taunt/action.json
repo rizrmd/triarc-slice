@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#fe9286",
-  "description": "",
+  "description": "Provoke the enemy into focusing attention on the caster.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

@@ -18,9 +18,11 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#f5b67a",
-  "description": "",
+  "description": "Brace in place and refuse displacement, converting resolve into defense.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "earth"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

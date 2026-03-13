@@ -18,9 +18,12 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#e294ff",
-  "description": "",
+  "description": "Fire a crackling spark that jumps through the air and shocks the target with storm-charged energy.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "wind",
+    "light"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

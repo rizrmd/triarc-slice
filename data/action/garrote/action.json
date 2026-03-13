@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#d62b00",
-  "description": "",
+  "description": "Slip into range and constrict the target with a lethal wire for precise physical damage.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

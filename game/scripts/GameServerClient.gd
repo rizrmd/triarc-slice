@@ -3,6 +3,7 @@ class_name GameServerClient
 
 const DEFAULT_SERVER_URL := "wss://sg.vangambit.com"
 const SESSION_PATH := "user://game_session.cfg"
+const CLIENT_CONFIG_PATH := "res://data/client-config.cfg"
 
 var server_url: String = DEFAULT_SERVER_URL
 var player_id: String = ""
@@ -25,6 +26,19 @@ signal error_received(code: String, message: String)
 signal match_history_received(matches: Array)
 signal leaderboard_received(entries: Array)
 signal player_stats_received(stats: Dictionary)
+
+func _init() -> void:
+	load_client_config()
+
+func load_client_config() -> void:
+	var config := ConfigFile.new()
+	var err := config.load(CLIENT_CONFIG_PATH)
+	if err != OK:
+		server_url = DEFAULT_SERVER_URL
+		return
+	server_url = str(config.get_value("network", "server_url", DEFAULT_SERVER_URL)).strip_edges()
+	if server_url.is_empty():
+		server_url = DEFAULT_SERVER_URL
 
 func load_session() -> bool:
 	var config := ConfigFile.new()

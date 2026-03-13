@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#b3c9ff",
-  "description": "",
+  "description": "Step into harm's way and catch the attack line before it reaches a vulnerable ally.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

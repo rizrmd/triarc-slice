@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ffae00",
-  "description": "",
+  "description": "Rush forward in a direct assault, smashing into a single enemy with high-impact physical force.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

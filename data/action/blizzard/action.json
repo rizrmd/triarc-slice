@@ -18,9 +18,12 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#4da9ff",
-  "description": "",
+  "description": "Unleash a freezing storm that batters the enemy line with cold, sweeping force.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "ice",
+    "wind"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

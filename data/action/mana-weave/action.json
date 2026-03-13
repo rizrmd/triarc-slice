@@ -18,9 +18,11 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#fe81f3",
-  "description": "",
+  "description": "Weave stabilizing arcane currents around an ally to restore flow and magical control.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "light"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

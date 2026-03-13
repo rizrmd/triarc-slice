@@ -181,6 +181,13 @@ text = "Action 4"
 layout_mode = 2
 text = "Action 5"
 
+[node name="ActionDetailLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 92)
+autowrap_mode = 2
+text = "Action details appear here."
+vertical_alignment = 1
+
 [node name="RerollButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
 text = "Reroll Hand (2 Energy)"

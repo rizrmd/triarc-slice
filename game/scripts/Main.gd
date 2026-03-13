@@ -13,6 +13,7 @@ var _selected_caster_slot: int = 0
 var _pending_hand_slot: int = 0
 var _pending_action_targeting: Dictionary = {}
 var _last_state: Dictionary = {}
+var _action_config_cache: Dictionary = {}
 
 @onready var bg_texture = $Background
 @onready var display_name_edit: LineEdit = $UI/LobbyPanel/MarginContainer/LobbyVBox/DisplayNameEdit
@@ -29,6 +30,7 @@ var _last_state: Dictionary = {}
 @onready var energy_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/EnergyLabel
 @onready var caster_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/CasterLabel
 @onready var hand_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/HandLabel
+@onready var action_detail_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/ActionDetailLabel
 @onready var target_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/TargetLabel
 @onready var queue_label: Label = $UI/LobbyPanel/MarginContainer/LobbyVBox/QueueLabel
 @onready var caster_buttons: Array[Button] = [
@@ -66,7 +68,6 @@ func _ready():
 
 	# Setup client
 	_client.load_session()
-	_client.server_url = GameServerClient.DEFAULT_SERVER_URL
 	FlowState.display_name = _client.display_name
 	display_name_edit.text = _client.display_name
 
@@ -213,6 +214,13 @@ func _on_action_button_pressed(hand_slot_index: int) -> void:
 
 	var action_slug = str(button.get_meta("action_slug", ""))
 	var targeting = _get_effective_targeting(action_slug, button.get_meta("targeting", {}))
+	_show_action_details(
+		action_slug,
+		str(button.get_meta("action_name", action_slug.capitalize())),
+		button.get_meta("action_description", ""),
+		button.get_meta("action_elements", []),
+		targeting
+	)
 	_pending_hand_slot = hand_slot_index
 	_pending_action_targeting = targeting
 	if _is_targeting_immediate(targeting):
@@ -367,26 +375,49 @@ func _update_hand_buttons(hand: Array) -> void:
 		
 		for card in hand:
 			if int(card.get("slot_index", 0)) == slot:
-				# Hand slot only has action_slug, we need to look up action details
 				var action_slug = str(card.get("action_slug", ""))
-				var action_name = str(card.get("action_name", action_slug.capitalize() if action_slug else "Unknown"))
-				var target_rule = str(card.get("target_rule", "enemy_single"))
-				var targeting = card.get("targeting", _target_rule_to_targeting(target_rule))
-				button.text = "%s. %s" % [slot, action_name]
+				var action_config = _load_action_config(action_slug)
+				var action_name = str(card.get("action_name", action_config.get("full_name", action_slug.capitalize() if action_slug else "Unknown")))
+				var action_description = str(action_config.get("description", ""))
+				var action_elements = action_config.get("element", [])
+				var target_rule = str(card.get("target_rule", action_config.get("target_rule", "enemy_single")))
+				var targeting = card.get("targeting", action_config.get("targeting", _target_rule_to_targeting(target_rule)))
+				button.text = _format_action_button_text(slot, action_name, action_elements)
+				button.tooltip_text = _build_action_tooltip(action_name, action_description, action_elements, targeting)
 				button.set_meta("target_rule", target_rule)
 				button.set_meta("targeting", targeting)
 				button.set_meta("action_name", action_name)
 				button.set_meta("action_slug", action_slug)
+				button.set_meta("action_description", action_description)
+				button.set_meta("action_elements", action_elements)
 				button.disabled = false
 				found = true
 				break
 		
 		if not found:
 			button.text = "Action %s" % slot
+			button.tooltip_text = ""
 			button.set_meta("target_rule", "")
 			button.set_meta("targeting", {})
 			button.set_meta("action_slug", "")
+			button.set_meta("action_name", "")
+			button.set_meta("action_description", "")
+			button.set_meta("action_elements", [])
 			button.disabled = true
+
+	if _pending_hand_slot > 0 and _pending_hand_slot <= action_buttons.size():
+		var active_button := action_buttons[_pending_hand_slot - 1]
+		var active_slug = str(active_button.get_meta("action_slug", ""))
+		if not active_slug.is_empty():
+			_show_action_details(
+				active_slug,
+				str(active_button.get_meta("action_name", active_slug.capitalize())),
+				active_button.get_meta("action_description", ""),
+				active_button.get_meta("action_elements", []),
+				active_button.get_meta("targeting", {})
+			)
+			return
+	_update_action_detail_placeholder()
 
 func _update_caster_buttons() -> void:
 	for index in range(caster_buttons.size()):
@@ -438,6 +469,7 @@ func _reset_match_state() -> void:
 	energy_label.text = "Energy: -"
 	caster_label.text = "Caster: none"
 	hand_label.text = "Hand: -"
+	action_detail_label.text = "Action details appear here."
 	queue_label.text = "Queue: Not in Queue"
 	_update_caster_buttons()
 	_update_target_buttons()
@@ -533,6 +565,83 @@ func _load_hero_config(hero_slug: String) -> Dictionary:
 		return {}
 	var parsed = JSON.parse_string(file.get_as_text())
 	return parsed if parsed is Dictionary else {}
+
+func _load_action_config(action_slug: String) -> Dictionary:
+	if action_slug.is_empty():
+		return {}
+	if _action_config_cache.has(action_slug):
+		return _action_config_cache[action_slug]
+	var path = "res://data/action/%s/action.json" % action_slug
+	if not FileAccess.file_exists(path):
+		_action_config_cache[action_slug] = {}
+		return {}
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_action_config_cache[action_slug] = {}
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	var config = parsed if parsed is Dictionary else {}
+	_action_config_cache[action_slug] = config
+	return config
+
+func _format_action_button_text(slot: int, action_name: String, elements: Variant) -> String:
+	var element_text = _format_element_list(elements)
+	if element_text.is_empty():
+		return "%s. %s" % [slot, action_name]
+	return "%s. %s [%s]" % [slot, action_name, element_text]
+
+func _show_action_details(action_slug: String, action_name: String, action_description: Variant, action_elements: Variant, targeting: Dictionary) -> void:
+	if action_slug.is_empty():
+		_update_action_detail_placeholder()
+		return
+	var description = str(action_description)
+	if description.is_empty():
+		description = "No description available."
+	var element_text = _format_element_list(action_elements)
+	var target_text = _describe_targeting(targeting)
+	var header = action_name
+	if not element_text.is_empty():
+		header += " [%s]" % element_text
+	action_detail_label.text = "%s\n%s\n%s" % [header, target_text, description]
+
+func _update_action_detail_placeholder() -> void:
+	action_detail_label.text = "Action details appear here."
+
+func _build_action_tooltip(action_name: String, action_description: String, action_elements: Variant, targeting: Dictionary) -> String:
+	var lines: Array[String] = []
+	var element_text = _format_element_list(action_elements)
+	if element_text.is_empty():
+		lines.append(action_name)
+	else:
+		lines.append("%s [%s]" % [action_name, element_text])
+	lines.append(_describe_targeting(targeting))
+	if not action_description.is_empty():
+		lines.append(action_description)
+	return "\n".join(lines)
+
+func _format_element_list(elements: Variant) -> String:
+	if not (elements is Array):
+		return ""
+	var names: Array[String] = []
+	for element_name in elements:
+		var text = str(element_name).strip_edges()
+		if text.is_empty():
+			continue
+		names.append(text.capitalize())
+	return "/".join(names)
+
+func _describe_targeting(targeting: Dictionary) -> String:
+	var scope = str(targeting.get("scope", "single"))
+	var side = str(targeting.get("side", "enemy"))
+	var selection = str(targeting.get("selection", "manual"))
+	if scope == "none":
+		return "Target: none"
+	var target_side = side.capitalize()
+	if side == "any":
+		target_side = "Any"
+	if selection == "auto":
+		return "Target: %s %s (auto)" % [target_side, scope]
+	return "Target: %s %s" % [target_side, scope]
 
 # ============================================================================
 # Helper Functions

@@ -18,9 +18,11 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#fbb698",
-  "description": "",
+  "description": "Lock into a defensive stance that creates a sturdy frontline barrier.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "earth"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

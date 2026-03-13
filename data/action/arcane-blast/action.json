@@ -18,9 +18,11 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#8d71fe",
-  "description": "",
+  "description": "Release a condensed arcane burst that strikes a single foe with focused spell damage.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "light"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

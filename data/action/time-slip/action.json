@@ -18,9 +18,12 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#6b97ff",
-  "description": "",
+  "description": "Bend the flow of the moment to act out of rhythm with normal combat timing.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "light",
+    "wind"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#6b1802",
-  "description": "",
+  "description": "Lash the target with a heavy chain, dealing blunt physical damage and disrupting momentum.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

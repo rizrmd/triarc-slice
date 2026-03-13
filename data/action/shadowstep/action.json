@@ -18,9 +18,11 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#dd3c89",
-  "description": "",
+  "description": "Move through darkness to reposition and strike before the enemy can react.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "shadow"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

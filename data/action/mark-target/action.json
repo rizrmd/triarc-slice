@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#f79f08",
-  "description": "",
+  "description": "Expose a target's weak point, setting them up for heavier punishment.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",

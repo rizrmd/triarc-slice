@@ -18,9 +18,11 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#e54c00",
-  "description": "",
+  "description": "Hurl a classic burst of flame that explodes against a single enemy.",
   "cost": 0,
-  "element": [],
+  "element": [
+    "fire"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

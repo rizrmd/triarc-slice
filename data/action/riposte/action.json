@@ -18,7 +18,7 @@
   "name_scale": 40,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#e66b6b",
-  "description": "",
+  "description": "Punish an opening with a precise counterattack after absorbing or avoiding pressure.",
   "cost": 0,
   "element": [],
   "target_rule": "enemy_single",
