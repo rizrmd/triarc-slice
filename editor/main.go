@@ -53,6 +53,7 @@ type HeroConfig struct {
 	Stats         map[string]interface{} `json:"stats"`
 	Audio         map[string]string      `json:"audio"`
 	Pose          map[string]interface{} `json:"pose"`
+	ActionOverrides map[string]HeroActionOverride `json:"action_overrides,omitempty"`
 }
 
 type ElementList []string
@@ -113,7 +114,21 @@ type ActionConfig struct {
 	Cost            int             `json:"cost"`
 	Element         ElementList     `json:"element"`
 	TargetRule      string          `json:"target_rule"`
+	Targeting       *ActionTargeting `json:"targeting,omitempty"`
 	VisibleLayers   map[string]bool `json:"visible_layers,omitempty"`
+}
+
+type ActionTargeting struct {
+	Side       string `json:"side"`
+	Scope      string `json:"scope"`
+	Selection  string `json:"selection"`
+	AllowSelf  bool   `json:"allow_self,omitempty"`
+	AllowDead  bool   `json:"allow_dead,omitempty"`
+}
+
+type HeroActionOverride struct {
+	TargetRule string           `json:"target_rule,omitempty"`
+	Targeting  *ActionTargeting `json:"targeting,omitempty"`
 }
 
 func resolvePath(path string) string {

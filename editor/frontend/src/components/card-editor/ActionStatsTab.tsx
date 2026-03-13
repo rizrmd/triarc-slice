@@ -1,8 +1,9 @@
-import { type ActionConfig } from '@/types';
+import { type ActionConfig, type ActionTargeting, type TargetScope, type TargetSelection, type TargetSide } from '@/types';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { normalizeTargeting, targetingToTargetRule } from '@/lib/targeting';
 
 interface ActionStatsTabProps {
   config: ActionConfig;
@@ -26,7 +27,20 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
     }));
   };
 
+  const updateTargeting = <K extends keyof ActionTargeting>(key: K, value: ActionTargeting[K]) => {
+    const targeting = {
+      ...normalizeTargeting(config.targeting, config.target_rule),
+      [key]: value,
+    };
+    onChange((prev) => ({
+      ...prev,
+      targeting,
+      target_rule: targetingToTargetRule(targeting),
+    }));
+  };
+
   const selectedElements = Array.isArray(config.element) ? config.element : [];
+  const targeting = normalizeTargeting(config.targeting, config.target_rule);
 
   const toggleElement = (elementKey: string) => {
     const nextElements = selectedElements.includes(elementKey)
@@ -106,6 +120,56 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
         <Card className="h-full">
           <CardContent className="flex h-full flex-col pt-6">
             <div className="flex flex-1 flex-col space-y-3">
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Targeting</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="space-y-1">
+                    <span className="text-xs uppercase text-muted-foreground">Side</span>
+                    <select
+                      value={targeting.side}
+                      onChange={(e) => updateTargeting('side', e.target.value as TargetSide)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="enemy">Enemy</option>
+                      <option value="ally">Ally</option>
+                      <option value="any">Any</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs uppercase text-muted-foreground">Selection</span>
+                    <select
+                      value={targeting.selection}
+                      onChange={(e) => updateTargeting('selection', e.target.value as TargetSelection)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="manual">Manual</option>
+                      <option value="auto">Auto</option>
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs uppercase text-muted-foreground">Scope</span>
+                    <select
+                      value={targeting.scope}
+                      onChange={(e) => updateTargeting('scope', e.target.value as TargetScope)}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="single">Single</option>
+                      <option value="none">None</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(targeting.allow_self)}
+                      onChange={(e) => updateTargeting('allow_self', e.target.checked)}
+                    />
+                    <span>Allow self target</span>
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Wire format rule: <code>{targetingToTargetRule(targeting)}</code>
+                </p>
+              </div>
               <Label className="text-base font-semibold">Description</Label>
               <Textarea
                 value={config.description || ''}

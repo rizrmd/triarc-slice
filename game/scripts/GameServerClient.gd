@@ -211,16 +211,23 @@ func leave_matchmaking() -> void:
 	# This is a no-op for now - server handles queue management automatically
 	matchmaking_left.emit()
 
-func cast_action(caster_slot: int, hand_slot_index: int) -> void:
+func cast_action(caster_slot: int, hand_slot_index: int, target_slot: int = 0, target_side: String = "", target_override_rule: String = "") -> void:
 	if current_match_id.is_empty():
 		push_error("Not in a match")
 		return
-	_send_message({
+	var payload := {
 		"type": "cast_action",
 		"match_id": current_match_id,
 		"caster_slot": caster_slot,
 		"hand_slot_index": hand_slot_index
-	})
+	}
+	if target_slot > 0:
+		payload["target_slot"] = target_slot
+	if not target_side.is_empty():
+		payload["target_side"] = target_side
+	if not target_override_rule.is_empty():
+		payload["target_override_rule"] = target_override_rule
+	_send_message(payload)
 
 func reroll_hand() -> void:
 	if current_match_id.is_empty():

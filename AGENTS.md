@@ -37,7 +37,7 @@ triarc-slice/
   - Player registration and authentication
   - Matchmaking queue management
   - Match state display and interaction
-  - Card casting and targeting
+  - Hand presentation and action play flow
   - Hero selection and display
 
 #### 2. GameServerClient.gd
@@ -53,7 +53,7 @@ triarc-slice/
 - **Key responsibilities**:
   - Load hero data from JSON
   - Display hero portrait, name, HP
-  - Handle card interactions (click, double-click)
+  - Handle drag interactions for board and hand presentation
 
 #### 4. LayoutManager.gd
 - **Purpose**: Dynamic UI layout system
@@ -91,9 +91,21 @@ triarc-slice/
    - Energy regenerates at 1/sec
    - Server pushes `state_update` events
    - Players can:
-     - Select a caster hero (`select_caster`)
-     - Cast action cards on valid targets (`cast_action`)
+     - Drag an action card onto one of their own heroes
+     - Let the game resolve targeting automatically based on the action rules
      - Reroll hand (`reroll_hand`, costs 2 energy)
+
+### Actual Combat Interaction Model
+
+The primary combat input is card-to-hero assignment:
+
+1. The player reads their current 5-card hand and current energy.
+2. The player drags an action card onto one of their 3 allied heroes.
+3. The drop target determines which hero performs the action.
+4. The server resolves the action and applies auto-targeting according to the action's rules.
+5. The client receives updated state and combat events from the server.
+
+There is no separate gameplay step where the player first selects a caster and then manually selects an ally or enemy target. The main decision is which card to play and which allied hero should execute it.
 
 ### UI Components
 
@@ -101,9 +113,8 @@ triarc-slice/
 - **Server URL Input**: WebSocket server address
 - **Lobby Panel**: Registration, matchmaking controls
 - **Hero Selectors**: Dropdowns for selecting 3 heroes
-- **Caster Buttons**: Select which hero will cast
-- **Action Buttons**: 5 hand slots with action info
-- **Target Buttons**: Ally/Enemy selection for targeting
+- **Hand Cards**: Action cards the player drags onto allied heroes
+- **Hero Cards**: The 3 controlled heroes that receive dropped actions
 - **Status Labels**: Energy, match status, queue status
 
 ## Server API (WebSocket)
@@ -125,18 +136,15 @@ await _client.connected_to_server
 |---------|--------|-------------|
 | `upsert_profile` | `display_name` | Register/update player profile |
 | `queue_matchmaking` | `hero_slug_1, hero_slug_2, hero_slug_3` | Join matchmaking queue |
-| `leave_matchmaking` | - | Leave queue |
-| `select_caster` | `match_id, slot_index` | Set active caster |
-| `cast_action` | `match_id, hand_slot_index, target_slot` | Cast a card |
+| `cast_action` | `match_id, caster_slot, hand_slot_index` | Play a card through a selected allied hero |
 | `reroll_hand` | `match_id` | Replace hand (costs 2 energy) |
-| `get_state` | `match_id` | Request current match state |
 
 ### Server → Client Messages
 
 | Message | Fields | Description |
 |---------|--------|-------------|
 | `connected` | `player_id` | Connection established |
-| `state_update` | `match, team_state, hand, heroes...` | Full match state |
+| `state_update` | `match, players, team_states, heroes, hand, statuses, casts` | Full match state |
 | `match_found` | `match_id, team` | Matched with opponent |
 | `event` | `event_type, data` | Game event (cast_started, damage_dealt, etc.) |
 | `error` | `code, message` | Error response |
@@ -147,8 +155,7 @@ await _client.connected_to_server
 ```json
 {"type": "upsert_profile", "display_name": "Player1"}
 {"type": "queue_matchmaking", "hero_slug_1": "iron-knight", "hero_slug_2": "dawn-priest", "hero_slug_3": "arc-strider"}
-{"type": "select_caster", "match_id": "123", "slot_index": 1}
-{"type": "cast_action", "match_id": "123", "hand_slot_index": 1, "target_slot": 2}
+{"type": "cast_action", "match_id": "123", "caster_slot": 1, "hand_slot_index": 1}
 {"type": "reroll_hand", "match_id": "123"}
 ```
 
@@ -156,7 +163,7 @@ await _client.connected_to_server
 ```json
 {"type": "connected", "player_id": "uuid123"}
 {"type": "match_found", "match_id": "match456", "team": 1}
-{"type": "state_update", "data": {"match": {...}, "heroes": [...], "hand": [...]}}
+{"type": "state_update", "match": {...}, "players": [...], "team_states": [...], "heroes": [...], "hand": [...], "statuses": [...], "casts": [...]}
 {"type": "event", "event_type": "cast_started", "data": {"caster_slot": 1, "action_slug": "fireball"}}
 {"type": "error", "code": "NOT_ENOUGH_ENERGY", "message": "Need 3 energy"}
 ```
@@ -167,7 +174,10 @@ The `GameServerClient` emits these signals:
 
 - `connected_to_server(player_id: String)` - Successfully connected
 - `disconnected_from_server()` - Connection lost
-- `match_state_updated(state: Dictionary)` - Match state changed
+- `profile_updated(profile: Dictionary)` - Profile update acknowledged by server
+- `matchmaking_queued()` - Queue join acknowledged by server
+- `matchmaking_left()` - Queue exit acknowledged by server
+- `match_state_updated(match_data: Dictionary, players: Array, team_states: Array, heroes: Array, hand: Array, statuses: Array, casts: Array)` - Match state changed
 - `match_found(match_id: String, team: int)` - Entered a match
 - `event_received(event_type: String, data: Dictionary)` - Game event
 - `error_received(code: String, message: String)` - Error occurred
@@ -223,10 +233,13 @@ Each hero has a `hero.json` file:
 - 2 teams per match
 - 3 heroes per team
 - 5 visible hand cards
+- Playing a card means dragging it onto one of your own heroes
+- The hero you drop onto becomes the acting hero for that card
+- Targeting is resolved automatically by the game
 - Actions have:
   - Energy cost
   - Casting time (ms)
-  - Target type (ally/enemy/self)
+  - Targeting rules used for auto-resolution
   - Element
   - Effect (damage, heal, shield, status)
 

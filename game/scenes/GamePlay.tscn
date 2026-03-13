@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://main_scene"]
+[gd_scene load_steps=2 format=3 uid="uid://gameplay_scene"]
 
 [ext_resource type="Script" path="res://scripts/Main.gd" id="1_script"]
 
-[node name="Main" type="Control"]
+[node name="GamePlay" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -24,37 +24,67 @@ stretch_mode = 6
 [node name="UI" type="CanvasLayer" parent="."]
 
 [node name="LobbyPanel" type="PanelContainer" parent="UI"]
-offset_left = 16.0
-offset_top = 16.0
-offset_right = 360.0
-offset_bottom = 500.0
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 420.0
+offset_bottom = 740.0
+size_flags_vertical = 3
+theme_override_constants/separation = 12
 
 [node name="MarginContainer" type="MarginContainer" parent="UI/LobbyPanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
 
 [node name="LobbyVBox" type="VBoxContainer" parent="UI/LobbyPanel/MarginContainer"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Vanguard's Gambit"
+theme_override_font_sizes/font_size = 28
+text = "Triarc Slice"
 
 [node name="ConnectButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Connect"
+visible = false
+text = "Reconnect"
+
+[node name="SubtitleLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+autowrap_mode = 2
+modulate = Color(0.82, 0.82, 0.82, 1)
+text = "Build your trio, queue instantly, and assign actions to your heroes while the server resolves the fight."
+
+[node name="ConnectionLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Status: Connecting..."
+autowrap_mode = 2
+
+[node name="StatusLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+text = "Status: Booting..."
+autowrap_mode = 2
+
+[node name="ProfileSection" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Profile"
 
 [node name="DisplayNameEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-placeholder_text = "Display name"
+placeholder_text = "Choose your display name"
 
 [node name="RegisterButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Register Profile"
+text = "Save Name"
+
+[node name="PartySection" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Party"
 
 [node name="Hero1Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
@@ -72,22 +102,22 @@ theme_override_constants/separation = 8
 [node name="QueueButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Queue Matchmaking"
+text = "Find Match"
 
 [node name="LeaveQueueButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons"]
 layout_mode = 2
 size_flags_horizontal = 3
-text = "Leave Queue"
-
-[node name="ConnectionLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Status: Offline"
-autowrap_mode = 2
+text = "Cancel Queue"
 
 [node name="QueueLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Queue: idle"
+text = "Queue: Not in Queue"
 autowrap_mode = 2
+
+[node name="MatchSection" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Match"
 
 [node name="MatchLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
@@ -125,7 +155,7 @@ text = "Hero 3"
 
 [node name="HandLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Hand: none"
+text = "Hand: -"
 
 [node name="ActionButtons" type="VBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
@@ -153,7 +183,7 @@ text = "Action 5"
 
 [node name="RerollButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
-text = "Reroll Hand (2)"
+text = "Reroll Hand (2 Energy)"
 
 [node name="TargetLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
 layout_mode = 2
@@ -187,8 +217,3 @@ text = "Enemy 2"
 [node name="Enemy3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
 layout_mode = 2
 text = "Enemy 3"
-
-[node name="StatusLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Ready."
-autowrap_mode = 2

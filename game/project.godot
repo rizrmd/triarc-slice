@@ -15,9 +15,13 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Triarc Slice"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Home.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+FlowState="*res://scripts/FlowState.gd"
 
 [display]
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import type { ActionConfig, CardConfig, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers, PoseLayer, HeroConfig } from '@/types';
+import { normalizeTargeting, targetingToTargetRule } from '@/lib/targeting';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -224,6 +225,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     if (s.char_fg_pos) clone.char_fg_pos = { ...s.char_fg_pos };
     if (s.name_pos) clone.name_pos = { ...s.name_pos };
     if (s.hp_bar_pos) clone.hp_bar_pos = { ...s.hp_bar_pos };
+    if (s.targeting) clone.targeting = { ...s.targeting };
     return clone;
   };
 
@@ -241,6 +243,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     if (l.cost !== r.cost) return false;
     if (JSON.stringify(l.element ?? []) !== JSON.stringify(r.element ?? [])) return false;
     if (l.target_rule !== r.target_rule) return false;
+    if (JSON.stringify(l.targeting ?? {}) !== JSON.stringify(r.targeting ?? {})) return false;
     if (l.description !== r.description) return false;
     
     return JSON.stringify(left) === JSON.stringify(right);
@@ -337,7 +340,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
             : typeof data.element === 'string' && data.element
               ? [data.element]
               : [],
-          target_rule: data.target_rule,
+          targeting: normalizeTargeting(data.targeting, data.target_rule),
+          target_rule: targetingToTargetRule(data.targeting ?? normalizeTargeting(data.targeting, data.target_rule)),
           description: data.description,
         };
 

@@ -21,7 +21,7 @@
   "description": "",
   "cost": 0,
   "element": [],
-  "target_rule": "",
+  "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,
     "char-bg": true,
@@ -34,5 +34,12 @@
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
   }
 }

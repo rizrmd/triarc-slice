@@ -20,6 +20,7 @@ export interface HeroConfig {
   tint: string;
   lore?: string;
   audio?: Record<string, string>;
+  action_overrides?: Record<string, HeroActionOverride>;
   hp_bar_pos: {
     x: number;
     y: number;
@@ -58,10 +59,35 @@ export interface ActionConfig {
   cost?: number;
   element?: string[];
   target_rule?: TargetRule;
+  targeting?: ActionTargeting;
   visible_layers?: Partial<VisibleLayers>;
 }
 
-export type TargetRule = 'enemy_single' | 'ally_single' | 'self';
+export interface ActionTargeting {
+  side: TargetSide;
+  scope: TargetScope;
+  selection: TargetSelection;
+  allow_self?: boolean;
+  allow_dead?: boolean;
+}
+
+export interface HeroActionOverride {
+  target_rule?: TargetRule;
+  targeting?: ActionTargeting;
+}
+
+export type TargetSide = 'enemy' | 'ally' | 'any';
+export type TargetScope = 'single' | 'none';
+export type TargetSelection = 'manual' | 'auto';
+export type TargetRule =
+  | 'enemy_single'
+  | 'ally_single'
+  | 'self'
+  | 'any_single'
+  | 'enemy_auto'
+  | 'ally_auto'
+  | 'any_auto'
+  | 'no_target';
 
 export type CardConfig = HeroConfig | ActionConfig;
 

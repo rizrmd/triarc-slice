@@ -1,5 +1,7 @@
 extends Control
 
+const GAME_POST_SCENE := "res://scenes/GamePost.tscn"
+
 var card_scene = preload("res://scenes/Card.tscn")
 var current_cards: Array = []
 var available_heroes: Array[String] = []
@@ -9,7 +11,8 @@ var _current_team: int = 0
 var _displayed_hero_slugs: Array[String] = []
 var _selected_caster_slot: int = 0
 var _pending_hand_slot: int = 0
-var _pending_action_target_rule: String = ""
+var _pending_action_targeting: Dictionary = {}
+var _last_state: Dictionary = {}
 
 @onready var bg_texture = $Background
 @onready var display_name_edit: LineEdit = $UI/LobbyPanel/MarginContainer/LobbyVBox/DisplayNameEdit
@@ -56,6 +59,7 @@ func _ready():
 	randomize()
 	_scan_heroes()
 	_setup_hero_selectors()
+	_apply_flow_selected_heroes()
 	_load_initial_cards()
 	call_deferred("update_layout")
 	get_tree().root.size_changed.connect(update_layout)
@@ -63,6 +67,8 @@ func _ready():
 	# Setup client
 	_client.load_session()
 	_client.server_url = GameServerClient.DEFAULT_SERVER_URL
+	FlowState.display_name = _client.display_name
+	display_name_edit.text = _client.display_name
 
 	# Connect buttons
 	connect_button.pressed.connect(_on_connect_pressed)
@@ -91,6 +97,13 @@ func _ready():
 	_client.matchmaking_queued.connect(_on_matchmaking_queued)
 	_client.matchmaking_left.connect(_on_matchmaking_left)
 
+	_update_ui_for_connection(false)
+	if _has_saved_profile():
+		_set_status("Restoring saved profile...")
+	else:
+		_set_status("Connecting to server...")
+	call_deferred("_auto_connect")
+
 func _process(_delta):
 	_client.process()
 
@@ -104,7 +117,11 @@ func _on_connect_pressed() -> void:
 		return
 	
 	_set_status("Connecting to server...")
-	_client.configure(server_url_edit.text)
+	_client.connect_to_server()
+
+func _auto_connect() -> void:
+	if _client.connected:
+		return
 	_client.connect_to_server()
 
 func _on_connected(player_id: String) -> void:
@@ -113,13 +130,17 @@ func _on_connected(player_id: String) -> void:
 	connect_button.text = "Disconnect"
 	queue_label.text = "Queue: Not in Queue"
 	_update_ui_for_connection(true)
+	if _has_saved_profile():
+		_set_status("Connected. Restoring profile...")
+		_client.register_profile(_client.display_name)
 
 func _on_disconnected() -> void:
-	_set_status("Disconnected from server")
+	_set_status("Disconnected from server. Reconnecting...")
 	connection_label.text = "Status: Offline"
 	connect_button.text = "Connect"
 	_update_ui_for_connection(false)
 	_reset_match_state()
+	call_deferred("_auto_connect")
 
 func _update_ui_for_connection(connected: bool) -> void:
 	register_button.disabled = not connected
@@ -189,24 +210,25 @@ func _on_action_button_pressed(hand_slot_index: int) -> void:
 	if target_rule.is_empty():
 		_set_status("No action in that slot")
 		return
-	
+
+	var action_slug = str(button.get_meta("action_slug", ""))
+	var targeting = _get_effective_targeting(action_slug, button.get_meta("targeting", {}))
 	_pending_hand_slot = hand_slot_index
-	_pending_action_target_rule = target_rule
+	_pending_action_targeting = targeting
+	if _is_targeting_immediate(targeting):
+		_cast_pending_action(0, "", _targeting_to_rule(targeting))
+		return
 	_update_target_buttons()
 	target_label.text = "Target: select a target"
 
 func _on_target_button_pressed(target_side: String, slot_index: int) -> void:
 	if not _client.connected or _current_match_id.is_empty() or _pending_hand_slot == 0:
 		return
-	if not _is_target_side_valid(target_side):
+	if not _is_target_side_valid(target_side, slot_index):
 		_set_status("Invalid target for selected action")
 		return
-	
-	_set_status("Casting action...")
-	_client.cast_action(_selected_caster_slot, _pending_hand_slot)
-	_pending_hand_slot = 0
-	_pending_action_target_rule = ""
-	_update_target_buttons()
+
+	_cast_pending_action(slot_index, target_side, _targeting_to_rule(_pending_action_targeting))
 
 func _on_reroll_pressed() -> void:
 	if not _client.connected or _current_match_id.is_empty():
@@ -220,6 +242,8 @@ func _on_reroll_pressed() -> void:
 
 func _on_profile_updated(profile: Dictionary) -> void:
 	var display_name = str(profile.get("display_name", ""))
+	FlowState.display_name = display_name
+	display_name_edit.text = display_name
 	_set_status("Welcome, %s!" % display_name)
 
 func _on_matchmaking_queued() -> void:
@@ -272,9 +296,13 @@ func _on_event_received(event_type: String, data: Dictionary) -> void:
 		"match_won":
 			var winner = int(data.get("winner_team", 0))
 			if winner == _current_team:
+				FlowState.last_match_result = "Victory"
 				_set_status("Victory!")
 			else:
+				FlowState.last_match_result = "Defeat!"
 				_set_status("Defeat!")
+			FlowState.last_match_id = _current_match_id
+			get_tree().change_scene_to_file(GAME_POST_SCENE)
 		_:
 			pass
 
@@ -341,13 +369,14 @@ func _update_hand_buttons(hand: Array) -> void:
 			if int(card.get("slot_index", 0)) == slot:
 				# Hand slot only has action_slug, we need to look up action details
 				var action_slug = str(card.get("action_slug", ""))
-				# Default values since we don't have full action defs on client
-				var action_name = action_slug.capitalize() if action_slug else "Unknown"
-				var energy_cost = 0  # Will be validated server-side
-				var target_rule = "enemy_single"  # Default assumption
+				var action_name = str(card.get("action_name", action_slug.capitalize() if action_slug else "Unknown"))
+				var target_rule = str(card.get("target_rule", "enemy_single"))
+				var targeting = card.get("targeting", _target_rule_to_targeting(target_rule))
 				button.text = "%s. %s" % [slot, action_name]
 				button.set_meta("target_rule", target_rule)
+				button.set_meta("targeting", targeting)
 				button.set_meta("action_name", action_name)
+				button.set_meta("action_slug", action_slug)
 				button.disabled = false
 				found = true
 				break
@@ -355,6 +384,8 @@ func _update_hand_buttons(hand: Array) -> void:
 		if not found:
 			button.text = "Action %s" % slot
 			button.set_meta("target_rule", "")
+			button.set_meta("targeting", {})
+			button.set_meta("action_slug", "")
 			button.disabled = true
 
 func _update_caster_buttons() -> void:
@@ -364,12 +395,16 @@ func _update_caster_buttons() -> void:
 		caster_buttons[index].text = "Hero %s%s" % [slot, " *" if slot == _selected_caster_slot else ""]
 
 func _update_target_buttons() -> void:
-	var allow_ally = _pending_hand_slot != 0 and (_pending_action_target_rule == "ally_single" or _pending_action_target_rule == "self")
-	var allow_enemy = _pending_hand_slot != 0 and _pending_action_target_rule == "enemy_single"
+	var side = str(_pending_action_targeting.get("side", ""))
+	var scope = str(_pending_action_targeting.get("scope", ""))
+	var selection = str(_pending_action_targeting.get("selection", ""))
+	var allow_self = bool(_pending_action_targeting.get("allow_self", false))
+	var allow_ally = _pending_hand_slot != 0 and scope == "single" and selection == "manual" and (side == "ally" or side == "any")
+	var allow_enemy = _pending_hand_slot != 0 and scope == "single" and selection == "manual" and (side == "enemy" or side == "any")
 	
 	for index in range(ally_target_buttons.size()):
 		var slot = index + 1
-		var self_only = _pending_action_target_rule == "self" and slot != _selected_caster_slot
+		var self_only = side == "ally" and not allow_self and slot == _selected_caster_slot
 		ally_target_buttons[index].disabled = (not allow_ally) or self_only or _current_match_id.is_empty()
 	
 	for index in range(enemy_target_buttons.size()):
@@ -378,12 +413,16 @@ func _update_target_buttons() -> void:
 	if _pending_hand_slot == 0:
 		target_label.text = "Target: select a card first"
 
-func _is_target_side_valid(target_side: String) -> bool:
-	match _pending_action_target_rule:
-		"enemy_single":
+func _is_target_side_valid(target_side: String, slot_index: int) -> bool:
+	if target_side == "ally" and slot_index == _selected_caster_slot and not bool(_pending_action_targeting.get("allow_self", false)):
+		return false
+	match str(_pending_action_targeting.get("side", "")):
+		"enemy":
 			return target_side == "enemy"
-		"ally_single", "self":
+		"ally":
 			return target_side == "ally"
+		"any":
+			return true
 		_:
 			return false
 
@@ -394,7 +433,7 @@ func _reset_match_state() -> void:
 	_client.current_team = 0
 	_selected_caster_slot = 0
 	_pending_hand_slot = 0
-	_pending_action_target_rule = ""
+	_pending_action_targeting = {}
 	match_label.text = "Match: none"
 	energy_label.text = "Energy: -"
 	caster_label.text = "Caster: none"
@@ -403,6 +442,97 @@ func _reset_match_state() -> void:
 	_update_caster_buttons()
 	_update_target_buttons()
 	_update_ui_for_connection(_client.connected)
+
+func _cast_pending_action(target_slot: int, target_side: String, target_override_rule: String) -> void:
+	_set_status("Casting action...")
+	_client.cast_action(_selected_caster_slot, _pending_hand_slot, target_slot, target_side, target_override_rule)
+	_pending_hand_slot = 0
+	_pending_action_targeting = {}
+	_update_target_buttons()
+
+func _is_targeting_immediate(targeting: Dictionary) -> bool:
+	return str(targeting.get("scope", "single")) == "none" or str(targeting.get("selection", "manual")) == "auto"
+
+func _target_rule_to_targeting(target_rule: String) -> Dictionary:
+	match target_rule:
+		"ally_single":
+			return {"side": "ally", "scope": "single", "selection": "manual", "allow_self": true, "allow_dead": false}
+		"self":
+			return {"side": "ally", "scope": "single", "selection": "manual", "allow_self": true, "allow_dead": false}
+		"any_single":
+			return {"side": "any", "scope": "single", "selection": "manual", "allow_self": true, "allow_dead": false}
+		"ally_auto":
+			return {"side": "ally", "scope": "single", "selection": "auto", "allow_self": true, "allow_dead": false}
+		"enemy_auto":
+			return {"side": "enemy", "scope": "single", "selection": "auto", "allow_self": false, "allow_dead": false}
+		"any_auto":
+			return {"side": "any", "scope": "single", "selection": "auto", "allow_self": true, "allow_dead": false}
+		"no_target":
+			return {"side": "ally", "scope": "none", "selection": "auto", "allow_self": true, "allow_dead": false}
+		_:
+			return {"side": "enemy", "scope": "single", "selection": "manual", "allow_self": false, "allow_dead": false}
+
+func _targeting_to_rule(targeting: Dictionary) -> String:
+	var scope = str(targeting.get("scope", "single"))
+	var side = str(targeting.get("side", "enemy"))
+	var selection = str(targeting.get("selection", "manual"))
+	if scope == "none":
+		return "no_target"
+	if selection == "auto":
+		match side:
+			"ally":
+				return "ally_auto"
+			"any":
+				return "any_auto"
+			_:
+				return "enemy_auto"
+	match side:
+		"ally":
+			return "ally_single"
+		"any":
+			return "any_single"
+		_:
+			return "enemy_single"
+
+func _get_effective_targeting(action_slug: String, base_targeting: Variant) -> Dictionary:
+	var resolved = {}
+	if base_targeting is Dictionary:
+		resolved = base_targeting.duplicate(true)
+	else:
+		resolved = _target_rule_to_targeting(str(base_targeting))
+	var hero_slug = _get_selected_caster_hero_slug()
+	if hero_slug.is_empty():
+		return resolved
+	var hero_config = _load_hero_config(hero_slug)
+	var overrides = hero_config.get("action_overrides", {})
+	if not (overrides is Dictionary):
+		return resolved
+	var action_override = overrides.get(action_slug, {})
+	if not (action_override is Dictionary):
+		return resolved
+	var override_targeting = action_override.get("targeting", {})
+	if override_targeting is Dictionary:
+		for key in override_targeting.keys():
+			resolved[key] = override_targeting[key]
+	var override_rule = str(action_override.get("target_rule", ""))
+	if not override_rule.is_empty():
+		resolved = _target_rule_to_targeting(override_rule)
+	return resolved
+
+func _get_selected_caster_hero_slug() -> String:
+	if _selected_caster_slot <= 0 or _selected_caster_slot > _displayed_hero_slugs.size():
+		return ""
+	return _displayed_hero_slugs[_selected_caster_slot - 1]
+
+func _load_hero_config(hero_slug: String) -> Dictionary:
+	var path = "res://data/hero/%s/hero.json" % hero_slug
+	if not FileAccess.file_exists(path):
+		return {}
+	var file = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed = JSON.parse_string(file.get_as_text())
+	return parsed if parsed is Dictionary else {}
 
 # ============================================================================
 # Helper Functions
@@ -432,6 +562,18 @@ func _setup_hero_selectors() -> void:
 		hero_1_select.select(0)
 		hero_2_select.select(1)
 		hero_3_select.select(2)
+
+func _apply_flow_selected_heroes() -> void:
+	if FlowState.selected_heroes.size() != 3:
+		return
+	var selectors = [hero_1_select, hero_2_select, hero_3_select]
+	for index in range(3):
+		var target_slug = FlowState.selected_heroes[index]
+		var selector: OptionButton = selectors[index]
+		for item_index in range(selector.item_count):
+			if selector.get_item_text(item_index) == target_slug:
+				selector.select(item_index)
+				break
 
 func _selected_heroes_payload() -> Array:
 	return [
@@ -482,3 +624,6 @@ func update_layout():
 
 func _set_status(message: String) -> void:
 	status_label.text = "Status: %s" % message
+
+func _has_saved_profile() -> bool:
+	return not _client.display_name.strip_edges().is_empty()

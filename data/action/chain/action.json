@@ -19,11 +19,8 @@
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#6b1802",
   "description": "",
-  "cost": 3,
-  "element": [
-    "fire",
-    "ice"
-  ],
+  "cost": 0,
+  "element": [],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,
@@ -37,5 +34,12 @@
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
   }
 }
