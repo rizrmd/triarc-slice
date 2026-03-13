@@ -41,7 +41,15 @@
     },
     "max_hp": 2300
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/necromancer/audio/Necromancer_7_-_The_ritual_is_not_ready..wav",
+    "CastingHighAffinity": "/data/hero/necromancer/audio/Necromancer_2_-The_grave_answers!.wav",
+    "CastingLowAffinity": "/data/hero/necromancer/audio/Necromancer_1_-_The_grave_stirs..wav",
+    "DamageBlocked": "/data/hero/necromancer/audio/Necromancer_5_-_Death_protects_me..wav",
+    "DamageCritical": "/data/hero/necromancer/audio/Necromancer_4_-_My_shadows…_falter!.wav",
+    "DamageNormal": "/data/hero/necromancer/audio/Necromancer_3_-_Insolent.wav",
+    "Die": "/data/hero/necromancer/audio/Necromancer_6_-_Even_death…_claims_me….wav"
+  },
   "pose": {
     "char_fg_pos": {
       "x": 0,

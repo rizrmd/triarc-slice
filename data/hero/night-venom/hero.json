@@ -41,6 +41,14 @@
     },
     "max_hp": 2500
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/night-venom/audio/Night_Venom_7_-_Ssshh.._Wait..wav",
+    "CastingHighAffinity": "/data/hero/night-venom/audio/Night_Venom_2_-_Let_the_poison_Bloom!.wav",
+    "CastingLowAffinity": "/data/hero/night-venom/audio/Night_Venom_1_-_The_venom_spreads..wav",
+    "DamageBlocked": "/data/hero/night-venom/audio/Night_Venom_5_-_Predictable.wav",
+    "DamageCritical": "/data/hero/night-venom/audio/Night_Venom_4_-_You_burn_my_venom!.wav",
+    "DamageNormal": "/data/hero/night-venom/audio/Night_Venom_3_-_You_will_regret_that!.wav",
+    "Die": "/data/hero/night-venom/audio/Night_Venom_6_-_Darkness…_fades….wav"
+  },
   "pose": null
 }
