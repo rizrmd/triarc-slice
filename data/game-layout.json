@@ -2,59 +2,59 @@
   "background": "cave.webp",
   "boxes": {
     "action1": {
-      "height": 140,
+      "height": 255,
       "id": "action1",
       "label": "Action 1",
-      "nx": 0.18046875,
-      "ny": 0.7614583333333333,
+      "nx": 0.19140625,
+      "ny": 0.7830729166666667,
       "pivot": "center",
-      "width": 140,
-      "x": 61,
-      "y": 1392
+      "width": 170,
+      "x": 60,
+      "y": 1376
     },
     "action2": {
-      "height": 100,
+      "height": 255,
       "id": "action2",
       "label": "Action 2",
-      "nx": 0.31484375,
-      "ny": 0.75625,
+      "nx": 0.34765625,
+      "ny": 0.7830729166666667,
       "pivot": "center",
-      "width": 100,
-      "x": 253,
-      "y": 1402
+      "width": 170,
+      "x": 260,
+      "y": 1376
     },
     "action3": {
-      "height": 100,
+      "height": 255,
       "id": "action3",
       "label": "Action 3",
-      "nx": 0.43125,
-      "ny": 0.7520833333333333,
+      "nx": 0.50390625,
+      "ny": 0.7830729166666667,
       "pivot": "center",
-      "width": 100,
-      "x": 402,
-      "y": 1394
+      "width": 170,
+      "x": 460,
+      "y": 1376
     },
     "action4": {
-      "height": 96,
+      "height": 255,
       "id": "action4",
       "label": "Action 4",
-      "nx": 0.60390625,
-      "ny": 0.7572916666666667,
+      "nx": 0.66015625,
+      "ny": 0.7830729166666667,
       "pivot": "center",
-      "width": 136,
-      "x": 605,
-      "y": 1406
+      "width": 170,
+      "x": 660,
+      "y": 1376
     },
     "action5": {
-      "height": 100,
+      "height": 255,
       "id": "action5",
       "label": "Action 5",
-      "nx": 0.7328125,
-      "ny": 0.7536458333333333,
+      "nx": 0.81640625,
+      "ny": 0.7830729166666667,
       "pivot": "center",
-      "width": 100,
-      "x": 788,
-      "y": 1397
+      "width": 170,
+      "x": 860,
+      "y": 1376
     },
     "battery": {
       "height": 59,
@@ -154,11 +154,11 @@
       "height": 495,
       "id": "hero3",
       "label": "Hero 3",
-      "nx": 0.771875,
+      "nx": 0.76640625,
       "ny": 0.5825520833333333,
       "pivot": "top-center",
       "width": 324,
-      "x": 726,
+      "x": 719,
       "y": 871
     },
     "mana": {
