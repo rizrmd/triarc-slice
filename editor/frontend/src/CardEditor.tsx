@@ -33,6 +33,15 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'card';
   const isAction = mode === 'action';
+  const getDefaultNamePos = useCallback(() => ({ x: 0, y: isAction ? 500 : 0 }), [isAction]);
+  const getDefaultNameScale = useCallback(() => (isAction ? 115 : 100), [isAction]);
+  const getDefaultTextShadowSize = useCallback(() => 3, []);
+  const clampLayerY = useCallback((layer: CharLayer | TextLayer | BarLayer | PoseLayer, value: number) => {
+    if (isAction && layer === 'name') {
+      return Math.min(Math.round(value), 700);
+    }
+    return Math.round(value);
+  }, [isAction]);
 
   const handleTabChange = (value: string) => {
     setSearchParams(
@@ -59,7 +68,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     card: true,
     'mask-fg': !isAction,
     'char-fg': !isAction,
-    name: !isAction,
+    name: true,
     'hp-bar': !isAction,
     'pose-frame': !isAction,
     'pose-char-fg': !isAction,
@@ -208,7 +217,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       card: true,
       'mask-fg': false,
       'char-fg': false,
-      name: false,
+      name: true,
       'hp-bar': false,
     }));
     setActiveLayer((prev) => (prev === 'card' || prev === 'char-bg' ? prev : 'char-bg'));
@@ -323,9 +332,13 @@ export default function CardEditor({ mode }: CardEditorProps) {
             typeof data.frame_image === 'string' && data.frame_image
               ? data.frame_image
               : (isAction ? actionFrameImage : frameImage),
-          name_pos: data.name_pos || { x: 0, y: 0 },
-          name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? Math.max(30, data.name_scale) : 40,
+          name_pos: {
+            x: data.name_pos?.x ?? getDefaultNamePos().x,
+            y: data.name_pos?.y ?? getDefaultNamePos().y,
+          },
+          name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? Math.max(30, data.name_scale) : getDefaultNameScale(),
           text_shadow_color: data.text_shadow_color || 'rgba(0, 0, 0, 0.5)',
+          text_shadow_size: typeof data.text_shadow_size === 'number' && data.text_shadow_size >= 0 ? data.text_shadow_size : getDefaultTextShadowSize(),
           tint: typeof data.tint === 'string' && data.tint ? data.tint : '#ffffff',
           hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
           hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 250,
@@ -406,7 +419,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       .catch(() => {
         setLoading(false);
       });
-  }, [isAction, slug]);
+  }, [getDefaultNamePos, getDefaultNameScale, getDefaultTextShadowSize, isAction, slug]);
 
   const handleRename = (newName: string) => {
     if (!slug) return;
@@ -818,7 +831,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
         ...prev,
         name_pos: {
           x: p.name_pos.x + dx,
-          y: p.name_pos.y + dy,
+          y: clampLayerY(layer, p.name_pos.y + dy),
         },
       };
     };
@@ -931,7 +944,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       }
       return {
         ...prev,
-        name_pos: { x: Math.round(state.x), y: Math.round(state.y) },
+        name_pos: { x: Math.round(state.x), y: clampLayerY(layer, state.y) },
         name_scale: clampedScale,
       };
     });
@@ -1003,7 +1016,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
         ...prev,
         name_pos: {
           ...p.name_pos,
-          [property]: rounded,
+          [property]: property === 'y' ? clampLayerY(layer, rounded) : rounded,
         },
       };
     });
@@ -1033,8 +1046,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
 
   const getDefaultLayerState = (layer?: CharLayer | TextLayer | BarLayer | PoseLayer) => ({
     x: 0,
-    y: 0,
-    scale: layer === 'hp-bar' ? 250 : 100,
+    y: layer === 'name' ? getDefaultNamePos().y : 0,
+    scale: layer === 'hp-bar' ? 250 : layer === 'name' ? getDefaultNameScale() : 100,
   });
 
   const resetLayerProperty = (layer: CharLayer | TextLayer | BarLayer | PoseLayer, property: CharProperty) => {
@@ -1138,7 +1151,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
             }
             return {
               ...prev,
-              name_pos: { x: Math.round(layerClipboard.x), y: Math.round(layerClipboard.y) },
+              name_pos: { x: Math.round(layerClipboard.x), y: clampLayerY(activeCharLayer, layerClipboard.y) },
               name_scale: clampedScale,
             };
           });
@@ -1195,7 +1208,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
           }
           return {
             ...prev,
-            name_pos: { x: i.name_pos.x, y: i.name_pos.y },
+            name_pos: { x: i.name_pos.x, y: clampLayerY(activeCharLayer, i.name_pos.y) },
             name_scale: i.name_scale,
           };
         });
@@ -1211,7 +1224,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
       window.removeEventListener('keyup', onKeyUp);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [undoStack, redoStack, saving, config, slug, activeLayer, layerClipboard, maskClipboard, initialConfig, maskVersion]);
+  }, [undoStack, redoStack, saving, config, slug, activeLayer, layerClipboard, maskClipboard, initialConfig, maskVersion, clampLayerY]);
 
   useEffect(() => {
     if (!slug || !config || !initialConfig || loading || saving) {

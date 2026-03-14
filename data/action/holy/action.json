@@ -13,9 +13,9 @@
   "char_fg_scale": 138,
   "name_pos": {
     "x": 0,
-    "y": 0
+    "y": 500
   },
-  "name_scale": 40,
+  "name_scale": 115,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#dfb335",
   "description": "Call down sacred power to smite a single enemy with radiant judgment.",
@@ -31,7 +31,7 @@
     "hp-bar": false,
     "mask-bg": true,
     "mask-fg": false,
-    "name": false,
+    "name": true,
     "pose-char-fg": false,
     "pose-frame": false,
     "pose-mask-fg": false,
@@ -43,5 +43,6 @@
     "selection": "manual",
     "allow_self": false,
     "allow_dead": false
-  }
+  },
+  "text_shadow_size": 3
 }

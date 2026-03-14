@@ -17,6 +17,7 @@ interface PropertiesSidebarProps {
   onUpdate: (id: string, updates: Partial<Box>) => void;
   onClose: () => void;
   cards: string[];
+  actions: string[];
   uiAssets?: { name: string; url: string }[];
   charAssets?: { name: string; url: string }[];
   placeAssets?: { name: string; url: string }[];
@@ -50,7 +51,7 @@ function PropertyInput({ value, onChange, disabled, className }: { value: number
   );
 }
 
-export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], uiAssets = [], charAssets = [], placeAssets = [] }: PropertiesSidebarProps) {
+export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], uiAssets = [], charAssets = [], placeAssets = [] }: PropertiesSidebarProps) {
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
   
@@ -84,6 +85,9 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   }, [selectedBox?.width, isEditingSize, selectedBox]);
 
   if (!selectedBox) return null;
+
+  const isHeroBox = selectedBox.id.startsWith('hero');
+  const isActionBox = selectedBox.id.startsWith('action');
 
   const handleLabelDragStart = (e: React.MouseEvent, prop: keyof Box, value: number) => {
     if (selectedBox.locked) return;
@@ -160,8 +164,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopyAll = () => {
-    const { x, y, width, height, pivot, cardSlug, asset } = selectedBox;
-    setFullBoxClipboard({ x, y, width, height, pivot, cardSlug, asset });
+    const { x, y, width, height, pivot, cardSlug, actionSlug, asset } = selectedBox;
+    setFullBoxClipboard({ x, y, width, height, pivot, cardSlug, actionSlug, asset });
   };
 
   const handleCopyPosition = () => {
@@ -239,14 +243,13 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </Button>
         </div>
 
-        {selectedBox.id.startsWith('hero') && (
+        {isHeroBox && (
           <div className="space-y-2">
             <Label className="text-xs font-medium">Card Preview</Label>
             <select 
               className="w-full p-2 border rounded bg-background text-sm"
               value={selectedBox.cardSlug || ''}
               onChange={(e) => onUpdate(selectedBox.id, { cardSlug: e.target.value || undefined })}
-              disabled={selectedBox.locked}
             >
               <option value="">(None)</option>
               {cards.map(slug => (
@@ -256,7 +259,23 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </div>
         )}
 
-        {!selectedBox.id.startsWith('hero') && (
+        {isActionBox && (
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">Action Preview</Label>
+            <select
+              className="w-full p-2 border rounded bg-background text-sm"
+              value={selectedBox.actionSlug || ''}
+              onChange={(e) => onUpdate(selectedBox.id, { actionSlug: e.target.value || undefined })}
+            >
+              <option value="">(None)</option>
+              {actions.map(slug => (
+                <option key={slug} value={slug}>{slug}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {!isHeroBox && !isActionBox && (
           <div className="space-y-2">
             <Label className="text-xs font-medium">Asset / Pose</Label>
             <div className="flex gap-2">
@@ -268,11 +287,10 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                       if (newCat === 'pose') {
                          onUpdate(selectedBox.id, { asset: undefined });
                       } else {
-                         onUpdate(selectedBox.id, { poseSlug: undefined });
+                        onUpdate(selectedBox.id, { poseSlug: undefined });
                       }
                     }}
                     value={assetCategory}
-                    disabled={selectedBox.locked}
                 >
                     <option value="ui">UI</option>
                     <option value="characters">Char</option>
@@ -284,7 +302,6 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     className="flex-1 p-2 border rounded bg-background text-sm"
                     value={selectedBox.poseSlug || ''}
                     onChange={(e) => onUpdate(selectedBox.id, { poseSlug: e.target.value || undefined, asset: undefined })}
-                    disabled={selectedBox.locked}
                   >
                     <option value="">(None)</option>
                     {cards.map(slug => (
@@ -296,7 +313,6 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     className="flex-1 p-2 border rounded bg-background text-sm"
                     value={selectedBox.asset || ''}
                     onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined, poseSlug: undefined })}
-                    disabled={selectedBox.locked}
                   >
                     <option value="">(None)</option>
                     {currentAssets.map(asset => (
@@ -338,7 +354,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
 
           <div className="space-y-3">
             {/* Special Size Control for Heroes */}
-            {selectedBox.id.startsWith('hero') && (
+            {isHeroBox && (
               <div className="flex items-center gap-2 mb-2">
                 <Label 
                   className={`w-16 text-xs font-bold text-blue-500 select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-400'}`}
@@ -374,7 +390,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
               </div>
             )}
 
-            {(selectedBox.id.startsWith('hero') ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
+            {(isHeroBox ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
             const prop = p as 'x' | 'y' | 'width' | 'height';
             return (
             <div key={prop} className="flex items-center gap-2">

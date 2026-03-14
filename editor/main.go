@@ -39,6 +39,7 @@ type HeroConfig struct {
 	} `json:"name_pos"`
 	NameScale       float64 `json:"name_scale"`
 	TextShadowColor string  `json:"text_shadow_color"`
+	TextShadowSize  float64 `json:"text_shadow_size,omitempty"`
 	Tint            string  `json:"tint"`
 	HpBarPos        struct {
 		X int `json:"x"`
@@ -109,6 +110,7 @@ type ActionConfig struct {
 	} `json:"name_pos"`
 	NameScale       float64         `json:"name_scale"`
 	TextShadowColor string          `json:"text_shadow_color"`
+	TextShadowSize  float64         `json:"text_shadow_size,omitempty"`
 	Tint            string          `json:"tint"`
 	Description     string          `json:"description"`
 	Cost            int             `json:"cost"`

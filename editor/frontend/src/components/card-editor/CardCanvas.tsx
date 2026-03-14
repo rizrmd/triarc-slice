@@ -369,6 +369,22 @@ export function CardCanvas({
                   />
                 )}
                 {visibleLayers.name && (
+                  (() => {
+                    const shadowSize = config.text_shadow_size ?? 3;
+                    const shadowColor = config.text_shadow_color || 'rgba(0, 0, 0, 0.5)';
+                    const shadow = shadowSize > 0
+                      ? `
+                        -${shadowSize}px -${shadowSize}px 0 ${shadowColor},
+                        0 -${shadowSize}px 0 ${shadowColor},
+                        ${shadowSize}px -${shadowSize}px 0 ${shadowColor},
+                        -${shadowSize}px 0 0 ${shadowColor},
+                        ${shadowSize}px 0 0 ${shadowColor},
+                        -${shadowSize}px ${shadowSize}px 0 ${shadowColor},
+                        0 ${shadowSize}px 0 ${shadowColor},
+                        ${shadowSize}px ${shadowSize}px 0 ${shadowColor}
+                      `
+                      : 'none';
+                    return (
                   <div
                     className={`absolute z-[25] whitespace-nowrap text-white ${
                       activeLayer === 'name' ? 'cursor-move select-none' : 'cursor-default select-none'
@@ -384,12 +400,7 @@ export function CardCanvas({
                       fontSize: `${config.name_scale ?? 40}px`,
                       fontFamily: '"Vollkorn", serif',
                       lineHeight: 1,
-                      textShadow: `
-                        -1px -1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'},
-                        1px -1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'},
-                        -1px 1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'},
-                        1px 1px 0 ${config.text_shadow_color || 'rgba(0, 0, 0, 0.5)'}
-                      `,
+                      textShadow: shadow,
                     }}
                     onPointerDown={(event) => onLayerPointerDown('name', event)}
                     onClick={() => {
@@ -399,6 +410,8 @@ export function CardCanvas({
                   >
                     {config.full_name}
                   </div>
+                    );
+                  })()
                 )}
                 {visibleLayers['hp-bar'] && (
                   <div

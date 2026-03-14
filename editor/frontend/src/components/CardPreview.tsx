@@ -113,6 +113,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
                 : (isAction ? actionFrameImage : frameImage),
             name_pos: data.name_pos || { x: 0, y: 0 },
             name_scale: typeof data.name_scale === 'number' && data.name_scale > 0 ? data.name_scale : 40,
+            text_shadow_size: typeof data.text_shadow_size === 'number' && data.text_shadow_size >= 0 ? data.text_shadow_size : 3,
             tint: typeof data.tint === 'string' && data.tint ? data.tint : '#ffffff',
             hp_bar_pos: data.hp_bar_pos || { x: 0, y: (data.name_pos?.y || 0) + 60 },
             hp_bar_scale: typeof data.hp_bar_scale === 'number' && data.hp_bar_scale > 0 ? data.hp_bar_scale : 250,
@@ -334,7 +335,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
 
         // Draw shadow around text manually (stroke-like effect)
         ctx.shadowColor = 'transparent'; // Disable standard shadow
-        ctx.lineWidth = 3;
+        ctx.lineWidth = config.text_shadow_size ?? 3;
         ctx.strokeStyle = config.text_shadow_color || 'rgba(0, 0, 0, 0.5)';
         ctx.strokeText(config.full_name, textX, textY);
         

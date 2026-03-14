@@ -13,9 +13,9 @@
   "char_fg_scale": 100,
   "name_pos": {
     "x": 0,
-    "y": 0
+    "y": 500
   },
-  "name_scale": 40,
+  "name_scale": 115,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#4da9ff",
   "description": "Unleash a freezing storm that batters the enemy line with cold, sweeping force.",
@@ -25,6 +25,11 @@
     "wind"
   ],
   "target_rule": "enemy_single",
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual"
+  },
   "visible_layers": {
     "card": true,
     "char-bg": true,
@@ -32,17 +37,11 @@
     "hp-bar": false,
     "mask-bg": true,
     "mask-fg": false,
-    "name": false,
+    "name": true,
     "pose-char-fg": false,
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
   },
-  "targeting": {
-    "side": "enemy",
-    "scope": "single",
-    "selection": "manual",
-    "allow_self": false,
-    "allow_dead": false
-  }
+  "text_shadow_size": 3
 }
