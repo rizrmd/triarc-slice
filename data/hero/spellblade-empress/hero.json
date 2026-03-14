@@ -41,6 +41,14 @@
     },
     "max_hp": 3000
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/spellblade-empress/audio/Spellblade_Empress_7_-_The_moment_is_wrong..wav",
+    "CastingHighAffinity": "/data/hero/spellblade-empress/audio/Spellblade_Empress_2_-_The_elements_answer_my_will!.wav",
+    "CastingLowAffinity": "/data/hero/spellblade-empress/audio/Spellblade_Empress_1_-_The_elements_Align!.wav",
+    "DamageBlocked": "/data/hero/spellblade-empress/audio/Spellblade_Empress_5_-_Your_chaos_fails..wav",
+    "DamageCritical": "/data/hero/spellblade-empress/audio/Spellblade_Empress_4_-_You_disturb_the_convergence!.wav",
+    "DamageNormal": "/data/hero/spellblade-empress/audio/Spellblade_Empress_3_-_Disruptive!.wav",
+    "Die": "/data/hero/spellblade-empress/audio/Spellblade_Empress_6_-_The_elements…_return….wav"
+  },
   "pose": null
 }

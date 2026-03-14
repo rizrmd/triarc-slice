@@ -41,6 +41,14 @@
     },
     "max_hp": 3800
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_7-_You_move_when_I_command..wav",
+    "CastingHighAffinity": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_2_-_WITNESS_TRUE_POWER!.wav",
+    "CastingLowAffinity": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_1_-_Obey.wav",
+    "DamageBlocked": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_5__-You_cannot_break_me..wav",
+    "DamageCritical": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_4_-_You_test_my_Wrath!.wav",
+    "DamageNormal": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_3_-_You_dare_strike_me.wav",
+    "Die": "/data/hero/tyrant-overlord/audio/Tyrant_Overlord_6_-_Impossible!…_I_rule_all….wav"
+  },
   "pose": null
 }
