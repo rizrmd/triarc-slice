@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ddff94",
   "description": "Coat a weapon or effect with corrosive toxin to empower the next strike.",
-  "cost": 0,
+  "cost": 2,
   "element": [
     "earth"
   ],

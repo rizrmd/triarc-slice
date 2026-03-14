@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#f79f08",
   "description": "Expose a target's weak point, setting them up for heavier punishment.",
-  "cost": 0,
+  "cost": 2,
   "element": [],
   "target_rule": "enemy_single",
   "visible_layers": {

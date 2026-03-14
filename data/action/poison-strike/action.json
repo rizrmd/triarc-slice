@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#d4ff38",
   "description": "Cut the target with a venom-laced attack that delivers toxic internal damage.",
-  "cost": 0,
+  "cost": 3,
   "element": [
     "earth",
     "shadow"

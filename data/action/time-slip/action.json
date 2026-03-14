@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#6b97ff",
   "description": "Bend the flow of the moment to act out of rhythm with normal combat timing.",
-  "cost": 0,
+  "cost": 4,
   "element": [
     "light",
     "wind"

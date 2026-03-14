@@ -65,6 +65,7 @@ export default function CardList() {
       frame_image: isAction ? actionFrameImage : heroFrameImage,
       char_bg_pos: { x: 0, y: 0 },
       char_fg_pos: { x: 0, y: 0 },
+      name_scale: isAction ? 122 : 100,
       char_bg_scale: 100,
       char_fg_scale: 100,
       tint: '#ffffff'
