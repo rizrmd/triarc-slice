@@ -41,6 +41,14 @@
     },
     "max_hp": 2600
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/storm-ranger/audio/Storm_Ranger_7_-_Keep_sharp.wav",
+    "CastingHighAffinity": "/data/hero/storm-ranger/audio/Storm_Ranger_2_-_Lightning_strike!.wav",
+    "CastingLowAffinity": "/data/hero/storm-ranger/audio/Storm_Ranger_1_-_The_wind_guides_me..wav",
+    "DamageBlocked": "/data/hero/storm-ranger/audio/Storm_Ranger_5_-_Cant_attack_me.wav",
+    "DamageCritical": "/data/hero/storm-ranger/audio/Storm_Ranger_4_-_You'll_regret_that!.wav",
+    "DamageNormal": "/data/hero/storm-ranger/audio/Storm_Ranger_3_-_Not_slowing_me_down..wav",
+    "Die": "/data/hero/storm-ranger/audio/Storm_Ranger_6_-_I_fall…_with_the_wind….wav"
+  },
   "pose": null
 }

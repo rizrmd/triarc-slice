@@ -41,6 +41,14 @@
     },
     "max_hp": 2700
   },
-  "audio": null,
+  "audio": {
+    "ActionReject": "/data/hero/wind-monk/audio/Wind_Monk_7_-_Let_the_wind_blow.wav",
+    "CastingHighAffinity": "/data/hero/wind-monk/audio/Wind_Monk_2_-_FLOW_without_end!.wav",
+    "CastingLowAffinity": "/data/hero/wind-monk/audio/Wind_Monk_1_-_Flow_can_sting!.wav",
+    "DamageBlocked": "/data/hero/wind-monk/audio/Wind_Monk_5_-_Your_force_passes_through..wav",
+    "DamageCritical": "/data/hero/wind-monk/audio/Wind_Monk_4_-_The_wind_bends..wav",
+    "DamageNormal": "/data/hero/wind-monk/audio/Wind_Monk_3_-_The_flow…_breaks!.wav",
+    "Die": "/data/hero/wind-monk/audio/Wind_Monk_6_-_I_become…_the_breeze….wav"
+  },
   "pose": null
 }
