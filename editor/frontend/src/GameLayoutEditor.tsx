@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Rnd } from 'react-rnd';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2, Minus, Plus, RefreshCcw, Maximize } from 'lucide-react';
+import { ArrowLeft, Loader2, Minus, Plus, RefreshCcw, Maximize, Undo2, Redo2 } from 'lucide-react';
 import { PropertiesSidebar } from '@/components/PropertiesSidebar';
 import { Slider } from '@/components/ui/slider';
 import { CardPreview } from '@/components/CardPreview';
@@ -43,8 +43,95 @@ export default function GameLayoutEditor() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [bgDimensions, setBgDimensions] = useState({ width: 0, height: 0 });
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
+  const layoutRef = useRef<GameLayout | null>(null);
+  const undoStackRef = useRef<GameLayout[]>([]);
+  const redoStackRef = useRef<GameLayout[]>([]);
+
+  const cloneLayout = useCallback((value: GameLayout): GameLayout => (
+    JSON.parse(JSON.stringify(value)) as GameLayout
+  ), []);
+
+  const syncHistoryState = useCallback(() => {
+    setCanUndo(undoStackRef.current.length > 0);
+    setCanRedo(redoStackRef.current.length > 0);
+  }, []);
+
+  const resetHistory = useCallback(() => {
+    undoStackRef.current = [];
+    redoStackRef.current = [];
+    syncHistoryState();
+  }, [syncHistoryState]);
+
+  const replaceLayout = useCallback((
+    nextLayout: GameLayout,
+    options?: { recordHistory?: boolean }
+  ) => {
+    const currentLayout = layoutRef.current;
+    const currentString = currentLayout ? JSON.stringify(currentLayout) : '';
+    const nextString = JSON.stringify(nextLayout);
+
+    if (currentString === nextString) {
+      return;
+    }
+
+    if (currentLayout && options?.recordHistory !== false) {
+      undoStackRef.current.push(cloneLayout(currentLayout));
+      if (undoStackRef.current.length > 100) {
+        undoStackRef.current.shift();
+      }
+      redoStackRef.current = [];
+    }
+
+    layoutRef.current = nextLayout;
+    setLayout(nextLayout);
+    syncHistoryState();
+  }, [cloneLayout, syncHistoryState]);
+
+  const updateLayout = useCallback((
+    updater: (current: GameLayout) => GameLayout,
+    options?: { recordHistory?: boolean }
+  ) => {
+    const currentLayout = layoutRef.current;
+    if (!currentLayout) {
+      return;
+    }
+
+    replaceLayout(updater(currentLayout), options);
+  }, [replaceLayout]);
+
+  const undo = useCallback(() => {
+    const currentLayout = layoutRef.current;
+    const previousLayout = undoStackRef.current.pop();
+
+    if (!currentLayout || !previousLayout) {
+      syncHistoryState();
+      return;
+    }
+
+    redoStackRef.current.push(cloneLayout(currentLayout));
+    layoutRef.current = previousLayout;
+    setLayout(previousLayout);
+    syncHistoryState();
+  }, [cloneLayout, syncHistoryState]);
+
+  const redo = useCallback(() => {
+    const currentLayout = layoutRef.current;
+    const nextLayout = redoStackRef.current.pop();
+
+    if (!currentLayout || !nextLayout) {
+      syncHistoryState();
+      return;
+    }
+
+    undoStackRef.current.push(cloneLayout(currentLayout));
+    layoutRef.current = nextLayout;
+    setLayout(nextLayout);
+    syncHistoryState();
+  }, [cloneLayout, syncHistoryState]);
 
   const getBgMetrics = useCallback(() => {
     const VIEWPORT_W = 1080;
@@ -84,6 +171,10 @@ export default function GameLayoutEditor() {
   }, [getBgMetrics]);
 
   useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  useEffect(() => {
     if (layout?.background) {
       const img = new Image();
       img.src = `/assets/places/${layout.background}`;
@@ -98,8 +189,7 @@ export default function GameLayoutEditor() {
    useEffect(() => {
     if (bgDimensions.width > 0) {
       requestAnimationFrame(() => {
-        setLayout(prev => {
-          if (!prev) return null;
+        updateLayout(prev => {
           const newBoxes = { ...prev.boxes };
           let changed = false;
           
@@ -120,13 +210,39 @@ export default function GameLayoutEditor() {
           });
           
           return changed ? { ...prev, boxes: newBoxes } : prev;
-        });
+        }, { recordHistory: false });
       });
     }
-  }, [bgDimensions, toPixels, toNormalized]);
+  }, [bgDimensions, toPixels, toNormalized, updateLayout]);
 
   useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      const element = target as HTMLElement | null;
+      if (!element) return false;
+      const tagName = element.tagName;
+      return element.isContentEditable || tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !isEditableTarget(e.target)) {
+        const key = e.key.toLowerCase();
+        if (key === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            redo();
+          } else {
+            undo();
+          }
+          return;
+        }
+
+        if (key === 'y') {
+          e.preventDefault();
+          redo();
+          return;
+        }
+      }
+
       if (e.code === 'Space' && !e.repeat) {
         setIsSpacePressed(true);
       }
@@ -142,7 +258,7 @@ export default function GameLayoutEditor() {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, []);
+  }, [redo, undo]);
 
   const fitZoom = () => {
     if (containerRef.current) {
@@ -183,8 +299,10 @@ export default function GameLayoutEditor() {
                };
              });
              const newLayout = { background: data.background || 'cave.webp', boxes: initialBoxes };
+             layoutRef.current = newLayout;
              setLayout(newLayout);
              lastSavedLayout.current = JSON.stringify(newLayout);
+             resetHistory();
           } else {
              // Merge with default boxes
              const mergedBoxes = { ...data.boxes };
@@ -208,8 +326,10 @@ export default function GameLayoutEditor() {
                }
              });
              const newLayout = { ...data, boxes: mergedBoxes };
+             layoutRef.current = newLayout;
              setLayout(newLayout);
              lastSavedLayout.current = JSON.stringify(newLayout);
+             resetHistory();
           }
       });
 
@@ -263,8 +383,7 @@ export default function GameLayoutEditor() {
   }, [layout]);
 
   const updateBox = (id: string, updates: Partial<Box>) => {
-    setLayout(prev => {
-      if (!prev) return null;
+    updateLayout(prev => {
       const oldBox = prev.boxes[id];
       const newBox = { ...oldBox, ...updates };
       
@@ -329,7 +448,7 @@ export default function GameLayoutEditor() {
              <select 
                className="p-2 border rounded bg-background text-foreground"
                value={layout.background} 
-               onChange={e => setLayout({...layout, background: e.target.value})}
+               onChange={e => updateLayout(current => ({ ...current, background: e.target.value }))}
              >
                {places.length > 0 ? (
                  places.map(p => <option key={p.name} value={p.name}>{p.name}</option>)
@@ -337,6 +456,14 @@ export default function GameLayoutEditor() {
                  <option value="cave.webp">cave.webp</option>
                )}
              </select>
+           </div>
+           <div className="flex items-center gap-1">
+             <Button variant="outline" size="sm" onClick={undo} disabled={!canUndo} title="Undo (Cmd/Ctrl+Z)">
+               <Undo2 className="h-4 w-4" />
+             </Button>
+             <Button variant="outline" size="sm" onClick={redo} disabled={!canRedo} title="Redo (Shift+Cmd/Ctrl+Z)">
+               <Redo2 className="h-4 w-4" />
+             </Button>
            </div>
           <div className="flex items-center gap-2">
             {saving ? (
@@ -410,10 +537,10 @@ export default function GameLayoutEditor() {
                      const newY = Math.round(d.y);
                      const { nx, ny } = toNormalized(newX, newY, box.width, box.height);
                      
-                     setLayout(prev => ({
-                       ...prev!,
+                     updateLayout(prev => ({
+                       ...prev,
                        boxes: {
-                         ...prev!.boxes,
+                         ...prev.boxes,
                          [box.id]: { ...box, x: newX, y: newY, nx, ny }
                        }
                      }));
@@ -425,10 +552,10 @@ export default function GameLayoutEditor() {
                      const newY = Math.round(position.y);
                      const { nx, ny } = toNormalized(newX, newY, newW, newH);
 
-                     setLayout(prev => ({
-                       ...prev!,
+                     updateLayout(prev => ({
+                       ...prev,
                        boxes: {
-                         ...prev!.boxes,
+                         ...prev.boxes,
                          [box.id]: { 
                            ...box, 
                            width: newW, 
@@ -475,8 +602,7 @@ export default function GameLayoutEditor() {
                                if (Math.abs(currentRatio - ratio) > 0.01) {
                                   // Avoid state updates if component unmounted or data changed
                                   setTimeout(() => {
-                                      setLayout(prev => {
-                                         if (!prev) return null;
+                                      updateLayout(prev => {
                                          const currentBox = prev.boxes[box.id];
                                          if (!currentBox) return prev;
                                          
@@ -497,7 +623,7 @@ export default function GameLayoutEditor() {
                                                }
                                             }
                                          };
-                                      });
+                                      }, { recordHistory: false });
                                   }, 0);
                                }
                             }
@@ -527,8 +653,7 @@ export default function GameLayoutEditor() {
                                if (Math.abs(currentRatio - ratio) > 0.01) {
                                   // Avoid state updates if component unmounted or data changed
                                   setTimeout(() => {
-                                      setLayout(prev => {
-                                         if (!prev) return null;
+                                      updateLayout(prev => {
                                          const currentBox = prev.boxes[box.id];
                                          if (!currentBox) return prev;
                                          
@@ -549,7 +674,7 @@ export default function GameLayoutEditor() {
                                                }
                                             }
                                          };
-                                      });
+                                      }, { recordHistory: false });
                                   }, 0);
                                }
                             }

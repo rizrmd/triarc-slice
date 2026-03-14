@@ -2,14 +2,16 @@ extends RefCounted
 class_name GameServerClient
 
 const DEFAULT_SERVER_URL := "wss://sg.vangambit.com"
-const SESSION_PATH := "user://game_session.cfg"
 const CLIENT_CONFIG_PATH := "res://data/client-config.cfg"
+const SESSION_PATH_PATTERN := "user://game_session_%d.cfg"
 
 var server_url: String = DEFAULT_SERVER_URL
 var player_id: String = ""
 var current_match_id: String = ""
 var current_team: int = 0
 var display_name: String = ""
+var session_slot: int = 1
+var session_path: String = ""
 var ws: WebSocketPeer = null
 var connected: bool = false
 var message_queue: Array = []
@@ -29,6 +31,11 @@ signal player_stats_received(stats: Dictionary)
 
 func _init() -> void:
 	load_client_config()
+	configure_session_slot(1)
+
+func configure_session_slot(slot: int) -> void:
+	session_slot = max(slot, 1)
+	session_path = SESSION_PATH_PATTERN % session_slot
 
 func load_client_config() -> void:
 	var config := ConfigFile.new()
@@ -42,7 +49,7 @@ func load_client_config() -> void:
 
 func load_session() -> bool:
 	var config := ConfigFile.new()
-	var err := config.load(SESSION_PATH)
+	var err := config.load(session_path)
 	if err != OK:
 		return false
 	
@@ -54,7 +61,7 @@ func save_session() -> void:
 	var config := ConfigFile.new()
 	config.set_value("session", "player_id", player_id)
 	config.set_value("session", "display_name", display_name)
-	config.save(SESSION_PATH)
+	config.save(session_path)
 
 func connect_to_server() -> bool:
 	if connected:
@@ -110,12 +117,13 @@ func process() -> void:
 				_send_raw(msg)
 		
 		WebSocketPeer.STATE_CLOSING, WebSocketPeer.STATE_CLOSED:
-			if connected:
-				connected = false
-				disconnected_from_server.emit()
 			var code = ws.get_close_code()
 			var reason = ws.get_close_reason()
 			print("WebSocket closed: %s - %s" % [code, reason])
+			ws = null
+			if connected:
+				connected = false
+				disconnected_from_server.emit()
 
 func _handle_message(text: String) -> void:
 	var json = JSON.new()
@@ -220,9 +228,8 @@ func queue_for_matchmaking(hero_slug_1: String, hero_slug_2: String, hero_slug_3
 	})
 
 func leave_matchmaking() -> void:
-	# Note: Server doesn't have a specific "leave_matchmaking" message
-	# Players are removed from queue when match is found or on disconnect
-	# This is a no-op for now - server handles queue management automatically
+	# The current server removes a player from matchmaking on disconnect.
+	disconnect_from_server()
 	matchmaking_left.emit()
 
 func cast_action(caster_slot: int, hand_slot_index: int, target_slot: int = 0, target_side: String = "", target_override_rule: String = "") -> void:

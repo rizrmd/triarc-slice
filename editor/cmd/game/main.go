@@ -2,14 +2,20 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
 
 func main() {
+	sessionSlot := flag.Int("session-slot", 1, "Session slot number to pass to Godot")
+	flag.Parse()
+
 	gameDir := "game"
 	if _, err := os.Stat(gameDir); os.IsNotExist(err) {
 		// Try looking in parent directory if running from inside bin or similar
@@ -53,11 +59,13 @@ func main() {
 	}
 
 	fmt.Println("Launching Game...")
-	runCmd := exec.Command(godotExe)
-	// No arguments needed if project.godot is in the folder and we set Dir?
-	// Actually `godot --path game` is safer if running from root
-	// But let's try setting Dir to gameDir
-	runCmd.Dir = gameDir
+	if *sessionSlot < 1 {
+		fmt.Printf("Invalid session slot %d, defaulting to 1.\n", *sessionSlot)
+		*sessionSlot = 1
+	}
+	runArgs := []string{"--path", gameDir, "--", fmt.Sprintf("--session-slot=%d", *sessionSlot)}
+	runCmd := exec.Command(godotExe, runArgs...)
+	configureChildProcess(runCmd)
 	
 	// For GUI apps, we might want to detach or just wait
 	// Forward output for debugging
@@ -69,10 +77,14 @@ func main() {
 		pressEnterToExit()
 		os.Exit(1)
 	}
+
+	installShutdownHandler(runCmd)
 	
 	// Wait for it to finish? Or just exit launcher?
 	// Usually launchers wait.
-	runCmd.Wait()
+	if err := runCmd.Wait(); err != nil {
+		fmt.Printf("Game process exited with error: %v\n", err)
+	}
 }
 
 func findGodot() string {
@@ -209,4 +221,15 @@ func createLink(source, target string) {
 			fmt.Printf("Error creating symlink: %v\n", err)
 		}
 	}
+}
+
+func installShutdownHandler(cmd *exec.Cmd) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+
+	go func() {
+		<-signals
+		terminateChildProcess(cmd)
+		os.Exit(0)
+	}()
 }

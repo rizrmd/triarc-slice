@@ -78,7 +78,7 @@ static func _ensure_layout_loaded():
 			bg_name = "res://assets/places/" + bg_name
 		
 		# Ensure "cave" key exists or create new if needed. 
-		# For now we update "cave" since Main.gd uses it.
+		# For now we update "cave" since the gameplay scene uses it.
 		if not _scenes.has("cave"):
 			_scenes["cave"] = { "card_formations": {} }
 			
@@ -232,6 +232,9 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 	
 	# 2. Position Cards
 	# -----------------
+	if count == 0:
+		return
+
 	if not config.card_formations.has(count):
 		push_warning("No formation found for card count: " + str(count))
 		# Fallback to simple line or return

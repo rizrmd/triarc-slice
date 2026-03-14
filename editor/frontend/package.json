@@ -47,6 +47,7 @@
     "vite": "^8.0.0-beta.13"
   },
   "overrides": {
+    "flatted": "^3.4.0",
     "vite": "^8.0.0-beta.13"
   }
 }

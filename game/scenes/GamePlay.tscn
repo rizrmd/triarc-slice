@@ -1,6 +1,9 @@
-[gd_scene load_steps=2 format=3 uid="uid://gameplay_scene"]
+[gd_scene load_steps=5 format=3 uid="uid://gameplay_scene"]
 
-[ext_resource type="Script" path="res://scripts/Main.gd" id="1_script"]
+[ext_resource type="Script" path="res://scripts/GamePlay.gd" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://action_card_scene" path="res://scenes/ActionCard.tscn" id="2_action_card"]
+[ext_resource type="PackedScene" uid="uid://flat_button_scene" path="res://scenes/FlatButton.tscn" id="3_flat_button"]
+[ext_resource type="FontFile" uid="uid://c5nx4neg4ybn2" path="res://assets/fonts/Vollkorn-Regular.ttf" id="4_font"]
 
 [node name="GamePlay" type="Control"]
 layout_mode = 3
@@ -23,204 +26,90 @@ stretch_mode = 6
 
 [node name="UI" type="CanvasLayer" parent="."]
 
-[node name="LobbyPanel" type="PanelContainer" parent="UI"]
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 420.0
-offset_bottom = 740.0
-size_flags_vertical = 3
-theme_override_constants/separation = 12
+[node name="Hud" type="Control" parent="UI"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="UI/LobbyPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 22
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 22
-theme_override_constants/margin_bottom = 20
-
-[node name="LobbyVBox" type="VBoxContainer" parent="UI/LobbyPanel/MarginContainer"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="TitleLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Triarc Slice"
-
-[node name="ConnectButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-visible = false
-text = "Reconnect"
-
-[node name="SubtitleLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-autowrap_mode = 2
-modulate = Color(0.82, 0.82, 0.82, 1)
-text = "Build your trio, queue instantly, and assign actions to your heroes while the server resolves the fight."
-
-[node name="ConnectionLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
+[node name="ConnectionLabel" type="Label" parent="UI/Hud"]
+offset_left = 22.0
+offset_top = 18.0
+offset_right = 346.0
+offset_bottom = 52.0
+theme_override_colors/font_color = Color(0.976471, 0.94902, 0.905882, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 3
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 22
 text = "Status: Connecting..."
+
+[node name="MatchLabel" type="Label" parent="UI/Hud"]
+offset_left = 22.0
+offset_top = 50.0
+offset_right = 410.0
+offset_bottom = 84.0
+theme_override_colors/font_color = Color(0.976471, 0.94902, 0.905882, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 3
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 22
+text = "Match: -"
+
+[node name="CasterLabel" type="Label" parent="UI/Hud"]
+offset_left = 22.0
+offset_top = 82.0
+offset_right = 410.0
+offset_bottom = 116.0
+theme_override_colors/font_color = Color(0.976471, 0.94902, 0.905882, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 3
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 22
+text = "Active Hero: -"
+
+[node name="StatusLabel" type="Label" parent="UI/Hud"]
+offset_left = 22.0
+offset_top = 116.0
+offset_right = 438.0
+offset_bottom = 214.0
+theme_override_colors/font_color = Color(0.976471, 0.94902, 0.905882, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.7)
+theme_override_constants/outline_size = 3
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 20
 autowrap_mode = 2
+text = "Status: Entering arena..."
 
-[node name="StatusLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Status: Booting..."
+[node name="ActionDetailLabel" type="Label" parent="UI/Hud"]
+offset_left = 22.0
+offset_top = 214.0
+offset_right = 438.0
+offset_bottom = 396.0
+theme_override_colors/font_color = Color(0.976471, 0.94902, 0.905882, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.72)
+theme_override_constants/outline_size = 3
+theme_override_fonts/font = ExtResource("4_font")
+theme_override_font_sizes/font_size = 19
 autowrap_mode = 2
-
-[node name="ProfileSection" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Profile"
-
-[node name="DisplayNameEdit" type="LineEdit" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-placeholder_text = "Choose your display name"
-
-[node name="RegisterButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Save Name"
-
-[node name="PartySection" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Party"
-
-[node name="Hero1Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-
-[node name="Hero2Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-
-[node name="Hero3Select" type="OptionButton" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-
-[node name="QueueButtons" type="HBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="QueueButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Find Match"
-
-[node name="LeaveQueueButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/QueueButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Cancel Queue"
-
-[node name="QueueLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Queue: Not in Queue"
-autowrap_mode = 2
-
-[node name="MatchSection" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Match"
-
-[node name="MatchLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Match: none"
-autowrap_mode = 2
-
-[node name="EnergyLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Energy: -"
-autowrap_mode = 2
-
-[node name="CasterLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Caster: none"
-autowrap_mode = 2
-
-[node name="CasterButtons" type="HBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="Caster1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/CasterButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Hero 1"
-
-[node name="Caster2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/CasterButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Hero 2"
-
-[node name="Caster3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/CasterButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Hero 3"
-
-[node name="HandLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Hand: -"
-
-[node name="ActionButtons" type="VBoxContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="Action1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
-layout_mode = 2
-text = "Action 1"
-
-[node name="Action2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
-layout_mode = 2
-text = "Action 2"
-
-[node name="Action3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
-layout_mode = 2
-text = "Action 3"
-
-[node name="Action4Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
-layout_mode = 2
-text = "Action 4"
-
-[node name="Action5Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/ActionButtons"]
-layout_mode = 2
-text = "Action 5"
-
-[node name="ActionDetailLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-custom_minimum_size = Vector2(0, 92)
-autowrap_mode = 2
-text = "Action details appear here."
+text = "Select an action to inspect it."
 vertical_alignment = 1
 
-[node name="RerollButton" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Reroll Hand (2 Energy)"
+[node name="Action1Card" parent="UI/Hud" instance=ExtResource("2_action_card")]
 
-[node name="TargetLabel" type="Label" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-text = "Target: select a card first"
-autowrap_mode = 2
+[node name="Action2Card" parent="UI/Hud" instance=ExtResource("2_action_card")]
 
-[node name="TargetButtons" type="GridContainer" parent="UI/LobbyPanel/MarginContainer/LobbyVBox"]
-layout_mode = 2
-columns = 3
+[node name="Action3Card" parent="UI/Hud" instance=ExtResource("2_action_card")]
 
-[node name="Ally1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
-layout_mode = 2
-text = "Ally 1"
+[node name="Action4Card" parent="UI/Hud" instance=ExtResource("2_action_card")]
 
-[node name="Ally2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
-layout_mode = 2
-text = "Ally 2"
+[node name="Action5Card" parent="UI/Hud" instance=ExtResource("2_action_card")]
 
-[node name="Ally3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
-layout_mode = 2
-text = "Ally 3"
+[node name="ManaBadge" parent="UI/Hud" instance=ExtResource("3_flat_button")]
+text = "Energy: -"
+mouse_filter = 2
 
-[node name="Enemy1Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
-layout_mode = 2
-text = "Enemy 1"
-
-[node name="Enemy2Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
-layout_mode = 2
-text = "Enemy 2"
-
-[node name="Enemy3Button" type="Button" parent="UI/LobbyPanel/MarginContainer/LobbyVBox/TargetButtons"]
-layout_mode = 2
-text = "Enemy 3"
+[node name="RerollButton" parent="UI/Hud" instance=ExtResource("3_flat_button")]
+text = "REROLL"
