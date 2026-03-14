@@ -34,7 +34,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const currentTab = searchParams.get('tab') || 'card';
   const isAction = mode === 'action';
   const getDefaultNamePos = useCallback(() => ({ x: 0, y: isAction ? 500 : 0 }), [isAction]);
-  const getDefaultNameScale = useCallback(() => (isAction ? 115 : 100), [isAction]);
+  const getDefaultNameScale = useCallback(() => (isAction ? 122 : 100), [isAction]);
   const getDefaultTextShadowSize = useCallback(() => 3, []);
   const clampLayerY = useCallback((layer: CharLayer | TextLayer | BarLayer | PoseLayer, value: number) => {
     if (isAction && layer === 'name') {

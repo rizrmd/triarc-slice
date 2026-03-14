@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#f9f600",
   "description": "Jab the target with a quick concealed blade for fast, efficient damage.",
-  "cost": 0,
+  "cost": 1,
   "element": [],
   "target_rule": "enemy_single",
   "visible_layers": {
