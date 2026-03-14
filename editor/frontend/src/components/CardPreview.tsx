@@ -21,6 +21,11 @@ function isHeroConfig(config: CardConfig): config is CardConfig & {
   return 'hp_bar_pos' in config;
 }
 
+function getActionCost(config: CardConfig | null, isAction: boolean) {
+  if (!config || !isAction || !('cost' in config)) return null;
+  return typeof config.cost === 'number' ? config.cost : 0;
+}
+
 interface CardPreviewProps {
   slug: string;
   type?: 'hero' | 'action';
@@ -38,6 +43,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [baseSize, setBaseSize] = useState({ width: 400, height: 600 });
+  const actionCost = getActionCost(config, isAction);
   
   // Check for pose file existence if type is hero
   useEffect(() => {
@@ -425,6 +431,14 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
           objectFit: 'contain'
         }}
       />
+      {actionCost !== null && (
+        <div
+          className="pointer-events-none absolute left-[10px] top-3 z-20 rounded-md border border-black/40 bg-black/75 px-2 py-1 text-[19px] font-bold leading-none text-white shadow-lg"
+          style={{ fontFamily: '"Vollkorn", serif' }}
+        >
+          {actionCost}
+        </div>
+      )}
       {showHoverName && config?.full_name && (
         <div className="pointer-events-none absolute inset-x-2 bottom-2 z-10 translate-y-2 rounded-md bg-black/80 px-3 py-2 text-center text-sm font-medium text-white opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
           {config.full_name}

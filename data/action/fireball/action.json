@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#e54c00",
   "description": "Hurl a classic burst of flame that explodes against a single enemy.",
-  "cost": 0,
+  "cost": 3,
   "element": [
     "fire"
   ],

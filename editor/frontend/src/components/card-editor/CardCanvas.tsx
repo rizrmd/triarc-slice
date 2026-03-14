@@ -148,6 +148,7 @@ export function CardCanvas({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const cardWidth = cardBaseSize.width;
   const cardHeight = cardBaseSize.height;
+  const actionCost = isAction && 'cost' in config ? (typeof config.cost === 'number' ? config.cost : 0) : null;
   
   // For actions, preserve original image aspect ratio
   const bgAspectRatio = layerAspectRatios['char-bg'];
@@ -443,6 +444,14 @@ export function CardCanvas({
                       fontSize={config.hp_bar_font_size}
                       className="h-auto w-full"
                     />
+                  </div>
+                )}
+                {actionCost !== null && (
+                  <div
+                    className="pointer-events-none absolute left-[10px] top-3 z-[29] rounded-md border border-black/40 bg-black/75 px-3 py-1.5 text-[21px] font-bold leading-none text-white shadow-lg"
+                    style={{ fontFamily: '"Vollkorn", serif' }}
+                  >
+                    {actionCost}
                   </div>
                 )}
               </div>

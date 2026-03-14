@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#f5c792",
   "description": "Let out a commanding cry that steels allies and surges morale.",
-  "cost": 0,
+  "cost": 3,
   "element": [
     "light"
   ],

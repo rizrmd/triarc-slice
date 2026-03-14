@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "#000000",
   "tint": "#dd3c89",
   "description": "Move through darkness to reposition and strike before the enemy can react.",
-  "cost": 0,
+  "cost": 3,
   "element": [
     "shadow"
   ],

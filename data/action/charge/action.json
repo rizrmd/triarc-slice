@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#ffae00",
   "description": "Rush forward in a direct assault, smashing into a single enemy with high-impact physical force.",
-  "cost": 0,
+  "cost": 3,
   "element": [],
   "target_rule": "enemy_single",
   "visible_layers": {
