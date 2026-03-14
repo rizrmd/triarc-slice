@@ -15,11 +15,11 @@
     "x": -1,
     "y": 499
   },
-  "name_scale": 109,
+  "name_scale": 122,
   "text_shadow_color": "#190000",
   "tint": "#c09eff",
   "description": "Release a condensed arcane burst that strikes a single foe with focused spell damage.",
-  "cost": 0,
+  "cost": 4,
   "element": [
     "light"
   ],

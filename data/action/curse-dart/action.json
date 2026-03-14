@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#eb90ff",
   "description": "Pierce the target with a cursed projectile that carries dark, lingering malice.",
-  "cost": 0,
+  "cost": 2,
   "element": [
     "shadow"
   ],

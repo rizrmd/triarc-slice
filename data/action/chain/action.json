@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#6b1802",
   "description": "Lash the target with a heavy chain, dealing blunt physical damage and disrupting momentum.",
-  "cost": 0,
+  "cost": 2,
   "element": [],
   "target_rule": "enemy_single",
   "visible_layers": {

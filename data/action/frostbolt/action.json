@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#4770cb",
   "description": "Launch a sharp bolt of frost that hits fast and chills the target.",
-  "cost": 0,
+  "cost": 2,
   "element": [
     "ice"
   ],

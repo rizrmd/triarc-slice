@@ -15,11 +15,11 @@
     "x": 0,
     "y": 500
   },
-  "name_scale": 115,
+  "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
   "tint": "#fbb698",
   "description": "Lock into a defensive stance that creates a sturdy frontline barrier.",
-  "cost": 0,
+  "cost": 3,
   "element": [
     "earth"
   ],
