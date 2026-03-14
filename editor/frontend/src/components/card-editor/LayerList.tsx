@@ -83,6 +83,7 @@ export function LayerList<T extends Record<string, boolean>>({
           <>
             {isAction ? (
               <>
+                {renderLayerItem('name', 'Name', Type)}
                 {renderLayerItem('card', 'frame', Image)}
                 {renderLayerItem('char-fg', 'action fg', Sparkles)}
                 {renderLayerItem('mask-fg', 'mask-fg', Image)}

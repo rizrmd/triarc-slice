@@ -29,12 +29,15 @@ const DEFAULT_BOXES = [
   { id: 'battery', label: 'Battery' },
 ];
 
+const ZOOM_STORAGE_KEY = 'game-layout-editor-zoom';
+
 export default function GameLayoutEditor() {
   const [layout, setLayout] = useState<GameLayout | null>(null);
   const [places, setPlaces] = useState<{ name: string; url: string }[]>([]);
   const [uiAssets, setUiAssets] = useState<{ name: string; url: string }[]>([]);
   const [charAssets, setCharAssets] = useState<{ name: string; url: string }[]>([]);
   const [cards, setCards] = useState<string[]>([]);
+  const [actions, setActions] = useState<string[]>([]);
   const [selectedBox, setSelectedBox] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const lastSavedLayout = useRef<string>('');
@@ -47,6 +50,7 @@ export default function GameLayoutEditor() {
   const [canRedo, setCanRedo] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
+  const zoomInitializedRef = useRef(false);
   const layoutRef = useRef<GameLayout | null>(null);
   const undoStackRef = useRef<GameLayout[]>([]);
   const redoStackRef = useRef<GameLayout[]>([]);
@@ -274,10 +278,24 @@ export default function GameLayoutEditor() {
   useEffect(() => {
     // Initial zoom fit
     if (layout && containerRef.current && !initializedRef.current) {
-       fitZoom();
+       const savedZoom = window.localStorage.getItem(ZOOM_STORAGE_KEY);
+       const parsedZoom = savedZoom ? Number.parseFloat(savedZoom) : NaN;
+       if (Number.isFinite(parsedZoom)) {
+         setZoom(Math.min(Math.max(0.1, parsedZoom), 3));
+       } else {
+         fitZoom();
+       }
+       zoomInitializedRef.current = true;
        initializedRef.current = true;
     }
   }, [layout]); // Run after layout is loaded/ready
+
+  useEffect(() => {
+    if (!zoomInitializedRef.current) {
+      return;
+    }
+    window.localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom));
+  }, [zoom]);
 
   useEffect(() => {
     // Fetch layout
@@ -357,6 +375,11 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(setCards)
       .catch(err => console.error("Failed to fetch cards", err));
+
+    fetch('/api/actions')
+      .then(res => res.json())
+      .then(setActions)
+      .catch(err => console.error("Failed to fetch actions", err));
   }, []);
 
   // Auto-save effect
@@ -524,6 +547,9 @@ export default function GameLayoutEditor() {
               />
                
                {Object.values(layout.boxes).map(box => (
+                (() => {
+                  const hasPreview = !!(box.cardSlug || box.actionSlug || box.poseSlug);
+                  return (
                  <Rnd
                    key={box.id}
                    size={{ width: box.width, height: box.height }}
@@ -572,7 +598,7 @@ export default function GameLayoutEditor() {
                     e.stopPropagation();
                     setSelectedBox(box.id);
                   }}
-                  className={`${selectedBox === box.id ? (box.cardSlug || box.poseSlug ? 'z-10' : 'border-2 border-blue-500 z-10') : (box.cardSlug || box.poseSlug ? '' : 'border-2 border-gray-400')} ${box.cardSlug || box.poseSlug ? 'bg-transparent' : 'bg-white/80'} ${box.locked ? 'opacity-80' : ''} flex items-center justify-center cursor-move rounded shadow-sm hover:shadow-md transition-shadow relative`}
+                  className={`${selectedBox === box.id ? (hasPreview ? 'z-10' : 'border-2 border-blue-500 z-10') : (hasPreview ? '' : 'border-2 border-gray-400')} ${hasPreview ? 'bg-transparent' : 'bg-white/80'} ${box.locked ? 'opacity-80' : ''} flex items-center justify-center cursor-move rounded shadow-sm hover:shadow-md transition-shadow relative`}
                  >
                    {/* Pivot Indicator */}
                    {box.pivot && !box.locked && (
@@ -584,7 +610,7 @@ export default function GameLayoutEditor() {
                        }}
                      />
                    )}
-                   {!box.cardSlug && !box.asset && !box.poseSlug && (
+                   {!box.cardSlug && !box.actionSlug && !box.asset && !box.poseSlug && (
                      <div className="text-center font-bold text-xs pointer-events-none select-none p-1 break-words z-10 relative">
                        {box.label}
                      </div>
@@ -627,6 +653,47 @@ export default function GameLayoutEditor() {
                                   }, 0);
                                }
                             }
+                         }}
+                       />
+                     </div>
+                   )}
+
+                   {box.actionSlug && (
+                     <div className="absolute inset-0 pointer-events-none">
+                       <CardPreview
+                         slug={box.actionSlug}
+                         type="action"
+                         transparent
+                         onAspectRatioLoaded={(ratio) => {
+                           if (!box.locked) {
+                             const currentRatio = box.height / box.width;
+                             if (Math.abs(currentRatio - ratio) > 0.01) {
+                               setTimeout(() => {
+                                 updateLayout(prev => {
+                                   const currentBox = prev.boxes[box.id];
+                                   if (!currentBox) return prev;
+
+                                   const targetHeight = Math.round(currentBox.width * ratio);
+                                   if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
+
+                                   const { nx, ny } = toNormalized(currentBox.x, currentBox.y, currentBox.width, targetHeight);
+
+                                   return {
+                                     ...prev,
+                                     boxes: {
+                                       ...prev.boxes,
+                                       [box.id]: {
+                                         ...currentBox,
+                                         height: targetHeight,
+                                         nx,
+                                         ny,
+                                       }
+                                     }
+                                   };
+                                 }, { recordHistory: false });
+                               }, 0);
+                             }
+                           }
                          }}
                        />
                      </div>
@@ -683,6 +750,8 @@ export default function GameLayoutEditor() {
                      </div>
                    )}
                  </Rnd>
+                  );
+                })()
                ))}
             </div>
           </div>
@@ -722,14 +791,15 @@ export default function GameLayoutEditor() {
         <div className={`h-full border-l bg-card shadow-xl z-20 transition-all duration-300 ${selectedBox ? 'w-80' : 'w-0 overflow-hidden'}`}>
            {selectedBox && layout.boxes[selectedBox] && (
           <PropertiesSidebar 
-            selectedBox={layout.boxes[selectedBox]} 
-            onUpdate={updateBox}
-            onClose={() => setSelectedBox(null)}
-            cards={cards}
-            uiAssets={uiAssets}
-            charAssets={charAssets}
-            placeAssets={places}
-          />
+              selectedBox={layout.boxes[selectedBox]}
+              onUpdate={updateBox}
+              onClose={() => setSelectedBox(null)}
+              cards={cards}
+              actions={actions}
+              uiAssets={uiAssets}
+              charAssets={charAssets}
+              placeAssets={places}
+            />
            )}
         </div>
       </div>

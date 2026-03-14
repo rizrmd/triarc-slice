@@ -124,7 +124,7 @@ func load_hero(slug: String):
 		
 		# Enable outline
 		name_label.add_theme_color_override("font_outline_color", shadow_color)
-		name_label.add_theme_constant_override("outline_size", 3)
+		name_label.add_theme_constant_override("outline_size", int(data.get("text_shadow_size", 3)))
 		
 		# Position
 		var name_pos = data.get("name_pos", {})

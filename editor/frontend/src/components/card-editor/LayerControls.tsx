@@ -356,6 +356,8 @@ export function LayerControls({
     const layer = 'name';
     const pos = config.name_pos;
     const scale = config.name_scale;
+    const nameYMax = isAction ? 700 : 200;
+    const shadowSize = config.text_shadow_size ?? 3;
 
     return (
       <section className="space-y-4">
@@ -448,7 +450,7 @@ export function LayerControls({
           <Slider
             value={[pos.y]}
             min={-200}
-            max={200}
+            max={nameYMax}
             step={1}
             onValueChange={([value]) => applyLayerProperty(layer, 'y', value)}
           />
@@ -550,6 +552,20 @@ export function LayerControls({
               className="font-mono uppercase"
             />
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <Label>Text Shadow Size</Label>
+            <span className="font-mono text-muted-foreground">{shadowSize}px</span>
+          </div>
+          <Slider
+            value={[shadowSize]}
+            min={0}
+            max={24}
+            step={1}
+            onValueChange={([value]) => commitConfig((prev) => ({ ...prev, text_shadow_size: value }))}
+          />
         </div>
       </section>
     );
@@ -857,7 +873,7 @@ export function LayerControls({
             renderCharControls(activeLayer)
           )}
 
-          {!isAction && activeLayer === 'name' && renderNameControls()}
+          {activeLayer === 'name' && renderNameControls()}
 
           {!isAction && activeLayer === 'hp-bar' && renderHpBarControls()}
 

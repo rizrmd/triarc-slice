@@ -17,6 +17,7 @@ export interface HeroConfig {
   };
   name_scale: number;
   text_shadow_color: string;
+  text_shadow_size?: number;
   tint: string;
   lore?: string;
   audio?: Record<string, string>;
@@ -54,6 +55,7 @@ export interface ActionConfig {
   };
   name_scale: number;
   text_shadow_color: string;
+  text_shadow_size?: number;
   tint: string;
   description?: string;
   cost?: number;
@@ -160,6 +162,7 @@ export interface Box {
   label: string;
   pivot: string;
   cardSlug?: string;
+  actionSlug?: string;
   poseSlug?: string;
   asset?: string;
   locked?: boolean;
