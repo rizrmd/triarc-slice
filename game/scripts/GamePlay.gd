@@ -3,6 +3,7 @@ extends Control
 const FIND_MATCH_SCENE := "res://scenes/FindMatch.tscn"
 const GAME_POST_SCENE := "res://scenes/GamePost.tscn"
 const REGISTER_SCENE := "res://scenes/Register.tscn"
+const GameData = preload("res://scripts/GameData.gd")
 
 var card_scene = preload("res://scenes/Card.tscn")
 var current_cards: Array = []
@@ -346,37 +347,14 @@ func _get_effective_targeting(action_slug: String, base_targeting: Variant) -> D
 	return resolved
 
 func _load_hero_config(hero_slug: String) -> Dictionary:
-	var path = "res://data/hero/%s/hero.json" % hero_slug
-	if not FileAccess.file_exists(path):
-		return {}
-	var file = FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return {}
-	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed is Dictionary:
-		return parsed
-	return {}
+	return GameData.load_hero_config(hero_slug)
 
 func _load_action_config(action_slug: String) -> Dictionary:
 	if action_slug.is_empty():
 		return {}
 	if _action_config_cache.has(action_slug):
 		return _action_config_cache[action_slug]
-
-	var path = "res://data/action/%s/action.json" % action_slug
-	if not FileAccess.file_exists(path):
-		_action_config_cache[action_slug] = {}
-		return {}
-
-	var file = FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		_action_config_cache[action_slug] = {}
-		return {}
-
-	var parsed = JSON.parse_string(file.get_as_text())
-	var config: Dictionary = {}
-	if parsed is Dictionary:
-		config = parsed
+	var config := GameData.load_action_config(action_slug)
 	_action_config_cache[action_slug] = config
 	return config
 

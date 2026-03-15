@@ -3,6 +3,7 @@ extends Control
 const FIND_MATCH_SCENE := "res://scenes/FindMatch.tscn"
 const GAME_POST_SCENE := "res://scenes/GamePost.tscn"
 const REGISTER_SCENE := "res://scenes/Register.tscn"
+const DEV_GAMEPLAY_SCENE := "res://scenes/DevGameplay.tscn"
 
 @onready var welcome_label: Label = $SafeArea/Content/WelcomeLabel
 @onready var profile_label: Label = $SafeArea/Content/ProfileLabel
@@ -25,6 +26,9 @@ func _on_find_match_pressed() -> void:
 
 func _on_results_pressed() -> void:
 	get_tree().change_scene_to_file(GAME_POST_SCENE)
+
+func _on_dev_gameplay_pressed() -> void:
+	get_tree().change_scene_to_file(DEV_GAMEPLAY_SCENE)
 
 func _redirect_to_register() -> void:
 	if FlowState.display_name.strip_edges().is_empty():

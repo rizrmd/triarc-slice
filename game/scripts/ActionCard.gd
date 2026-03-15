@@ -4,6 +4,7 @@ class_name ActionCard
 signal pressed(slot_index: int)
 
 const DEFAULT_FRAME_PATH := "res://assets/ui/action-frame.webp"
+const GameData = preload("res://scripts/GameData.gd")
 
 var mask_shader = preload("res://shaders/mask.gdshader")
 var multiply_shader = preload("res://shaders/multiply.gdshader")
@@ -82,14 +83,14 @@ func configure_action(slot_index: int, action_slug: String, action_name: String,
 	if frame_path.is_empty():
 		frame_path = DEFAULT_FRAME_PATH
 
-	var frame_texture: Texture2D = _load_texture(frame_path)
+	var frame_texture: Texture2D = GameData.load_texture(frame_path)
 	if frame_texture == null:
-		frame_texture = _load_texture(DEFAULT_FRAME_PATH)
-	var bg_texture: Texture2D = _load_texture("res://data/action/%s/img/char-bg.webp" % action_slug)
-	var fg_texture: Texture2D = _load_texture("res://data/action/%s/img/char-fg.webp" % action_slug)
+		frame_texture = GameData.load_texture(DEFAULT_FRAME_PATH)
+	var bg_texture: Texture2D = GameData.load_action_texture(action_slug, "img/char-bg.webp")
+	var fg_texture: Texture2D = GameData.load_action_texture(action_slug, "img/char-fg.webp")
 	var size_source: Texture2D = frame_texture if frame_texture != null else bg_texture
 	if size_source == null:
-		size_source = _load_texture(DEFAULT_FRAME_PATH)
+		size_source = GameData.load_texture(DEFAULT_FRAME_PATH)
 
 	var base_size: Vector2 = Vector2(400, 600)
 	if size_source != null:
@@ -122,7 +123,7 @@ func configure_action(slot_index: int, action_slug: String, action_name: String,
 	_configure_layer(
 		char_bg,
 		bg_texture,
-		_load_texture("res://data/action/%s/img/mask-bg.webp" % action_slug),
+		GameData.load_action_texture(action_slug, "img/mask-bg.webp"),
 		config.get("char_bg_pos", {}),
 		float(config.get("char_bg_scale", 100.0)),
 		base_size,
@@ -131,7 +132,7 @@ func configure_action(slot_index: int, action_slug: String, action_name: String,
 	_configure_layer(
 		char_fg,
 		fg_texture,
-		_load_texture("res://data/action/%s/img/mask-fg.webp" % action_slug),
+		GameData.load_action_texture(action_slug, "img/mask-fg.webp"),
 		config.get("char_fg_pos", {}),
 		float(config.get("char_fg_scale", 100.0)),
 		base_size,
@@ -216,22 +217,10 @@ func _configure_layer(layer: TextureRect, texture: Texture2D, mask: Texture2D, c
 		layer.material = null
 
 func _load_action_config(action_slug: String) -> Dictionary:
-	var path = "res://data/action/%s/action.json" % action_slug
-	if not FileAccess.file_exists(path):
-		return {}
-	var file = FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return {}
-	var parsed = JSON.parse_string(file.get_as_text())
-	if parsed is Dictionary:
-		return parsed
-	return {}
+	return GameData.load_action_config(action_slug)
 
 func _load_texture(path: String) -> Texture2D:
-	if path.is_empty() or not ResourceLoader.exists(path):
-		return null
-	var resource = load(path)
-	return resource if resource is Texture2D else null
+	return GameData.load_texture(path)
 
 func _parse_color(value: String, fallback: Color) -> Color:
 	if value.is_empty():
