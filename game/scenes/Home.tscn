@@ -76,5 +76,10 @@ stretch_mode = 5
 layout_mode = 2
 text = "View Last Result"
 
+[node name="DevGameplayButton" type="Button" parent="SafeArea/Content"]
+layout_mode = 2
+text = "Developer Sandbox"
+
 [connection signal="pressed" from="SafeArea/Content/FindMatchButton" to="." method="_on_find_match_pressed"]
 [connection signal="pressed" from="SafeArea/Content/ResultsButton" to="." method="_on_results_pressed"]
+[connection signal="pressed" from="SafeArea/Content/DevGameplayButton" to="." method="_on_dev_gameplay_pressed"]
