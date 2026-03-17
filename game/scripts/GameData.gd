@@ -33,10 +33,18 @@ static func load_texture(path: String) -> Texture2D:
 	if path.is_empty():
 		return null
 	if path.begins_with("res://"):
-		if not ResourceLoader.exists(path):
-			return null
-		var resource := load(path)
-		return resource if resource is Texture2D else null
+		# First try ResourceLoader (for imported resources)
+		if ResourceLoader.exists(path):
+			var resource := load(path)
+			return resource if resource is Texture2D else null
+		# Fallback: try loading directly from filesystem (for non-imported files)
+		var global_path := ProjectSettings.globalize_path(path)
+		if FileAccess.file_exists(global_path):
+			var image := Image.new()
+			var error := image.load(global_path)
+			if error == OK:
+				return ImageTexture.create_from_image(image)
+		return null
 	if not FileAccess.file_exists(path):
 		return null
 	var image := Image.new()
@@ -50,7 +58,7 @@ static func _append_directory_names(path: String, destination: Array[String]) ->
 	if dir == null:
 		return
 	dir.list_dir_begin()
-	var entry := dir.get_next()
+	var entry: String = dir.get_next()
 	while not entry.is_empty():
 		if dir.current_is_dir() and not entry.begins_with(".") and not destination.has(entry):
 			destination.append(entry)
@@ -62,7 +70,7 @@ static func _load_json_dict(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
-	var parsed := JSON.parse_string(file.get_as_text())
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	return parsed if parsed is Dictionary else {}
 
 static func _external_data_root() -> String:

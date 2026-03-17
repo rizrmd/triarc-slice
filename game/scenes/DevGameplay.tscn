@@ -34,6 +34,7 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="StatusLabel" type="Label" parent="UI/Hud"]
+visible = false
 offset_left = 22.0
 offset_top = 18.0
 offset_right = 520.0
@@ -47,6 +48,7 @@ autowrap_mode = 2
 text = "Sandbox mode."
 
 [node name="CasterLabel" type="Label" parent="UI/Hud"]
+visible = false
 offset_left = 22.0
 offset_top = 92.0
 offset_right = 520.0
@@ -59,6 +61,7 @@ theme_override_font_sizes/font_size = 22
 text = "Active Hero: -"
 
 [node name="ActionDetailLabel" type="Label" parent="UI/Hud"]
+visible = false
 offset_left = 22.0
 offset_top = 130.0
 offset_right = 520.0
@@ -73,10 +76,27 @@ vertical_alignment = 1
 text = "Sandbox preview only."
 
 [node name="DevPanel" type="PanelContainer" parent="UI/Hud"]
+visible = false
 offset_left = 430.0
 offset_top = 20.0
 offset_right = 698.0
 offset_bottom = 704.0
+
+[node name="DevPanelToggle" type="Button" parent="UI/Hud"]
+offset_left = 430.0
+offset_top = -5.0
+offset_right = 560.0
+offset_bottom = 22.0
+text = "Show Dev"
+
+[node name="HudToggle" type="Button" parent="UI/Hud"]
+offset_left = 570.0
+offset_top = -5.0
+offset_right = 700.0
+offset_bottom = 22.0
+text = "Show HUD"
+
+[connection signal="pressed" from="UI/Hud/HudToggle" to="." method="_on_hud_toggle_pressed"]
 
 [node name="Margin" type="MarginContainer" parent="UI/Hud/DevPanel"]
 layout_mode = 2
@@ -140,6 +160,13 @@ layout_mode = 2
 size_flags_horizontal = 3
 text = "Randomize"
 
+[node name="AspectLabel" type="Label" parent="UI/Hud/DevPanel/Margin/Content"]
+layout_mode = 2
+text = "Aspect Ratio"
+
+[node name="AspectSelect" type="OptionButton" parent="UI/Hud/DevPanel/Margin/Content"]
+layout_mode = 2
+
 [node name="Hint" type="Label" parent="UI/Hud/DevPanel/Margin/Content"]
 layout_mode = 2
 autowrap_mode = 2
@@ -157,3 +184,5 @@ text = "Double-click a hero card to set the active caster. Tap an action card to
 
 [connection signal="pressed" from="UI/Hud/DevPanel/Margin/Content/ButtonRow/BackButton" to="." method="_on_back_pressed"]
 [connection signal="pressed" from="UI/Hud/DevPanel/Margin/Content/ButtonRow/RandomizeButton" to="." method="_on_randomize_pressed"]
+[connection signal="item_selected" from="UI/Hud/DevPanel/Margin/Content/AspectSelect" to="." method="_on_aspect_selected"]
+[connection signal="pressed" from="UI/Hud/DevPanelToggle" to="." method="_on_dev_panel_toggle_pressed"]

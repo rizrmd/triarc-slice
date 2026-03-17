@@ -219,9 +219,14 @@ static func apply_layout(scene_key: String, bg_node: TextureRect, cards: Array, 
 	var offset_x = (viewport_size.x - scaled_w) / 2.0
 	var offset_y = (viewport_size.y - scaled_h) / 2.0
 	
+	# Set anchors to top-left to prevent anchor-based size override
+	bg_node.anchor_left = 0.0
+	bg_node.anchor_top = 0.0
+	bg_node.anchor_right = 0.0
+	bg_node.anchor_bottom = 0.0
 	bg_node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg_node.position = Vector2(offset_x, offset_y)
-	bg_node.size = Vector2(scaled_w, scaled_h)
+	bg_node.set_deferred("size", Vector2(scaled_w, scaled_h))
 	
 	var bg_metrics = {
 		"scaled_w": scaled_w,
