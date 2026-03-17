@@ -3,17 +3,35 @@ extends Control
 const HOME_SCENE := "res://scenes/Home.tscn"
 const GameData = preload("res://scripts/GameData.gd")
 
+# Aspect ratio presets for testing different phone sizes
+const DEFAULT_ASPECT_INDEX := 0
+const ASPECT_PRESETS: Array[Dictionary] = [
+	{"label": "9:16 (Default)", "aspect": 9.0 / 16.0},
+	{"label": "9:19.5 (iPhone X)", "aspect": 9.0 / 19.5},
+	{"label": "9:20 (Galaxy S21)", "aspect": 9.0 / 20.0},
+	{"label": "9:22 (Galaxy S24)", "aspect": 9.0 / 22.0},
+	{"label": "3:4 (iPad)", "aspect": 3.0 / 4.0},
+	{"label": "1:1 (Square)", "aspect": 1.0},
+	{"label": "4:3 (Classic)", "aspect": 4.0 / 3.0},
+]
+
 var card_scene = preload("res://scenes/Card.tscn")
 var _current_cards: Array = []
 var _available_heroes: Array[String] = []
 var _available_actions: Array[String] = []
 var _displayed_hero_slugs: Array[String] = []
 var _selected_caster_slot: int = 1
+var _original_window_size: Vector2i = Vector2i.ZERO
+var _viewport_adjusted := false
 
 @onready var bg_texture: TextureRect = $Background
 @onready var status_label: Label = $UI/Hud/StatusLabel
 @onready var caster_label: Label = $UI/Hud/CasterLabel
 @onready var action_detail_label: Label = $UI/Hud/ActionDetailLabel
+@onready var dev_panel: PanelContainer = $UI/Hud/DevPanel
+@onready var dev_panel_toggle: Button = $UI/Hud/DevPanelToggle
+@onready var hud_toggle: Button = $UI/Hud/HudToggle
+@onready var aspect_select: OptionButton = $UI/Hud/DevPanel/Margin/Content/AspectSelect
 @onready var hero_selectors: Array[OptionButton] = [
 	$UI/Hud/DevPanel/Margin/Content/Hero1Select,
 	$UI/Hud/DevPanel/Margin/Content/Hero2Select,
@@ -40,11 +58,14 @@ func _ready() -> void:
 
 	_populate_hero_selectors()
 	_populate_action_selectors()
+	_populate_aspect_select()
 	_connect_inputs()
 	_build_hero_cards()
 	_refresh_action_cards()
 	_update_caster_label()
 	_update_action_detail_placeholder()
+	_update_dev_panel_toggle_text()
+	
 	status_label.text = "Sandbox mode. Double-click a hero, then tap an action card."
 
 	call_deferred("update_layout")
@@ -57,6 +78,8 @@ func _connect_inputs() -> void:
 		selector.item_selected.connect(_on_action_selection_changed)
 	for index in range(action_cards.size()):
 		action_cards[index].pressed.connect(_on_action_card_pressed.bind(index + 1))
+		action_cards[index].dragged_onto_hero.connect(_on_action_card_dragged_onto_hero)
+	# Aspect select is connected via scene file
 
 func _populate_hero_selectors() -> void:
 	for selector in hero_selectors:
@@ -79,6 +102,12 @@ func _populate_action_selectors() -> void:
 	for index in range(action_selectors.size()):
 		if index < _available_actions.size():
 			action_selectors[index].select(index)
+
+func _populate_aspect_select() -> void:
+	aspect_select.clear()
+	for preset in ASPECT_PRESETS:
+		aspect_select.add_item(preset.label)
+	aspect_select.select(DEFAULT_ASPECT_INDEX)
 
 func _on_hero_selection_changed(_index: int) -> void:
 	_build_hero_cards()
@@ -136,7 +165,7 @@ func _on_hero_card_double_clicked(card: Control) -> void:
 	_update_caster_label()
 	status_label.text = "Active hero set to %s." % _hero_name_for_slot(slot_index)
 
-func _on_action_card_pressed(hand_slot_index: int) -> void:
+func _on_action_card_pressed(_slot_from_signal: int, hand_slot_index: int) -> void:
 	if _selected_caster_slot <= 0:
 		status_label.text = "Select an active hero first."
 		return
@@ -157,6 +186,27 @@ func _on_action_card_pressed(hand_slot_index: int) -> void:
 	)
 	status_label.text = "Previewing %s through %s." % [action_card.get_action_name(), _hero_name_for_slot(_selected_caster_slot)]
 
+func _on_action_card_dragged_onto_hero(hand_slot_index: int, hero_card: Control) -> void:
+	var hero_slot_index = _current_cards.find(hero_card) + 1
+	if hero_slot_index <= 0:
+		return
+	_selected_caster_slot = hero_slot_index
+	_update_caster_label()
+
+	var action_card := action_cards[hand_slot_index - 1]
+	var action_slug := action_card.get_action_slug()
+	if action_slug.is_empty():
+		status_label.text = "No action in that slot."
+		return
+	_show_action_details(
+		action_slug,
+		action_card.get_action_name(),
+		action_card.get_action_description(),
+		action_card.get_action_elements(),
+		_get_effective_targeting(action_slug, action_card.get_targeting())
+	)
+	status_label.text = "Casting %s through %s." % [action_card.get_action_name(), _hero_name_for_slot(hero_slot_index)]
+
 func _on_back_pressed() -> void:
 	get_tree().change_scene_to_file(HOME_SCENE)
 
@@ -171,6 +221,20 @@ func _on_randomize_pressed() -> void:
 	_refresh_action_cards()
 	_update_action_detail_placeholder()
 	status_label.text = "Sandbox loadout randomized."
+
+func _on_dev_panel_toggle_pressed() -> void:
+	dev_panel.visible = not dev_panel.visible
+	_update_dev_panel_toggle_text()
+
+func _on_hud_toggle_pressed() -> void:
+	var hud_visible = not status_label.visible
+	status_label.visible = hud_visible
+	caster_label.visible = hud_visible
+	action_detail_label.visible = hud_visible
+	hud_toggle.text = "Show HUD" if not hud_visible else "Hide HUD"
+
+func _update_dev_panel_toggle_text() -> void:
+	dev_panel_toggle.text = "Hide Dev" if dev_panel.visible else "Show Dev"
 
 func update_layout() -> void:
 	var viewport_size = get_viewport_rect().size
@@ -269,3 +333,45 @@ func _describe_targeting(targeting: Dictionary) -> String:
 		return "Target: none"
 	var side_text := "Any" if side == "any" else side.capitalize()
 	return "Target: %s %s (%s)" % [side_text, scope, selection]
+
+func _on_aspect_selected(index: int) -> void:
+	if index < 0 or index >= ASPECT_PRESETS.size():
+		return
+	var aspect: float = ASPECT_PRESETS[index].aspect
+	_apply_aspect_ratio(aspect)
+
+func _apply_aspect_ratio(aspect: float) -> void:
+	var window := get_window()
+	if not _viewport_adjusted:
+		_original_window_size = window.size
+		_viewport_adjusted = true
+	
+	var screen_id := window.current_screen
+	var screen_size := DisplayServer.screen_get_size(screen_id)
+	
+	# Keep width constant, adjust height based on aspect ratio
+	var width := 720
+	var height := int(float(width) / aspect)
+	
+	# Ensure we don't exceed screen height
+	if height > screen_size.y - 100:
+		height = screen_size.y - 100
+		width = int(float(height) * aspect)
+	
+	# Update window size
+	window.size = Vector2i(width, height)
+	
+	# Center window on screen
+	var screen_pos := DisplayServer.screen_get_position(screen_id)
+	window.position = Vector2i(
+		screen_pos.x + (screen_size.x - width) / 2,
+		screen_pos.y + (screen_size.y - height) / 2
+	)
+	
+	# Update viewport
+	get_viewport().size = Vector2i(width, height)
+	
+	# Force layout update
+	update_layout.call_deferred()
+	
+	status_label.text = "Aspect: %dx%d (%.2f)" % [width, height, aspect]

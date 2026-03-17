@@ -5,6 +5,7 @@ signal double_clicked(card)
 @onready var masked_group = $MaskedGroup
 @onready var char_bg = $MaskedGroup/CharBG
 @onready var frame = $Frame
+@onready var frame_tint: TextureRect = $FrameTint
 @onready var char_fg = $CharFG
 @onready var name_label = $NameLabel
 
@@ -41,6 +42,7 @@ func _gui_input(event):
 			accept_event()
 
 func _ready():
+	add_to_group("hero_cards")
 	# Load Global Mask for the Group
 	var mask_tex = load_texture("res://assets/ui/hero-mask.webp")
 	if mask_tex:
@@ -148,42 +150,61 @@ func load_hero(slug: String):
 		
 	# 4. HP Bar
 	var hp_bar_pos = data.get("hp_bar_pos")
+	print("HP Bar - hp_bar_pos: ", hp_bar_pos)
 	if hp_bar_pos:
-		var hp_bar_node = frame.get_node_or_null("HPBar")
+		var hp_bar_node = get_node_or_null("HPBar")
 		if not hp_bar_node:
 			# Create HP Bar container
 			hp_bar_node = Control.new()
 			hp_bar_node.name = "HPBar"
-			frame.add_child(hp_bar_node)
-			
+			add_child(hp_bar_node)
+			# Move HP bar to be above name_label but below nothing (top layer)
+			move_child(hp_bar_node, -1)
+			print("HP Bar - created HPBar node")
+
 			# Create layers: BG, FG, Frame, Text
+			var bar_bg_tex = load_texture("res://assets/ui/bar/bar-bg.webp")
+			print("HP Bar - bar_bg texture: ", bar_bg_tex)
 			var bar_bg = TextureRect.new()
 			bar_bg.name = "BarBG"
-			bar_bg.texture = load_texture("res://assets/ui/bar/bar-bg.webp")
+			bar_bg.texture = bar_bg_tex
 			bar_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			bar_bg.stretch_mode = TextureRect.STRETCH_SCALE
+			bar_bg.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			hp_bar_node.add_child(bar_bg)
-			
+
+			var bar_fg_tex = load_texture("res://assets/ui/bar/bar-fg.webp")
+			print("HP Bar - bar_fg texture: ", bar_fg_tex)
 			var bar_fg = TextureRect.new()
 			bar_fg.name = "BarFG"
-			bar_fg.texture = load_texture("res://assets/ui/bar/bar-fg.webp")
+			bar_fg.texture = bar_fg_tex
 			bar_fg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			bar_fg.stretch_mode = TextureRect.STRETCH_SCALE
+			bar_fg.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			hp_bar_node.add_child(bar_fg)
-			
+
+			var bar_frame_tex = load_texture("res://assets/ui/bar/bar-frame.webp")
+			print("HP Bar - bar_frame texture: ", bar_frame_tex)
 			var bar_frame = TextureRect.new()
 			bar_frame.name = "BarFrame"
-			bar_frame.texture = load_texture("res://assets/ui/bar/bar-frame.webp")
+			bar_frame.texture = bar_frame_tex
 			bar_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			bar_frame.stretch_mode = TextureRect.STRETCH_SCALE
+			bar_frame.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			hp_bar_node.add_child(bar_frame)
-			
+
 			var bar_label = Label.new()
 			bar_label.name = "BarLabel"
 			bar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			bar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			bar_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 			# Add shadow to text
 			bar_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 			bar_label.add_theme_constant_override("shadow_offset_x", 0)
 			bar_label.add_theme_constant_override("shadow_offset_y", 1)
 			bar_label.add_theme_constant_override("shadow_outline_size", 2)
+			# Set font
+			bar_label.add_theme_font_override("font", name_label.get_theme_font("font"))
 			hp_bar_node.add_child(bar_label)
 		
 		# Update HP Bar properties
@@ -205,11 +226,14 @@ func load_hero(slug: String):
 		# const barH = barW / aspectRatio;
 		
 		var bar_bg_tex = load_texture("res://assets/ui/bar/bar-bg.webp")
+		print("HP Bar - bar_bg_tex for sizing: ", bar_bg_tex)
 		if bar_bg_tex:
 			var aspect = bar_bg_tex.get_width() / float(bar_bg_tex.get_height())
 			var base_width = card_size.x * 0.33
 			var final_w = base_width * bar_scale
 			var final_h = final_w / aspect
+			
+			print("HP Bar - card_size: ", card_size, " aspect: ", aspect, " final_w: ", final_w, " final_h: ", final_h)
 			
 			hp_bar_node.size = Vector2(final_w, final_h)
 			hp_bar_node.custom_minimum_size = Vector2(final_w, final_h)
@@ -219,7 +243,8 @@ func load_hero(slug: String):
 			var offset_x = hp_bar_pos.get("x", 0)
 			var offset_y = hp_bar_pos.get("y", 0)
 			
-			hp_bar_node.position = center + Vector2(offset_x, offset_y) - (hp_bar_node.size / 2)
+			hp_bar_node.position = center + Vector2(offset_x, offset_y + 10) - (hp_bar_node.size / 2)
+			print("HP Bar - position: ", hp_bar_node.position, " center: ", center, " offset: ", Vector2(offset_x, offset_y))
 			
 			# Apply to children
 			var bar_bg = hp_bar_node.get_node("BarBG")
@@ -253,14 +278,7 @@ func load_hero(slug: String):
 				var new_bar = TextureProgressBar.new()
 				new_bar.name = "BarFG"
 				new_bar.texture_progress = bar_fg.texture
-				new_bar.ignore_texture_size = true
-				# STRETCH_SCALE doesn't exist in TextureProgressBar
-				# We just need to ensure the texture fills the rect?
-				# TextureProgressBar behavior:
-				# If nine_patch_stretch is true, it stretches according to patch margins.
-				# If false, it draws texture at original size unless ignore_texture_size is true?
-				# Wait, for TextureProgressBar to scale the texture to 'size', we need:
-				# nine_patch_stretch = true (even if margins are 0)
+				# Use nine_patch_stretch to scale texture to size
 				new_bar.nine_patch_stretch = true
 				new_bar.stretch_margin_bottom = 0
 				new_bar.stretch_margin_left = 0
@@ -268,6 +286,7 @@ func load_hero(slug: String):
 				new_bar.stretch_margin_top = 0
 				
 				new_bar.value = percentage * 100
+				new_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
 				new_bar.size = hp_bar_node.size
 				new_bar.position = Vector2.ZERO
 				
@@ -310,9 +329,11 @@ func load_hero(slug: String):
 			
 			# Label
 			var bar_label = hp_bar_node.get_node("BarLabel")
-			bar_label.text = str(current_hp) + " / " + str(max_hp)
+			bar_label.text = str(int(round(current_hp))) + " / " + str(int(round(max_hp)))
 			bar_label.size = hp_bar_node.size
-			bar_label.position = Vector2.ZERO
+			bar_label.position = Vector2(0, -5)
+			bar_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+			bar_label.add_theme_constant_override("line_spacing", 0)
 			
 			# Font size
 			# Logic: fontSizeRatio = baseFontSize / 471 (typical card width)
@@ -320,37 +341,36 @@ func load_hero(slug: String):
 			var font_ratio = float(font_size_base) / 471.0
 			var final_font_size = max(12, int(card_size.x * font_ratio))
 			bar_label.add_theme_font_size_override("font_size", final_font_size)
+			hp_bar_node.visible = true
+			print("HP Bar - visible set to true, hp_bar_node.size: ", hp_bar_node.size, " position: ", hp_bar_node.position)
+		else:
+			print("HP Bar - bar_bg_tex is NULL, cannot size HP bar")
 	else:
-		var hp_bar_node = frame.get_node_or_null("HPBar")
+		var hp_bar_node = get_node_or_null("HPBar")
 		if hp_bar_node:
 			hp_bar_node.visible = false
 
-	# Remove existing tint overlay if any
-	var existing_tint = frame.get_node_or_null("FrameTint")
-	if existing_tint:
-		existing_tint.queue_free()
-	
 	# Reset base frame color
 	frame.modulate = Color.WHITE
 
+	# Configure FrameTint
+	frame_tint.texture = frame.texture
+	frame_tint.expand_mode = frame.expand_mode
+	frame_tint.stretch_mode = frame.stretch_mode
+	frame_tint.size = frame.size
+	frame_tint.position = frame.position
+	frame_tint.visible = false
+	frame_tint.material = null
+
 	if data.has("tint") and data.tint != "":
-		# Create Tint Overlay with Multiply Shader
-		var tint_overlay = TextureRect.new()
-		tint_overlay.name = "FrameTint"
-		tint_overlay.texture = frame.texture
-		tint_overlay.expand_mode = frame.expand_mode
-		tint_overlay.stretch_mode = frame.stretch_mode
-		tint_overlay.layout_mode = 1 # Anchors
-		tint_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-		
+		# Enable FrameTint with Multiply Shader
 		var mat = ShaderMaterial.new()
 		mat.shader = multiply_shader
-		tint_overlay.material = mat
-		
+		frame_tint.material = mat
+
 		# Set tint color (passed as COLOR to shader)
-		tint_overlay.modulate = parse_color(data.tint)
-		
-		frame.add_child(tint_overlay)
+		frame_tint.modulate = parse_color(data.tint)
+		frame_tint.visible = true
 
 func setup_layer(node: TextureRect, layer_name: String, slug: String, pos_data: Dictionary, scale_percent: float, card_size: Vector2, center: Vector2):
 	# Load Image
