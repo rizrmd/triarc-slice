@@ -98,12 +98,7 @@ type ActionConfig struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"char_bg_pos"`
-	CharFgPos struct {
-		X int `json:"x"`
-		Y int `json:"y"`
-	} `json:"char_fg_pos"`
 	CharBgScale float64 `json:"char_bg_scale"`
-	CharFgScale float64 `json:"char_fg_scale"`
 	NamePos     struct {
 		X int `json:"x"`
 		Y int `json:"y"`
@@ -173,10 +168,10 @@ func main() {
 	http.HandleFunc("/api/card-mask/", cardMaskHandler)
 	http.HandleFunc("/api/action-mask/", actionMaskHandler)
 	http.HandleFunc("/api/card-char/", cardCharHandler)
-	http.HandleFunc("/api/action-char/", actionCharHandler)
+	http.HandleFunc("/api/action-bg/", actionBgHandler)
 	http.HandleFunc("/api/card-audio/", heroAudioHandler)
 	http.HandleFunc("/api/card-char-select/", cardCharSelectHandler)
-	http.HandleFunc("/api/action-char-select/", actionCharSelectHandler)
+	http.HandleFunc("/api/action-bg-select/", actionBgSelectHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
 	http.HandleFunc("/api/game-layout", gameLayoutHandler)
 	http.HandleFunc("/api/assets/", assetsListHandler)
@@ -378,21 +373,12 @@ func parseCharRequestPath(path string) (string, string, bool) {
 	return slug, layer, true
 }
 
-func parseActionCharRequestPath(path string) (string, string, bool) {
-	trimmed := strings.TrimPrefix(path, "/api/action-char/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 2 {
-		return "", "", false
-	}
-	slug := parts[0]
-	layer := parts[1]
+func parseActionBgPath(path string) (string, bool) {
+	slug := strings.TrimPrefix(path, "/api/action-bg/")
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
-		return "", "", false
+		return "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
-		return "", "", false
-	}
-	return slug, layer, true
+	return slug, true
 }
 
 func parseCardCharSelectPath(path string) (string, string, bool) {
@@ -412,21 +398,12 @@ func parseCardCharSelectPath(path string) (string, string, bool) {
 	return slug, layer, true
 }
 
-func parseActionCharSelectPath(path string) (string, string, bool) {
-	trimmed := strings.TrimPrefix(path, "/api/action-char-select/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 2 {
-		return "", "", false
-	}
-	slug := parts[0]
-	layer := parts[1]
+func parseActionBgSelectPath(path string) (string, bool) {
+	slug := strings.TrimPrefix(path, "/api/action-bg-select/")
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
-		return "", "", false
+		return "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
-		return "", "", false
-	}
-	return slug, layer, true
+	return slug, true
 }
 
 func readPreferredCharImage(baseDirName, slug, layer string) ([]byte, error) {
@@ -550,22 +527,24 @@ func cardCharHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func actionCharHandler(w http.ResponseWriter, r *http.Request) {
-	slug, layer, ok := parseActionCharRequestPath(r.URL.Path)
+func actionBgHandler(w http.ResponseWriter, r *http.Request) {
+	slug, ok := parseActionBgPath(r.URL.Path)
 	if !ok {
-		http.Error(w, "Invalid action char path", http.StatusBadRequest)
+		http.Error(w, "Invalid action bg path", http.StatusBadRequest)
 		return
 	}
+
+	const layer = "char-bg"
 
 	switch r.Method {
 	case http.MethodGet:
 		data, err := readPreferredCharImage("action", slug, layer)
 		if err != nil {
 			if os.IsNotExist(err) {
-				http.Error(w, "Character image not found", http.StatusNotFound)
+				http.Error(w, "Action background not found", http.StatusNotFound)
 				return
 			}
-			http.Error(w, "Failed to read character image", http.StatusInternalServerError)
+			http.Error(w, "Failed to read action background", http.StatusInternalServerError)
 			return
 		}
 		contentType := http.DetectContentType(data)
@@ -601,7 +580,6 @@ func actionCharHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Always save as .webp
 		target := filepath.Join(imgDir, layer+".webp")
 		if err := saveAsWebP(data, target); err != nil {
 			log.Printf("Save WebP error: %v", err)
@@ -609,7 +587,6 @@ func actionCharHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Cleanup conflicting overrides
 		cleanupExts := []string{".upload", ".gif", ".png", ".jpg", ".jpeg"}
 		for _, e := range cleanupExts {
 			_ = os.Remove(filepath.Join(imgDir, layer+e))
@@ -1051,16 +1028,19 @@ func cardCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 }
 
-func actionCharSelectHandler(w http.ResponseWriter, r *http.Request) {
+func actionBgSelectHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	slug, layer, ok := parseActionCharSelectPath(r.URL.Path)
+	slug, ok := parseActionBgSelectPath(r.URL.Path)
 	if !ok {
-		http.Error(w, "Invalid action char select path", http.StatusBadRequest)
+		http.Error(w, "Invalid action bg select path", http.StatusBadRequest)
 		return
 	}
+
+	const layer = "char-bg"
+
 	var payload AssetPickPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
@@ -1083,7 +1063,6 @@ func actionCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Always save as .webp
 	target := filepath.Join(imgDir, layer+".webp")
 	if err := saveAsWebP(data, target); err != nil {
 		log.Printf("Save WebP error: %v", err)
@@ -1091,7 +1070,6 @@ func actionCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cleanup conflicting overrides
 	cleanupExts := []string{".upload", ".gif", ".png", ".jpg", ".jpeg"}
 	for _, e := range cleanupExts {
 		_ = os.Remove(filepath.Join(imgDir, layer+e))
@@ -1099,6 +1077,33 @@ func actionCharSelectHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+}
+
+// deduplicatePlaces strips -wide/-narrow suffixes and extensions, deduplicating
+// so cave-wide.webp and cave-narrow.webp both collapse into a single "cave" entry.
+func deduplicatePlaces(items []map[string]string) []map[string]string {
+	seen := make(map[string]bool)
+	result := make([]map[string]string, 0, len(items))
+	prefix := ""
+	for _, item := range items {
+		name := item["name"]
+		ext := filepath.Ext(name)
+		base := strings.TrimSuffix(name[:len(name)-len(ext)], "-wide")
+		base = strings.TrimSuffix(base, "-narrow")
+		// canonical is just the base name without extension
+		if seen[base] {
+			continue
+		}
+		seen[base] = true
+		if prefix == "" && strings.LastIndex(item["url"], "/") >= 0 {
+			prefix = item["url"][:strings.LastIndex(item["url"], "/")+1]
+		}
+		result = append(result, map[string]string{
+			"name": base,
+			"url":  prefix + url.PathEscape(base),
+		})
+	}
+	return result
 }
 
 func listImageAssets(baseDir string, publicPrefix string) ([]map[string]string, error) {
@@ -1161,6 +1166,9 @@ func assetsListHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, "Failed to read assets", http.StatusInternalServerError)
 		return
+	}
+	if category == "places" {
+		items = deduplicatePlaces(items)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(items)

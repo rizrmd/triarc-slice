@@ -6,6 +6,15 @@ import { PoseCanvas, MaskedImage } from './PoseCanvas';
 import { LayerList } from './LayerList';
 import { Loader2 } from 'lucide-react';
 
+function resolveBgVariant(name: string, suffix: '-narrow' | '-wide'): string {
+  if (!name) return name;
+  // Strip any extension and existing -wide/-narrow suffix, then apply new suffix
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '.webp';
+  const base = (ext ? name.slice(0, name.lastIndexOf('.')) : name)
+    .replace(/-wide$/, '').replace(/-narrow$/, '');
+  return base + suffix + '.webp';
+}
+
 interface HeroPoseTabProps {
   config: HeroConfig;
   onChange: (updater: (prev: HeroConfig) => HeroConfig) => void;
@@ -407,7 +416,8 @@ export function HeroPoseTab({
       drawOnCanvas('pose-mask-fg', canvas, event);
   };
 
-  const enemy2Box = layout?.boxes?.['enemy2'];
+  const defaultBoxes = layout?.boxes?.['9-16'] || {};
+  const enemy2Box = defaultBoxes['enemy2'];
   const baseSize = useMemo(
     () => (enemy2Box ? { width: enemy2Box.width, height: enemy2Box.height } : { width: 320, height: 517 }),
     [enemy2Box?.width, enemy2Box?.height],
@@ -511,9 +521,9 @@ export function HeroPoseTab({
                   }}
               >
                   {/* Background */}
-                  <div 
+                  <div
                       className="absolute inset-0 bg-no-repeat bg-center bg-cover"
-                      style={{ backgroundImage: `url(/assets/places/${layout.background})` }}
+                      style={{ backgroundImage: (layout.backgrounds?.['9-16'] || layout.backgrounds?.['0']) ? `url(/assets/places/${resolveBgVariant(layout.backgrounds['9-16'] || layout.backgrounds['0'], '-narrow')})` : undefined }}
                   />
                   
                   {/* Hero in Enemy2 Box */}

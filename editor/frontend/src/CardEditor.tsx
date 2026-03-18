@@ -383,7 +383,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
           });
 
         const sizeCandidates = isAction
-          ? [`/api/action-char/${slug}/char-bg?size=${Date.now()}`, normalized.frame_image || '']
+          ? [`/api/action-bg/${slug}?size=${Date.now()}`, normalized.frame_image || '']
           : [normalized.frame_image || frameImage];
 
         return sizeCandidates.reduce<Promise<boolean>>(
@@ -526,19 +526,19 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const isMaskFgReady = !visibleLayers['mask-fg'] || maskLoadState['mask-fg'];
   const isPoseMaskFgReady = !visibleLayers['pose-mask-fg'] || maskLoadState['pose-mask-fg'];
   
-  const charApiBase = isAction ? '/api/action-char' : '/api/card-char';
-  
   const bgUrl = slug && isMaskBgReady
-    ? `${charApiBase}/${slug}/char-bg?v=${charImageVersion['char-bg']}`
+    ? (isAction
+        ? `/api/action-bg/${slug}?v=${charImageVersion['char-bg']}`
+        : `/api/card-char/${slug}/char-bg?v=${charImageVersion['char-bg']}`)
     : '';
-  const fgUrl = slug && isMaskFgReady
-    ? `${charApiBase}/${slug}/char-fg?v=${charImageVersion['char-fg']}`
+  const fgUrl = slug && isMaskFgReady && !isAction
+    ? `/api/card-char/${slug}/char-fg?v=${charImageVersion['char-fg']}`
     : '';
-  const poseFgUrl = slug && isPoseMaskFgReady
-    ? `${charApiBase}/${slug}/pose-char-fg?v=${charImageVersion['pose-char-fg']}`
+  const poseFgUrl = slug && isPoseMaskFgReady && !isAction
+    ? `/api/card-char/${slug}/pose-char-fg?v=${charImageVersion['pose-char-fg']}`
     : '';
-  const poseShadowUrl = slug
-    ? `${charApiBase}/${slug}/pose-shadow?v=${charImageVersion['pose-shadow']}`
+  const poseShadowUrl = slug && !isAction
+    ? `/api/card-char/${slug}/pose-shadow?v=${charImageVersion['pose-shadow']}`
     : '';
 
   // Update card size when action background changes (since actions don't have a fixed frame)
@@ -629,7 +629,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
               }
               const formData = new FormData();
               formData.append('file', blob, 'pose-shadow.png');
-              const endpoint = isAction ? `/api/action-char/${slug}/pose-shadow` : `/api/card-char/${slug}/pose-shadow`;
+              const endpoint = `/api/card-char/${slug}/pose-shadow`;
               fetch(endpoint, {
                 method: 'POST',
                 body: formData,
@@ -1742,7 +1742,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     setSaveError(null);
     const formData = new FormData();
     formData.append('file', file);
-    const endpoint = isAction ? `/api/action-char/${slug}/${layer}` : `/api/card-char/${slug}/${layer}`;
+    const endpoint = isAction ? `/api/action-bg/${slug}` : `/api/card-char/${slug}/${layer}`;
     void fetch(endpoint, {
       method: 'POST',
       body: formData,
@@ -1776,7 +1776,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     }
     setAssetApplying(true);
     setSaveError(null);
-    const endpoint = isAction ? `/api/action-char-select/${slug}/${assetPickerTarget}` : `/api/card-char-select/${slug}/${assetPickerTarget}`;
+    const endpoint = isAction ? `/api/action-bg-select/${slug}` : `/api/card-char-select/${slug}/${assetPickerTarget}`;
     void fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
