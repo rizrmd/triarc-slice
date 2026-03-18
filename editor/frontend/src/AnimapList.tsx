@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Search, Plus, Trash, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -6,9 +6,137 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import type { AnimapConfig, AnimapLayer } from '@/types';
+
+type AnimapListItem = {
+  slug: string;
+  config: AnimapConfig | null;
+};
+
+function buildCssFilter(layer: AnimapLayer): string | undefined {
+  const parts: string[] = [];
+  if (layer.hue !== undefined && layer.hue !== 0) parts.push(`hue-rotate(${layer.hue}deg)`);
+  if (layer.saturation !== undefined && layer.saturation !== 100) parts.push(`saturate(${layer.saturation}%)`);
+  if (layer.lightness !== undefined && layer.lightness !== 100) parts.push(`brightness(${layer.lightness}%)`);
+  if (layer.brightness !== undefined && layer.brightness !== 100) parts.push(`brightness(${layer.brightness}%)`);
+  if (layer.contrast !== undefined && layer.contrast !== 100) parts.push(`contrast(${layer.contrast}%)`);
+  return parts.length > 0 ? parts.join(' ') : undefined;
+}
+
+function VideoThumbnail({ src, alt }: { src: string; alt: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const seekToThumbnailFrame = () => {
+      if (!Number.isFinite(video.duration) || video.duration <= 0) {
+        video.currentTime = 0;
+        return;
+      }
+      video.currentTime = Math.min(0.1, video.duration);
+    };
+
+    const handleLoadedMetadata = () => {
+      seekToThumbnailFrame();
+    };
+
+    const handleSeeked = () => {
+      video.pause();
+    };
+
+    video.pause();
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('seeked', handleSeeked);
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('seeked', handleSeeked);
+    };
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      muted
+      playsInline
+      preload="metadata"
+      aria-label={alt}
+      style={{
+        display: 'block',
+        width: '100%',
+        height: '100%',
+        objectFit: 'contain',
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
+function AnimapThumbnail({ slug, config }: { slug: string; config: AnimapConfig | null }) {
+  if (!config) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-black/20 text-xs text-muted-foreground">
+        No preview
+      </div>
+    );
+  }
+
+  const visibleLayers = config.layers.filter((layer) => layer.visible && layer.type !== 'mask' && layer.file);
+  const aspectRatio = `${config.width} / ${config.height}`;
+
+  return (
+    <div className="relative w-full overflow-hidden rounded-md bg-black/20" style={{ aspectRatio }}>
+      <div className="absolute inset-0 bg-[repeating-conic-gradient(#1a1a2e_0%_25%,#16162a_0%_50%)] bg-[length:14px_14px]" />
+      <div className="absolute inset-0">
+        {visibleLayers.length === 0 && (
+          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+            No layers
+          </div>
+        )}
+        {visibleLayers.map((layer) => {
+          const fileUrl = `/data/animap/${slug}/${layer.file}`;
+          const style: React.CSSProperties = {
+            position: 'absolute',
+            left: layer.x ?? 0,
+            top: layer.y ?? 0,
+            transform: `scale(${layer.scale ?? 1})`,
+            transformOrigin: 'top left',
+            opacity: layer.opacity ?? 1,
+            filter: buildCssFilter(layer),
+            pointerEvents: 'none',
+          };
+
+          if (layer.type === 'image') {
+            return (
+              <img
+                key={layer.id}
+                src={fileUrl}
+                alt={layer.name}
+                draggable={false}
+                style={{ ...style, display: 'block' }}
+              />
+            );
+          }
+
+          if (layer.type === 'video') {
+            return (
+              <div key={layer.id} style={style}>
+                <VideoThumbnail src={fileUrl} alt={layer.name} />
+              </div>
+            );
+          }
+
+          return null;
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function AnimapList() {
-  const [animaps, setAnimaps] = useState<string[]>([]);
+  const [animaps, setAnimaps] = useState<AnimapListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -19,16 +147,31 @@ export default function AnimapList() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch('/api/animaps')
-      .then((res) => res.json())
-      .then((data) => {
-        setAnimaps(data || []);
-        setLoading(false);
-      })
-      .catch(() => {
+    const loadAnimaps = async () => {
+      try {
+        const res = await fetch('/api/animaps');
+        const slugs: string[] = (await res.json()) || [];
+        const items = await Promise.all(
+          slugs.map(async (slug) => {
+            try {
+              const configRes = await fetch(`/api/animap/${slug}`);
+              if (!configRes.ok) throw new Error('Failed to load animap');
+              const config: AnimapConfig = await configRes.json();
+              return { slug, config };
+            } catch {
+              return { slug, config: null };
+            }
+          })
+        );
+        setAnimaps(items);
+      } catch {
         setAnimaps([]);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    void loadAnimaps();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -54,8 +197,20 @@ export default function AnimapList() {
       setNewName('');
       setIsCreating(false);
       const listRes = await fetch('/api/animaps');
-      const listData = await listRes.json();
-      setAnimaps(listData || []);
+      const listData: string[] = await listRes.json();
+      const items = await Promise.all(
+        (listData || []).map(async (slug) => {
+          try {
+            const configRes = await fetch(`/api/animap/${slug}`);
+            if (!configRes.ok) throw new Error('Failed to load animap');
+            const config: AnimapConfig = await configRes.json();
+            return { slug, config };
+          } catch {
+            return { slug, config: null };
+          }
+        })
+      );
+      setAnimaps(items);
     } catch (error) {
       alert('Failed to create animap: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
@@ -69,7 +224,7 @@ export default function AnimapList() {
     try {
       const res = await fetch(`/api/animap/${itemToDelete}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete animap');
-      setAnimaps(animaps.filter((a) => a !== itemToDelete));
+      setAnimaps(animaps.filter((a) => a.slug !== itemToDelete));
       setItemToDelete(null);
     } catch (error) {
       alert('Failed to delete: ' + (error instanceof Error ? error.message : String(error)));
@@ -78,7 +233,7 @@ export default function AnimapList() {
     }
   };
 
-  const filtered = animaps.filter((slug) =>
+  const filtered = animaps.filter(({ slug }) =>
     slug.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -142,12 +297,15 @@ export default function AnimapList() {
         ) : (
           <section className="p-4 overflow-auto w-full flex-1 min-h-[500px] relative bg-[#1c1e24] rounded-lg">
             <div className="flex flex-wrap gap-4 items-start justify-center absolute inset-4">
-              {filtered.map((slug) => (
+              {filtered.map(({ slug, config }) => (
                 <div key={slug} className="group relative w-[200px]">
                   <Link
                     to={`/animap/${slug}`}
                     className="block w-full rounded-lg border border-border bg-card p-4 hover:opacity-70 transition-opacity"
                   >
+                    <div className="mb-3 overflow-hidden rounded-md border border-border/60 bg-black/10">
+                      <AnimapThumbnail slug={slug} config={config} />
+                    </div>
                     <div className="text-sm font-medium truncate">{slug}</div>
                   </Link>
                   <Button
