@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# Deploy and run Triarc Slice on an Android emulator (macOS)
+set -euo pipefail
+
+GODOT="${GODOT:-/opt/homebrew/bin/godot}"
+ADB="${ADB:-$HOME/Library/Android/sdk/platform-tools/adb}"
+PROJECT_DIR="$(cd "$(dirname "$0")/game" && pwd)"
+EXPORT_NAME="Android"
+APK_PATH="/tmp/triarc-slice.apk"
+PACKAGE="com.vangambit.game"
+
+# --- Preflight checks ---
+command -v "$GODOT" >/dev/null 2>&1 || { echo "❌ Godot not found at $GODOT"; exit 1; }
+command -v "$ADB"   >/dev/null 2>&1 || { echo "❌ adb not found at $ADB"; exit 1; }
+
+# Check for a connected device/emulator — start one if needed
+EMULATOR="$HOME/Library/Android/sdk/emulator/emulator"
+if ! "$ADB" devices | grep -q 'device$'; then
+  # Pick the first available AVD
+  AVD=$("$EMULATOR" -list-avds 2>/dev/null | head -1)
+  if [ -z "$AVD" ]; then
+    echo "❌ No AVD found. Create one in Android Studio → Device Manager."
+    exit 1
+  fi
+  echo "📱 Starting emulator ($AVD)..."
+  "$EMULATOR" -avd "$AVD" -no-snapshot-load &>/dev/null &
+  disown
+  # Wait for device to come online and finish booting
+  "$ADB" wait-for-device
+  while [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" != "1" ]; do
+    sleep 2
+  done
+  echo "   Emulator ready."
+fi
+
+# --- Ensure export preset exists ---
+PRESETS="$PROJECT_DIR/export_presets.cfg"
+if [ ! -f "$PRESETS" ] || ! grep -q '\[preset\..*\]' "$PRESETS" 2>/dev/null; then
+  echo "📦 Creating Android export preset..."
+  cat > "$PRESETS" << 'EOF'
+[preset.0]
+
+name="Android"
+platform="Android"
+runnable=true
+dedicated_server=false
+custom_features=""
+export_filter="all_resources"
+include_filter=""
+exclude_filter=""
+export_path=""
+encryption_include_filters=""
+encryption_exclude_filters=""
+encrypt_pck=false
+encrypt_directory=false
+
+[preset.0.options]
+
+custom_template/debug=""
+custom_template/release=""
+gradle_build/use_gradle_build=false
+gradle_build/export_format=0
+architectures/armeabi-v7a=false
+architectures/arm64-v8a=true
+architectures/x86=false
+architectures/x86_64=true
+package/unique_name="com.vangambit.game"
+package/name="VanGambit"
+screen/orientation=1
+EOF
+  echo "   Created $PRESETS"
+fi
+
+# --- Export APK ---
+echo "🔨 Exporting APK..."
+"$GODOT" --headless --path "$PROJECT_DIR" --export-debug "$EXPORT_NAME" "$APK_PATH" 2>&1
+if [ ! -f "$APK_PATH" ]; then
+  echo "❌ Export failed — APK not created."
+  echo "   Make sure Android export templates are installed:"
+  echo "   Godot Editor → Editor → Manage Export Templates → Download"
+  exit 1
+fi
+echo "   APK: $APK_PATH"
+
+# --- Install & Launch ---
+echo "📲 Installing on device..."
+"$ADB" install -r "$APK_PATH"
+
+echo "🚀 Launching..."
+"$ADB" shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1
+
+echo "✅ Running on device. Use 'adb logcat -s godot' to see logs."

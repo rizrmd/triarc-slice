@@ -156,12 +156,15 @@ export interface Box {
   ny?: number;
   label: string;
   pivot?: string;
+  fill?: 'contain' | 'cover' | 'stretch' | 'none';
   cardSlug?: string;
   actionSlug?: string;
   poseSlug?: string;
   asset?: string;
   locked?: boolean;
   screen_relative?: boolean;
+  width_percent?: number;
+  height_percent?: number;
 }
 
 export interface GameLayout {

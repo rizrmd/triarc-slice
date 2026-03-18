@@ -22,6 +22,7 @@ interface PropertiesSidebarProps {
   charAssets?: { name: string; url: string }[];
   placeAssets?: { name: string; url: string }[];
   multiSelectCount?: number;
+  viewport?: { width: number; height: number };
 }
 
 function PropertyInput({ value, onChange, disabled, className }: { value: number, onChange: (val: number) => void, disabled?: boolean, className?: string }) {
@@ -52,7 +53,38 @@ function PropertyInput({ value, onChange, disabled, className }: { value: number
   );
 }
 
-export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], uiAssets = [], charAssets = [], placeAssets = [], multiSelectCount = 1 }: PropertiesSidebarProps) {
+function PercentInput({ value, onChange, disabled, className }: { value: number, onChange: (val: number) => void, disabled?: boolean, className?: string }) {
+  const [localValue, setLocalValue] = useState(String(value));
+  const [isEditing, setIsEditing] = useState(false);
+
+  if (!isEditing && String(value) !== localValue) {
+    setLocalValue(String(value));
+  }
+
+  return (
+    <div className="relative flex-1">
+      <Input
+        type="number"
+        step="0.1"
+        value={localValue}
+        onFocus={() => setIsEditing(true)}
+        onBlur={() => setIsEditing(false)}
+        onChange={(e) => {
+          setLocalValue(e.target.value);
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val) && val > 0) {
+            onChange(Math.round(val * 10) / 10);
+          }
+        }}
+        disabled={disabled}
+        className={`${className} pr-6 bg-blue-500/10 border-blue-500/30`}
+      />
+      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-500 pointer-events-none">%</span>
+    </div>
+  );
+}
+
+export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], uiAssets = [], charAssets = [], placeAssets = [], multiSelectCount = 1, viewport = { width: 1080, height: 1920 } }: PropertiesSidebarProps) {
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
   
@@ -167,8 +199,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopyAll = () => {
-    const { x, y, width, height, pivot, cardSlug, actionSlug, asset } = selectedBox;
-    setFullBoxClipboard({ x, y, width, height, pivot, cardSlug, actionSlug, asset });
+    const { x, y, width, height, pivot, fill, cardSlug, actionSlug, asset, width_percent, height_percent } = selectedBox;
+    setFullBoxClipboard({ x, y, width, height, pivot, fill, cardSlug, actionSlug, asset, width_percent, height_percent });
   };
 
   const handleCopyPosition = () => {
@@ -177,8 +209,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopySize = () => {
-    const { width, height } = selectedBox;
-    setFullBoxClipboard({ width, height });
+    const { width, height, width_percent, height_percent } = selectedBox;
+    setFullBoxClipboard({ width, height, width_percent, height_percent });
   };
 
   const handlePasteAll = () => {
@@ -319,6 +351,22 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </div>
         )}
 
+        {/* Fill Mode */}
+        <div className="space-y-1">
+          <Label className="text-[11px] font-medium text-muted-foreground">Fill</Label>
+          <select
+            className="w-full px-2 py-1.5 border rounded-md bg-background text-xs"
+            value={selectedBox.fill || 'stretch'}
+            onChange={(e) => onUpdate(selectedBox.id, { fill: e.target.value as Box['fill'] })}
+            disabled={selectedBox.locked}
+          >
+            <option value="contain">Contain</option>
+            <option value="cover">Cover</option>
+            <option value="stretch">Stretch</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+
         {!isVerticalCenterPivotCard && (
         <div className="space-y-1.5">
           <Label className="text-[11px] font-medium text-muted-foreground">Pivot Point</Label>
@@ -389,20 +437,83 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
 
           {(isHeroBox ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
             const prop = p as 'x' | 'y' | 'width' | 'height';
+            const isWidth = prop === 'width';
+            const isHeight = prop === 'height';
+            const isSizeProp = isWidth || isHeight;
+            const percentKey = isWidth ? 'width_percent' : isHeight ? 'height_percent' : null;
+            const isPercentMode = isSizeProp && percentKey && selectedBox[percentKey] != null;
+            const vpDim = isWidth ? viewport.width : viewport.height;
+
             return (
               <div key={prop} className="flex items-center gap-1.5">
                 <Label
                   className={`w-12 capitalize text-[11px] select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-500'}`}
-                  onMouseDown={(e) => handleLabelDragStart(e, prop, selectedBox[prop])}
+                  onMouseDown={(e) => {
+                    if (isPercentMode && percentKey) {
+                      // Drag in percent mode
+                      if (selectedBox.locked) return;
+                      startXRef.current = e.clientX;
+                      startValRef.current = selectedBox[percentKey]!;
+                      document.body.style.cursor = 'ew-resize';
+                      const handleMouseMove = (moveEvent: MouseEvent) => {
+                        const diff = moveEvent.clientX - startXRef.current;
+                        const newPercent = Math.max(0.1, startValRef.current + diff * 0.1);
+                        const newPx = Math.round((newPercent / 100) * vpDim);
+                        onUpdate(selectedBox.id, { [prop]: newPx, [percentKey]: Math.round(newPercent * 10) / 10 });
+                      };
+                      const handleMouseUp = () => {
+                        document.body.style.cursor = '';
+                        document.removeEventListener('mousemove', handleMouseMove);
+                        document.removeEventListener('mouseup', handleMouseUp);
+                      };
+                      document.addEventListener('mousemove', handleMouseMove);
+                      document.addEventListener('mouseup', handleMouseUp);
+                    } else {
+                      handleLabelDragStart(e, prop, selectedBox[prop]);
+                    }
+                  }}
                 >
                   {prop}
                 </Label>
-                <PropertyInput
-                  value={selectedBox[prop] ?? 0}
-                  onChange={(val) => onUpdate(selectedBox.id, { [prop]: val })}
-                  className="h-7 text-xs"
-                  disabled={selectedBox.locked}
-                />
+                {isPercentMode && percentKey ? (
+                  <PercentInput
+                    value={selectedBox[percentKey]!}
+                    onChange={(pct) => {
+                      const newPx = Math.round((pct / 100) * vpDim);
+                      onUpdate(selectedBox.id, { [prop]: newPx, [percentKey]: pct });
+                    }}
+                    disabled={selectedBox.locked}
+                    className="h-7 text-xs"
+                  />
+                ) : (
+                  <PropertyInput
+                    value={selectedBox[prop] ?? 0}
+                    onChange={(val) => onUpdate(selectedBox.id, { [prop]: val })}
+                    className="h-7 text-xs"
+                    disabled={selectedBox.locked}
+                  />
+                )}
+                {isSizeProp && percentKey && !isVerticalCenterPivotCard && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`h-7 w-7 shrink-0 text-[9px] font-bold ${isPercentMode ? 'text-blue-500' : 'text-muted-foreground'}`}
+                    onClick={() => {
+                      if (isPercentMode) {
+                        // Switch to px mode: remove percent field
+                        onUpdate(selectedBox.id, { [percentKey]: undefined });
+                      } else {
+                        // Switch to % mode: compute current percent
+                        const currentPct = Math.round((selectedBox[prop] / vpDim) * 1000) / 10;
+                        onUpdate(selectedBox.id, { [percentKey]: currentPct });
+                      }
+                    }}
+                    title={isPercentMode ? "Switch to pixels" : "Switch to percent"}
+                    disabled={selectedBox.locked}
+                  >
+                    %
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

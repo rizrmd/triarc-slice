@@ -1,0 +1,28 @@
+; Engine configuration file
+; Do not edit manually
+
+[application]
+
+config/name="VanGambit"
+run/main_scene="res://scenes/loading.tscn"
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
+boot_splash/minimum_display_time=0
+
+[display]
+
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/handheld/orientation=1
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=1
+textures/vram_compression/import_etc2_astc=true
+renderer/rendering_method="gl_compatibility"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/GodotGoogleSignIn/plugin.cfg")
