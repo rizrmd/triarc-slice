@@ -21,6 +21,7 @@ interface PropertiesSidebarProps {
   uiAssets?: { name: string; url: string }[];
   charAssets?: { name: string; url: string }[];
   placeAssets?: { name: string; url: string }[];
+  multiSelectCount?: number;
 }
 
 function PropertyInput({ value, onChange, disabled, className }: { value: number, onChange: (val: number) => void, disabled?: boolean, className?: string }) {
@@ -51,7 +52,7 @@ function PropertyInput({ value, onChange, disabled, className }: { value: number
   );
 }
 
-export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], uiAssets = [], charAssets = [], placeAssets = [] }: PropertiesSidebarProps) {
+export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], uiAssets = [], charAssets = [], placeAssets = [], multiSelectCount = 1 }: PropertiesSidebarProps) {
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
   
@@ -88,6 +89,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
 
   const isHeroBox = selectedBox.id.startsWith('hero');
   const isActionBox = selectedBox.id.startsWith('action');
+  const isEnemyBox = selectedBox.id.startsWith('enemy');
+  const isVerticalCenterPivotCard = isHeroBox || isActionBox || isEnemyBox;
 
   const handleLabelDragStart = (e: React.MouseEvent, prop: keyof Box, value: number) => {
     if (selectedBox.locked) return;
@@ -187,7 +190,12 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   return (
     <div className="w-full h-full border-l bg-card p-4 flex flex-col gap-6 overflow-y-auto">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-lg">Properties</h2>
+        <div>
+          <h2 className="font-semibold text-lg">Properties</h2>
+          {multiSelectCount > 1 && (
+            <div className="text-xs text-muted-foreground">{multiSelectCount} items selected</div>
+          )}
+        </div>
         <Button variant="ghost" size="icon" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
@@ -195,13 +203,15 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
 
       <div className="space-y-4">
         <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="text-xs font-medium text-muted-foreground mb-1">Selected Element</div>
+          <div className="text-xs font-medium text-muted-foreground mb-1">
+            {multiSelectCount > 1 ? 'Editing First Selection' : 'Selected Element'}
+          </div>
           <div className="flex items-center justify-between">
             <div className="font-bold text-sm truncate">{selectedBox.label}</div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6" 
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
               onClick={() => onUpdate(selectedBox.id, { locked: !selectedBox.locked })}
               title={selectedBox.locked ? "Unlock" : "Lock"}
             >
@@ -324,6 +334,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </div>
         )}
 
+        {!isVerticalCenterPivotCard && (
         <div className="space-y-2">
           <Label className="text-xs font-medium">Pivot Point</Label>
           <div className={`grid grid-cols-3 gap-1 w-[120px] mx-auto bg-muted p-1 rounded-md ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
@@ -333,8 +344,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                 onClick={() => onUpdate(selectedBox.id, { pivot: option })}
                 className={`
                   w-8 h-8 rounded-sm transition-all border
-                  ${selectedBox.pivot === option 
-                    ? 'bg-primary border-primary' 
+                  ${selectedBox.pivot === option
+                    ? 'bg-primary border-primary'
                     : 'bg-background hover:bg-accent border-transparent'}
                 `}
                 title={option}
@@ -351,6 +362,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
             {selectedBox.pivot?.replace('-', ' ')}
           </div>
         </div>
+        )}
 
           <div className="space-y-3">
             {/* Special Size Control for Heroes */}

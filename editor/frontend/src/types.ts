@@ -43,12 +43,7 @@ export interface ActionConfig {
     x: number;
     y: number;
   };
-  char_fg_pos: {
-    x: number;
-    y: number;
-  };
   char_bg_scale: number;
-  char_fg_scale: number;
   name_pos: {
     x: number;
     y: number;
@@ -160,15 +155,16 @@ export interface Box {
   nx?: number;
   ny?: number;
   label: string;
-  pivot: string;
+  pivot?: string;
   cardSlug?: string;
   actionSlug?: string;
   poseSlug?: string;
   asset?: string;
   locked?: boolean;
+  screen_relative?: boolean;
 }
 
 export interface GameLayout {
-  background: string;
-  boxes: Record<string, Box>;
+  backgrounds: Record<string, string>; // key: aspect slug, value: background URL
+  boxes: Record<string, Record<string, Box>>; // key: aspect slug, value: boxes for that aspect
 }

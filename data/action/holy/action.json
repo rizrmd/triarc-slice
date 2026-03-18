@@ -5,12 +5,7 @@
     "x": 10,
     "y": 1
   },
-  "char_fg_pos": {
-    "x": -3,
-    "y": -18
-  },
   "char_bg_scale": 138,
-  "char_fg_scale": 138,
   "name_pos": {
     "x": 0,
     "y": 500
@@ -27,15 +22,7 @@
   "visible_layers": {
     "card": true,
     "char-bg": true,
-    "char-fg": false,
-    "hp-bar": false,
-    "mask-bg": true,
-    "mask-fg": false,
-    "name": true,
-    "pose-char-fg": false,
-    "pose-frame": false,
-    "pose-mask-fg": false,
-    "pose-shadow": false
+    "name": true
   },
   "targeting": {
     "side": "enemy",

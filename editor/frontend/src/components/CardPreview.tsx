@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CardConfig, VisibleLayers } from '@/types';
+import type { CardConfig, HeroConfig, VisibleLayers } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
 const frameImage = '/assets/ui/hero-frame.webp';
@@ -8,16 +8,7 @@ const barBg = '/assets/ui/bar/bar-bg.webp';
 const barFg = '/assets/ui/bar/bar-fg.webp';
 const barFrame = '/assets/ui/bar/bar-frame.webp';
 
-function isHeroConfig(config: CardConfig): config is CardConfig & {
-  hp_bar_pos: { x: number; y: number };
-  hp_bar_scale: number;
-  hp_bar_current: number;
-  hp_bar_max: number;
-  hp_bar_hue: number;
-  hp_bar_font_size?: number;
-  pose?: object;
-  audio?: Record<string, string>;
-} {
+function isHeroConfig(config: CardConfig): config is HeroConfig {
   return 'hp_bar_pos' in config;
 }
 
@@ -134,7 +125,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
           };
 
           const sizeCandidates = isAction
-            ? [`/api/action-char/${slug}/char-bg?size=${Date.now()}`, normalized.frame_image || '']
+            ? [`/api/action-bg/${slug}?size=${Date.now()}`, normalized.frame_image || '']
             : [normalized.frame_image || frameImage];
 
           return sizeCandidates.reduce<Promise<boolean>>(
@@ -175,13 +166,13 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
     if (!ctx) return;
 
     const activeFrameSrc = isAction ? (config.frame_image || actionFrameImage) : (config.frame_image || frameImage);
-    const bgUrl = type === 'action' ? `/api/action-char/${slug}/char-bg` : `/api/card-char/${slug}/char-bg`;
-    const fgUrl = type === 'action' ? `/api/action-char/${slug}/char-fg` : `/api/card-char/${slug}/char-fg`;
-    
+    const bgUrl = type === 'action' ? `/api/action-bg/${slug}` : `/api/card-char/${slug}/char-bg`;
+    const fgUrl = isAction ? '' : `/api/card-char/${slug}/char-fg`;
+
     // Add timestamp to bypass browser cache for static mask files
     const timestamp = Date.now();
-    const maskBgUrl = type === 'action' ? `/data/action/${slug}/img/mask-bg.webp?t=${timestamp}` : `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
-    const maskFgUrl = type === 'action' ? `/data/action/${slug}/img/mask-fg.webp?t=${timestamp}` : `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
+    const maskBgUrl = isAction ? '' : `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
+    const maskFgUrl = isAction ? '' : `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
 
     const loadImg = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
@@ -320,12 +311,12 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
         }
       }
 
-      if (visibleLayers?.['char-fg']) {
+      if (visibleLayers?.['char-fg'] && heroConfig) {
         drawLayer(fgImg, maskFgImg, {
-          x: config.char_fg_pos.x,
-          y: config.char_fg_pos.y,
-          scale: config.char_fg_scale
-        }, isAction, offsetX, offsetY);
+          x: heroConfig.char_fg_pos.x,
+          y: heroConfig.char_fg_pos.y,
+          scale: heroConfig.char_fg_scale
+        }, false, offsetX, offsetY);
       }
 
       if (visibleLayers?.name && config.full_name) {

@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react';
 const CardList = lazy(() => import('./CardList'));
 const EditorPage = lazy(() => import('./EditorPage'));
 const GameLayoutEditor = lazy(() => import('./GameLayoutEditor'));
+const GameLayoutPicker = lazy(() => import('./GameLayoutPicker'));
 
 function App() {
   return (
@@ -12,7 +13,8 @@ function App() {
         <Routes>
           <Route path="/" element={<CardList />} />
           <Route path="/edit/:slug" element={<EditorPage />} />
-          <Route path="/game-layout" element={<GameLayoutEditor />} />
+          <Route path="/game-layout" element={<GameLayoutPicker />} />
+          <Route path="/game-layout/:aspect" element={<GameLayoutEditor />} />
         </Routes>
       </Suspense>
     </Router>
