@@ -5,10 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AnimapConfig } from '@/types';
 import { useState } from 'react';
+import { addAnimapState, DEFAULT_STATE_ID, deleteAnimapState, normalizeAnimapConfig } from '@/lib/animap-state';
 
 interface AnimapLayerPanelProps {
   config: AnimapConfig;
   selectedLayerId: string | null;
+  selectedStateId: string;
+  setSelectedStateId: (id: string) => void;
   setSelectedLayerId: (id: string | null) => void;
   commitConfig: (updater: (prev: AnimapConfig) => AnimapConfig) => void;
   canvasZoom: number;
@@ -25,6 +28,8 @@ const typeIcons = {
 export function AnimapLayerPanel({
   config,
   selectedLayerId,
+  selectedStateId,
+  setSelectedStateId,
   setSelectedLayerId,
   commitConfig,
   canvasZoom,
@@ -34,6 +39,8 @@ export function AnimapLayerPanel({
   const [isAdding, setIsAdding] = useState(false);
   const [newLayerName, setNewLayerName] = useState('');
   const [newLayerType, setNewLayerType] = useState<'image' | 'video' | 'mask'>('image');
+  const [newStateName, setNewStateName] = useState('');
+  const states = normalizeAnimapConfig(config).states ?? [];
 
   const addLayer = () => {
     if (!newLayerName.trim()) return;
@@ -93,6 +100,69 @@ export function AnimapLayerPanel({
 
   return (
     <div className="h-full flex flex-col bg-background">
+      <div className="px-3 py-3 border-b space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            <span className="text-sm font-semibold">States</span>
+          </div>
+          {selectedStateId !== DEFAULT_STATE_ID && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => {
+                commitConfig((prev) => deleteAnimapState(prev, selectedStateId));
+                setSelectedStateId(DEFAULT_STATE_ID);
+              }}
+              title="Delete state"
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
+        </div>
+        <select
+          className="h-8 w-full rounded border border-input bg-background px-2 text-xs"
+          value={selectedStateId}
+          onChange={(e) => setSelectedStateId(e.target.value)}
+        >
+          {states.map((state) => (
+            <option key={state.id} value={state.id}>
+              {state.name}
+            </option>
+          ))}
+        </select>
+        <div className="flex gap-1">
+          <Input
+            placeholder="New state"
+            value={newStateName}
+            onChange={(e) => setNewStateName(e.target.value)}
+            className="h-7 text-xs"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newStateName.trim()) {
+                const result = addAnimapState(config, newStateName);
+                commitConfig(() => result.config);
+                setSelectedStateId(result.stateId);
+                setNewStateName('');
+              }
+            }}
+          />
+          <Button
+            size="sm"
+            className="h-7 px-2 text-xs"
+            disabled={!newStateName.trim()}
+            onClick={() => {
+              const result = addAnimapState(config, newStateName);
+              commitConfig(() => result.config);
+              setSelectedStateId(result.stateId);
+              setNewStateName('');
+            }}
+          >
+            Add
+          </Button>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b">
         <div className="flex items-center gap-2">

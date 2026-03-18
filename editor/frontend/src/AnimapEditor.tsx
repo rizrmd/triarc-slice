@@ -7,6 +7,12 @@ import { ArrowLeft, Loader2, Redo2, Save, Undo2 } from 'lucide-react';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
 import { AnimapCanvas } from '@/components/animap-editor/AnimapCanvas';
 import { AnimapPropertyPanel } from '@/components/animap-editor/AnimapPropertyPanel';
+import {
+  DEFAULT_STATE_ID,
+  getAnimapState,
+  getEffectiveLayer,
+  normalizeAnimapConfig,
+} from '@/lib/animap-state';
 
 function cloneConfig(c: AnimapConfig): AnimapConfig {
   return JSON.parse(JSON.stringify(c));
@@ -24,6 +30,7 @@ export default function AnimapEditor() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [selectedStateId, setSelectedStateId] = useState(DEFAULT_STATE_ID);
   const [fileVersion, setFileVersion] = useState(0);
 
   const zoomStorageKey = 'animap-editor-zoom';
@@ -101,11 +108,13 @@ export default function AnimapEditor() {
         return res.json();
       })
       .then((data: AnimapConfig) => {
-        setConfig(data);
-        setInitialConfig(cloneConfig(data));
-        if (data.layers.length > 0) {
-          setSelectedLayerId(data.layers[0].id);
+        const normalized = normalizeAnimapConfig(data);
+        setConfig(normalized);
+        setInitialConfig(cloneConfig(normalized));
+        if (normalized.layers.length > 0) {
+          setSelectedLayerId(normalized.layers[0].id);
         }
+        setSelectedStateId(DEFAULT_STATE_ID);
         setLoading(false);
       })
       .catch(() => {
@@ -293,7 +302,9 @@ export default function AnimapEditor() {
     );
   }
 
-  const selectedLayer = config.layers.find((l) => l.id === selectedLayerId) || null;
+  const selectedLayerBase = config.layers.find((l) => l.id === selectedLayerId) || null;
+  const selectedLayer = selectedLayerBase ? getEffectiveLayer(config, selectedLayerBase, selectedStateId) : null;
+  const selectedState = getAnimapState(config, selectedStateId);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -421,6 +432,8 @@ export default function AnimapEditor() {
           <AnimapLayerPanel
             config={config}
             selectedLayerId={selectedLayerId}
+            selectedStateId={selectedStateId}
+            setSelectedStateId={setSelectedStateId}
             setSelectedLayerId={handleSelectLayer}
             commitConfig={commitConfig}
             canvasZoom={canvasZoom}
@@ -434,6 +447,7 @@ export default function AnimapEditor() {
           <AnimapCanvas
             slug={slug || ''}
             config={config}
+            selectedStateId={selectedStateId}
             selectedLayerId={selectedLayerId}
             setSelectedLayerId={handleSelectLayer}
             commitConfig={commitConfig}
@@ -455,7 +469,10 @@ export default function AnimapEditor() {
           <AnimapPropertyPanel
             slug={slug || ''}
             config={config}
+            selectedState={selectedState}
+            selectedStateId={selectedStateId}
             selectedLayer={selectedLayer}
+            selectedLayerBase={selectedLayerBase}
             commitConfig={commitConfig}
             onUpload={handleLayerUpload}
             fileVersion={fileVersion}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import type { AnimapConfig, AnimapLayer } from '@/types';
+import { getEffectiveLayers, updateStateLayerOverride } from '@/lib/animap-state';
 
 function buildCssFilter(layer: AnimapLayer): string | undefined {
   const parts: string[] = [];
@@ -16,6 +17,7 @@ function buildCssFilter(layer: AnimapLayer): string | undefined {
 interface AnimapCanvasProps {
   slug: string;
   config: AnimapConfig;
+  selectedStateId: string;
   selectedLayerId: string | null;
   setSelectedLayerId: (id: string | null) => void;
   commitConfig: (updater: (prev: AnimapConfig) => AnimapConfig) => void;
@@ -34,8 +36,9 @@ interface AnimapCanvasProps {
 export function AnimapCanvas({
   slug,
   config,
+  selectedStateId,
   selectedLayerId,
-  setSelectedLayerId: _setSelectedLayerId,
+  setSelectedLayerId,
   commitConfig,
   canvasZoom,
   canvasPan,
@@ -62,7 +65,8 @@ export function AnimapCanvas({
   // Mask drawing state
   const isMaskPainting = useRef(false);
   const lastMaskPoint = useRef<{ x: number; y: number } | null>(null);
-  const selectedLayer = config.layers.find((l) => l.id === selectedLayerId);
+  const effectiveLayers = getEffectiveLayers(config, selectedStateId);
+  const selectedLayer = effectiveLayers.find((l) => l.id === selectedLayerId);
   const isMaskMode = selectedLayer?.type === 'mask';
 
   // Init mask canvas when selecting a mask layer
@@ -211,7 +215,7 @@ export function AnimapCanvas({
 
     // Layer dragging (skip if locked)
     if (e.button === 0 && selectedLayerId) {
-      const layer = config.layers.find((l) => l.id === selectedLayerId);
+      const layer = selectedLayer;
       if (layer && !layer.locked && (layer.type === 'image' || layer.type === 'video')) {
         isDragging.current = true;
         dragLayerId.current = selectedLayerId;
@@ -247,18 +251,15 @@ export function AnimapCanvas({
       const scale = canvasZoom / 100;
       const dx = e.clientX / scale - dragStart.current.x;
       const dy = e.clientY / scale - dragStart.current.y;
-      commitConfig((prev) => ({
-        ...prev,
-        layers: prev.layers.map((l) =>
-          l.id === dragLayerId.current
-            ? {
-                ...l,
-                x: Math.round(dragStartPos.current.x + dx),
-                y: Math.round(dragStartPos.current.y + dy),
-              }
-            : l
-        ),
-      }));
+      commitConfig((prev) =>
+        updateStateLayerOverride(
+          updateStateLayerOverride(prev, selectedStateId, dragLayerId.current!, 'x', Math.round(dragStartPos.current.x + dx)),
+          selectedStateId,
+          dragLayerId.current!,
+          'y',
+          Math.round(dragStartPos.current.y + dy),
+        )
+      );
     }
   };
 
@@ -274,7 +275,7 @@ export function AnimapCanvas({
 
   // Build mask lookup: for each non-mask layer, collect all mask URLs that target it
   const maskLookup: Record<string, string[]> = {};
-  config.layers.forEach((layer) => {
+  effectiveLayers.forEach((layer) => {
     if (layer.type === 'mask' && layer.visible && layer.file && layer.targets) {
       for (const targetId of layer.targets) {
         if (!maskLookup[targetId]) maskLookup[targetId] = [];
@@ -315,7 +316,7 @@ export function AnimapCanvas({
         }}
       >
         {/* Layer rendering */}
-        {config.layers.map((layer) => {
+        {effectiveLayers.map((layer) => {
           if (!layer.visible) return null;
 
           const fileUrl = layer.file
@@ -341,7 +342,7 @@ export function AnimapCanvas({
             return (
               <div
                 key={layer.id}
-                onClick={(e) => { e.stopPropagation(); }}
+                onClick={(e) => { e.stopPropagation(); setSelectedLayerId(layer.id); }}
                 style={{
                   position: 'absolute',
                   left: layer.x ?? 0,
@@ -378,7 +379,7 @@ export function AnimapCanvas({
                 maskUrls={maskLookup[layer.id] ?? []}
                 configWidth={config.width}
                 configHeight={config.height}
-                onSelect={() => {}}
+                onSelect={() => setSelectedLayerId(layer.id)}
               />
             );
           }
@@ -419,7 +420,7 @@ function VideoLayer({
   configHeight,
   onSelect,
 }: {
-  layer: { id: string; name: string; x?: number; y?: number; scale?: number; opacity?: number; loop_start?: number; loop_end?: number };
+  layer: { id: string; name: string; x?: number; y?: number; scale?: number; opacity?: number; loop?: boolean; loop_start?: number; loop_end?: number };
   fileUrl: string;
   cssFilter?: string;
   selected: boolean;
@@ -439,13 +440,23 @@ function VideoLayer({
     const video = videoRef.current;
     if (!video) return;
 
+    const loopEnabled = layer.loop ?? true;
     const loopStart = layer.loop_start ?? 0;
     const loopEnd = layer.loop_end ?? 0;
 
     const handleTimeUpdate = () => {
       if (!video) return;
       const end = loopEnd > 0 ? loopEnd : video.duration;
-      if (video.currentTime >= end) video.currentTime = loopStart;
+      if (video.currentTime < end) return;
+
+      if (loopEnabled) {
+        video.currentTime = loopStart;
+        if (video.paused) void video.play().catch(() => {});
+        return;
+      }
+
+      video.currentTime = end;
+      video.pause();
     };
     const handleLoaded = () => {
       if (loopStart > 0) video.currentTime = loopStart;
@@ -457,7 +468,7 @@ function VideoLayer({
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadedmetadata', handleLoaded);
     };
-  }, [layer.loop_start, layer.loop_end]);
+  }, [layer.loop, layer.loop_start, layer.loop_end]);
 
   // Load mask images
   useEffect(() => {
@@ -532,7 +543,7 @@ function VideoLayer({
         muted
         autoPlay
         playsInline
-        loop
+        loop={(layer.loop ?? true) && (layer.loop_end ?? 0) <= 0}
         style={{ position: 'absolute', top: 0, left: 0, opacity: 0.01, pointerEvents: 'none' }}
       />
       <canvas ref={canvasRef} style={{ display: 'block' }} />
