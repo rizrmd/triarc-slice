@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import { Loader2, Search, Layout, Plus, Trash } from 'lucide-react';
+import { Loader2, Search, Layout, Plus, Trash, Film } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -183,6 +183,10 @@ export default function CardList() {
                 <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
                   {activeTab === 'heroes' ? filteredCards.length : filteredActions.length} Item
                 </Badge>
+                <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => navigate('/animaps')}>
+                  <Film className="mr-2 h-4 w-4" />
+                  Animaps
+                </Button>
                 <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => {
                   navigate(`/game-layout/${localStorage.getItem('gameLayoutLast') || 'gameplay/9-16'}`);
                 }}>

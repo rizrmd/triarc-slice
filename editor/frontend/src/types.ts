@@ -178,6 +178,35 @@ export interface GameLayoutFile {
 
 export type GameSceneSlug = 'startup' | 'login' | 'home' | 'gameplay' | 'postgame';
 
+export interface AnimapLayer {
+  id: string;
+  name: string;
+  type: 'image' | 'video' | 'mask';
+  file: string;
+  visible: boolean;
+  locked?: boolean;
+  opacity?: number;
+  x?: number;
+  y?: number;
+  scale?: number;
+  loop?: boolean;
+  loop_start?: number;
+  loop_end?: number;
+  targets?: string[];
+  hue?: number;
+  saturation?: number;
+  lightness?: number;
+  brightness?: number;
+  contrast?: number;
+}
+
+export interface AnimapConfig {
+  name: string;
+  width: number;
+  height: number;
+  layers: AnimapLayer[];
+}
+
 export const GAME_SCENES: { slug: GameSceneSlug; label: string; desc: string }[] = [
   { slug: 'startup', label: 'Startup', desc: 'Logo intro & loading' },
   { slug: 'login', label: 'Login / Register', desc: 'Auth screens' },

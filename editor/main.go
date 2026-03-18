@@ -173,6 +173,9 @@ func main() {
 	http.HandleFunc("/api/card-char-select/", cardCharSelectHandler)
 	http.HandleFunc("/api/action-bg-select/", actionBgSelectHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
+	http.HandleFunc("/api/animaps", listAnimapsHandler)
+	http.HandleFunc("/api/animap/", animapHandler)
+	http.HandleFunc("/api/animap-layer/", animapLayerHandler)
 	http.HandleFunc("/api/game-layout", gameLayoutHandler)
 	http.HandleFunc("/api/assets/", assetsListHandler)
 	assetsDir := resolvePath("./assets")
@@ -182,6 +185,259 @@ func main() {
 	fmt.Printf("Server starting on http://localhost:%s\n", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal(err)
+	}
+}
+
+type AnimapLayer struct {
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Type      string   `json:"type"`
+	File      string   `json:"file"`
+	Visible   bool     `json:"visible"`
+	Locked    *bool    `json:"locked,omitempty"`
+	Opacity   *float64 `json:"opacity,omitempty"`
+	X         *float64 `json:"x,omitempty"`
+	Y         *float64 `json:"y,omitempty"`
+	Scale     *float64 `json:"scale,omitempty"`
+	Loop      *bool    `json:"loop,omitempty"`
+	LoopStart *float64 `json:"loop_start,omitempty"`
+	LoopEnd   *float64 `json:"loop_end,omitempty"`
+	Targets    []string `json:"targets,omitempty"`
+	Hue        *float64 `json:"hue,omitempty"`
+	Saturation *float64 `json:"saturation,omitempty"`
+	Lightness  *float64 `json:"lightness,omitempty"`
+	Brightness *float64 `json:"brightness,omitempty"`
+	Contrast   *float64 `json:"contrast,omitempty"`
+}
+
+type AnimapConfig struct {
+	Name   string        `json:"name"`
+	Width  int           `json:"width"`
+	Height int           `json:"height"`
+	Layers []AnimapLayer `json:"layers"`
+}
+
+func listAnimapsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	animapDir := filepath.Join(resolvePath("./data"), "animap")
+	entries, err := os.ReadDir(animapDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]string{})
+			return
+		}
+		http.Error(w, "Failed to read animaps directory", http.StatusInternalServerError)
+		return
+	}
+
+	animaps := []string{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			animaps = append(animaps, entry.Name())
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(animaps)
+}
+
+func animapHandler(w http.ResponseWriter, r *http.Request) {
+	slug := strings.TrimPrefix(r.URL.Path, "/api/animap/")
+	if slug == "" {
+		http.Error(w, "Missing animap slug", http.StatusBadRequest)
+		return
+	}
+	if strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		http.Error(w, "Invalid slug", http.StatusBadRequest)
+		return
+	}
+
+	animapPath := filepath.Join(resolvePath("./data"), "animap", slug, "animap.json")
+
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(animapPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Animap not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Failed to read animap data", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+
+	case http.MethodPost:
+		var config AnimapConfig
+		if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		dir := filepath.Dir(animapPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
+			return
+		}
+
+		file, err := os.Create(animapPath)
+		if err != nil {
+			http.Error(w, "Failed to open file for writing", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(config); err != nil {
+			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+
+	case http.MethodDelete:
+		animapDir := filepath.Join(resolvePath("./data"), "animap", slug)
+		if _, err := os.Stat(animapDir); err != nil {
+			if os.IsNotExist(err) {
+				http.Error(w, "Animap not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "Failed to access animap", http.StatusInternalServerError)
+			return
+		}
+		if err := os.RemoveAll(animapDir); err != nil {
+			http.Error(w, "Failed to delete animap", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
+	// Path: /api/animap-layer/{slug}/{layerId}
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/animap-layer/")
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		http.Error(w, "Invalid animap layer path", http.StatusBadRequest)
+		return
+	}
+	slug := parts[0]
+	layerId := parts[1]
+	if strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		http.Error(w, "Invalid slug", http.StatusBadRequest)
+		return
+	}
+	if strings.Contains(layerId, "..") || strings.Contains(layerId, "/") || strings.Contains(layerId, "\\") {
+		http.Error(w, "Invalid layer ID", http.StatusBadRequest)
+		return
+	}
+
+	animapDir := filepath.Join(resolvePath("./data"), "animap", slug)
+
+	switch r.Method {
+	case http.MethodGet:
+		// Find file matching layerId with any extension
+		matches, _ := filepath.Glob(filepath.Join(animapDir, layerId+".*"))
+		if len(matches) == 0 {
+			http.Error(w, "Layer file not found", http.StatusNotFound)
+			return
+		}
+		data, err := os.ReadFile(matches[0])
+		if err != nil {
+			http.Error(w, "Failed to read layer file", http.StatusInternalServerError)
+			return
+		}
+		contentType := http.DetectContentType(data)
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(data)
+
+	case http.MethodPost:
+		r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+		if err := r.ParseMultipartForm(50 << 20); err != nil {
+			http.Error(w, "Invalid multipart form", http.StatusBadRequest)
+			return
+		}
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, "Missing file", http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		data, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, "Failed to read upload", http.StatusBadRequest)
+			return
+		}
+		if len(data) == 0 {
+			http.Error(w, "Empty file", http.StatusBadRequest)
+			return
+		}
+
+		if err := os.MkdirAll(animapDir, 0755); err != nil {
+			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
+			return
+		}
+
+		// Detect if video by content type or file extension
+		ext := strings.ToLower(filepath.Ext(header.Filename))
+		isVideo := ext == ".ogv" || ext == ".mp4" || ext == ".webm"
+		contentType := http.DetectContentType(data)
+		if strings.HasPrefix(contentType, "video/") {
+			isVideo = true
+		}
+
+		// Remove old files with this layerId
+		oldFiles, _ := filepath.Glob(filepath.Join(animapDir, layerId+".*"))
+		for _, f := range oldFiles {
+			os.Remove(f)
+		}
+
+		if isVideo {
+			// Save video as-is with original extension
+			if ext == "" {
+				ext = ".ogv"
+			}
+			target := filepath.Join(animapDir, layerId+ext)
+			if err := os.WriteFile(target, data, 0644); err != nil {
+				http.Error(w, "Failed to save video", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": layerId + ext})
+		} else {
+			// Image/mask — convert to webp
+			target := filepath.Join(animapDir, layerId+".webp")
+			if err := saveAsWebP(data, target); err != nil {
+				http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": layerId + ".webp"})
+		}
+
+	case http.MethodDelete:
+		oldFiles, _ := filepath.Glob(filepath.Join(animapDir, layerId+".*"))
+		for _, f := range oldFiles {
+			os.Remove(f)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 

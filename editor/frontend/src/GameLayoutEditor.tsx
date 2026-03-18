@@ -306,6 +306,13 @@ export default function GameLayoutEditor() {
   const toNormalizedRef = useRef<any>(null);
   const loadingBgRef = useRef<string>('');
   const didDragRef = useRef(false);
+  const getBoxesRef = useRef<(l: GameLayout) => Record<string, Box>>(null as any);
+  const setBoxesForAspectRef = useRef<(l: GameLayout, boxes: Record<string, Box>) => GameLayout>(null as any);
+  const syncRafRef = useRef<number>(0);
+
+  // Keep refs up-to-date for use in sync effect (avoids aspect-change triggering sync)
+  getBoxesRef.current = getBoxes;
+  setBoxesForAspectRef.current = setBoxesForAspect;
 
   const cloneLayout = useCallback((value: GameLayout): GameLayout => (
     JSON.parse(JSON.stringify(value)) as GameLayout
@@ -507,12 +514,15 @@ export default function GameLayoutEditor() {
     }
   }, [layout?.backgrounds, aspectSlug]);
 
-  // Sync nx/ny and x/y whenever bgDimensions change AFTER initial load
+  // Sync nx/ny and x/y whenever bgDimensions change AFTER initial load.
+  // Uses refs for getBoxes/setBoxesForAspect so aspect-slug changes alone
+  // don't trigger a sync (which would use stale nx/ny with the wrong viewport).
   useEffect(() => {
     if (bgDimensions.width > 0 && initialSyncDoneRef.current && toPixelsRef.current && toNormalizedRef.current) {
-      requestAnimationFrame(() => {
+      cancelAnimationFrame(syncRafRef.current);
+      syncRafRef.current = requestAnimationFrame(() => {
         updateLayout(prev => {
-          const boxes = getBoxes(prev);
+          const boxes = getBoxesRef.current(prev);
           const newBoxes = { ...boxes };
           let changed = false;
 
@@ -534,11 +544,12 @@ export default function GameLayoutEditor() {
             }
           });
 
-          return changed ? setBoxesForAspect(prev, newBoxes) : prev;
+          return changed ? setBoxesForAspectRef.current(prev, newBoxes) : prev;
         }, { recordHistory: false });
       });
     }
-  }, [bgDimensions, updateLayout, getBoxes, setBoxesForAspect]);
+    return () => cancelAnimationFrame(syncRafRef.current);
+  }, [bgDimensions, updateLayout]);
 
   useEffect(() => {
     const isEditableTarget = (target: EventTarget | null) => {
@@ -919,6 +930,10 @@ export default function GameLayoutEditor() {
   }, [viewport.width, viewport.height]);
 
   useEffect(() => {
+    // Prevent sync effect from running with stale data during aspect transition
+    initialSyncDoneRef.current = false;
+    cancelAnimationFrame(syncRafRef.current);
+
     // Fetch layout
     fetch('/api/game-layout')
       .then(res => res.json())
@@ -939,6 +954,21 @@ export default function GameLayoutEditor() {
 
         // Merge with default box definitions
         migrated.boxes[aspectSlug] = mergeWithDefaults(migrated.boxes[aspectSlug], sceneSlug);
+
+        // Recompute nx/ny for screen_relative boxes from pixel coords to fix
+        // any stale normalized values (e.g. computed before screen_relative was set)
+        const vw = preset ? preset.width : 1080;
+        const vh = preset ? preset.height : 1920;
+        const boxes = migrated.boxes[aspectSlug];
+        Object.keys(boxes).forEach(key => {
+          const box = boxes[key];
+          if (box.screen_relative) {
+            const cx = box.x + box.width / 2;
+            const cy = box.y + box.height / 2;
+            box.nx = cx / vw;
+            box.ny = cy / vh;
+          }
+        });
 
         // Ensure background exists for this aspect
         if (!migrated.backgrounds[aspectSlug]) {
