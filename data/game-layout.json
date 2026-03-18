@@ -1741,60 +1741,34 @@
       "backgrounds": {},
       "boxes": {
         "2-3": {
-          "loading_bar": {
-            "height": 516,
-            "id": "loading_bar",
-            "label": "Loading Bar",
-            "nx": 0.6041666666666666,
-            "ny": 0.2569444444444444,
-            "pivot": "top-left",
-            "width": 344,
-            "x": 773,
-            "y": 297
-          },
           "logo": {
+            "fill": "contain",
             "height": 516,
             "id": "logo",
             "label": "Logo",
             "nx": 0.28935185185185186,
             "ny": 0.2953703703703704,
-            "pivot": "top-left",
+            "pivot": "center",
             "width": 344,
             "x": 93,
             "y": 380
-          },
-          "studio_name": {
-            "height": 516,
-            "id": "studio_name",
-            "label": "Studio Name",
-            "nx": 0.9361111111111111,
-            "ny": 0.1425925925925926,
-            "pivot": "top-left",
-            "width": 344,
-            "x": 1490,
-            "y": 50
-          },
-          "tagline": {
-            "height": 516,
-            "id": "tagline",
-            "label": "Tagline",
-            "nx": 0.45185185185185184,
-            "ny": 0.2953703703703704,
-            "pivot": "top-left",
-            "width": 344,
-            "x": 444,
-            "y": 380
-          },
-          "version_text": {
-            "height": 516,
-            "id": "version_text",
-            "label": "Version Text",
-            "nx": 0.6263888888888889,
-            "ny": 0.4685185185185185,
-            "pivot": "top-left",
-            "width": 344,
-            "x": 821,
-            "y": 754
+          }
+        },
+        "9-16": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.49921875,
+            "ny": 0.5,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": -1,
+            "y": 0
           }
         }
       }

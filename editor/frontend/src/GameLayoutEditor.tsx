@@ -50,10 +50,6 @@ import { GAME_SCENES } from '@/types';
 const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
   startup: [
     { id: 'logo', label: 'Logo' },
-    { id: 'tagline', label: 'Tagline' },
-    { id: 'loading_bar', label: 'Loading Bar' },
-    { id: 'version_text', label: 'Version Text' },
-    { id: 'studio_name', label: 'Studio Name' },
   ],
   login: [
     { id: 'title', label: 'Title' },
@@ -1115,6 +1111,7 @@ export default function GameLayoutEditor() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          {sceneSlug === 'gameplay' && (
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">
               Background:
@@ -1133,6 +1130,7 @@ export default function GameLayoutEditor() {
               )}
             </select>
           </div>
+          )}
           <span className="text-xs text-muted-foreground">{viewport.width}x{viewport.height}</span>
           <div className="flex items-center gap-1">
             <Button variant="outline" size="sm" onClick={undo} disabled={!canUndo} title="Undo (Cmd/Ctrl+Z)">
@@ -1669,6 +1667,7 @@ export default function GameLayoutEditor() {
                 charAssets={charAssets}
                 placeAssets={places}
                 multiSelectCount={selectedBoxes.size}
+                viewport={viewport}
               />
             );
           })()}

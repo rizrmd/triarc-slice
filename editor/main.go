@@ -963,7 +963,7 @@ func resolveImageAssetPath(baseDir string, filename string) (string, error) {
 	}
 	ext := strings.ToLower(filepath.Ext(filename))
 	switch ext {
-	case ".png", ".jpg", ".jpeg", ".webp", ".gif":
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ogv":
 	default:
 		return "", fmt.Errorf("unsupported file type")
 	}
@@ -1119,7 +1119,7 @@ func listImageAssets(baseDir string, publicPrefix string) ([]map[string]string, 
 		name := entry.Name()
 		ext := strings.ToLower(filepath.Ext(name))
 		switch ext {
-		case ".png", ".jpg", ".jpeg", ".webp", ".gif":
+		case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ogv":
 		default:
 			continue
 		}

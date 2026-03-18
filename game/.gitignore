@@ -1,0 +1,9 @@
+.claude
+CLAUDE.md
+screenshots
+.godot
+*.import
+*.keystore
+build/
+android/
+*_backup.*
