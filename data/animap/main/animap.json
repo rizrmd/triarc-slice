@@ -1,0 +1,43 @@
+{
+  "name": "main",
+  "width": 1920,
+  "height": 1920,
+  "layers": [
+    {
+      "id": "layer-1773846697714",
+      "name": "bg",
+      "type": "image",
+      "file": "layer-1773846697714.webp",
+      "visible": true,
+      "locked": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    },
+    {
+      "id": "layer-1773846729733",
+      "name": "flag",
+      "type": "video",
+      "file": "layer-1773846729733.mp4",
+      "visible": true,
+      "opacity": 1,
+      "x": 538,
+      "y": 422,
+      "scale": 0.12,
+      "loop": true,
+      "loop_start": 1.8,
+      "loop_end": 5.8
+    },
+    {
+      "id": "layer-1773850359217",
+      "name": "flag-mask",
+      "type": "mask",
+      "file": "layer-1773850359217.webp",
+      "visible": true,
+      "targets": [
+        "layer-1773846729733"
+      ]
+    }
+  ]
+}

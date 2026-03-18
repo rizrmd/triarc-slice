@@ -5,6 +5,8 @@ const CardList = lazy(() => import('./CardList'));
 const EditorPage = lazy(() => import('./EditorPage'));
 const GameLayoutEditor = lazy(() => import('./GameLayoutEditor'));
 const GameLayoutPicker = lazy(() => import('./GameLayoutPicker'));
+const AnimapList = lazy(() => import('./AnimapList'));
+const AnimapEditor = lazy(() => import('./AnimapEditor'));
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
           <Route path="/game-layout" element={<GameLayoutPicker />} />
           <Route path="/game-layout/:scene" element={<GameLayoutPicker />} />
           <Route path="/game-layout/:scene/:aspect" element={<GameLayoutEditor />} />
+          <Route path="/animaps" element={<AnimapList />} />
+          <Route path="/animap/:slug" element={<AnimapEditor />} />
         </Routes>
       </Suspense>
     </Router>
