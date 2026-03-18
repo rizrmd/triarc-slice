@@ -23,6 +23,10 @@ textures/canvas_textures/default_texture_filter=1
 textures/vram_compression/import_etc2_astc=true
 renderer/rendering_method="gl_compatibility"
 
+[autoload]
+
+GameState="res://scripts/game_state.gd"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/GodotGoogleSignIn/plugin.cfg")
