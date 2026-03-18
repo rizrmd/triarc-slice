@@ -153,6 +153,13 @@ func _on_ws_message(msg: String) -> void:
 			_display_name = data.get("display_name", _display_name)
 			print("[WS] Authenticated: ", _player_id, " (", _display_name, ")")
 			home_ui.get_node("TitleLabel").text = "Welcome, " + _display_name
+			
+			# Update GameState
+			GameState.player_id = _player_id
+			GameState.display_name = _display_name
+			GameState.id_token = _id_token
+			GameState.ws = _ws
+			
 			_show_view("home")
 		"auth_error":
 			print("[WS] Auth error: ", data.get("message", ""))
@@ -162,6 +169,13 @@ func _on_ws_message(msg: String) -> void:
 		"match_found":
 			print("[WS] Match found: ", data.get("match_id", ""))
 			find_match_ui.get_node("SearchingLabel").text = "Match found!"
+			
+			# Store match info and transition to gameplay
+			GameState.current_match_id = data.get("match_id", "")
+			GameState.current_team = data.get("team", 1)
+			
+			await get_tree().create_timer(1.0).timeout
+			get_tree().change_scene_to_file("res://scenes/gameplay.tscn")
 		_:
 			print("[WS] ", msg_type, ": ", msg.left(200))
 
@@ -209,8 +223,8 @@ func _on_login_pressed() -> void:
 		_show_view("home")
 
 func _on_find_match_pressed() -> void:
-	_send_json({"type": "queue_matchmaking", "hero_slug_1": "iron-knight", "hero_slug_2": "arc-strider", "hero_slug_3": "flame-warlock"})
-	_show_view("find_match")
+	# Go to hero selection screen instead of directly queuing
+	get_tree().change_scene_to_file("res://scenes/hero_select.tscn")
 
 func _on_logout_pressed() -> void:
 	if _google_sign_in:
