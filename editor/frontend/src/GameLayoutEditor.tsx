@@ -44,27 +44,65 @@ import { Slider } from '@/components/ui/slider';
 import { CardPreview } from '@/components/CardPreview';
 import { HeroPosePreview } from '@/components/HeroPosePreview';
 import { ASPECT_PRESETS, getViewportForAspect } from '@/lib/godot';
-import type { Box, GameLayout } from '@/types';
+import type { Box, GameLayout, GameLayoutFile } from '@/types';
+import { GAME_SCENES } from '@/types';
 
-const DEFAULT_BOXES = [
-  { id: 'enemy1', label: 'Enemy 1' },
-  { id: 'enemy2', label: 'Enemy 2' },
-  { id: 'enemy3', label: 'Enemy 3' },
-  { id: 'hero1', label: 'Hero 1' },
-  { id: 'hero2', label: 'Hero 2' },
-  { id: 'hero3', label: 'Hero 3' },
-  { id: 'action1', label: 'Action 1' },
-  { id: 'action2', label: 'Action 2' },
-  { id: 'action3', label: 'Action 3' },
-  { id: 'action4', label: 'Action 4' },
-  { id: 'action5', label: 'Action 5' },
-  { id: 'reroll', label: 'RE-ROLL' },
-  { id: 'mana', label: 'Mana Bar' },
-  { id: 'health', label: 'Health Bar' },
-  { id: 'settings', label: 'Settings' },
-  { id: 'clock', label: 'Clock' },
-  { id: 'battery', label: 'Battery' },
-];
+const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
+  startup: [
+    { id: 'logo', label: 'Logo' },
+    { id: 'tagline', label: 'Tagline' },
+    { id: 'loading_bar', label: 'Loading Bar' },
+    { id: 'version_text', label: 'Version Text' },
+    { id: 'studio_name', label: 'Studio Name' },
+  ],
+  login: [
+    { id: 'title', label: 'Title' },
+    { id: 'username_input', label: 'Username Input' },
+    { id: 'password_input', label: 'Password Input' },
+    { id: 'login_button', label: 'Login Button' },
+    { id: 'register_button', label: 'Register Button' },
+    { id: 'guest_button', label: 'Guest Button' },
+  ],
+  home: [
+    { id: 'player_avatar', label: 'Player Avatar' },
+    { id: 'player_name', label: 'Player Name' },
+    { id: 'currency_gold', label: 'Currency (Gold)' },
+    { id: 'currency_gems', label: 'Currency (Gems)' },
+    { id: 'play_button', label: 'Play Button' },
+    { id: 'deck_button', label: 'Deck Button' },
+    { id: 'shop_button', label: 'Shop Button' },
+    { id: 'settings_button', label: 'Settings Button' },
+  ],
+  gameplay: [
+    { id: 'enemy1', label: 'Enemy 1' },
+    { id: 'enemy2', label: 'Enemy 2' },
+    { id: 'enemy3', label: 'Enemy 3' },
+    { id: 'hero1', label: 'Hero 1' },
+    { id: 'hero2', label: 'Hero 2' },
+    { id: 'hero3', label: 'Hero 3' },
+    { id: 'action1', label: 'Action 1' },
+    { id: 'action2', label: 'Action 2' },
+    { id: 'action3', label: 'Action 3' },
+    { id: 'action4', label: 'Action 4' },
+    { id: 'action5', label: 'Action 5' },
+    { id: 'reroll', label: 'RE-ROLL' },
+    { id: 'mana', label: 'Mana Bar' },
+    { id: 'health', label: 'Health Bar' },
+    { id: 'settings', label: 'Settings' },
+    { id: 'clock', label: 'Clock' },
+    { id: 'battery', label: 'Battery' },
+  ],
+  postgame: [
+    { id: 'result_banner', label: 'Result Banner' },
+    { id: 'score_display', label: 'Score Display' },
+    { id: 'xp_bar', label: 'XP Bar' },
+    { id: 'reward_1', label: 'Reward 1' },
+    { id: 'reward_2', label: 'Reward 2' },
+    { id: 'reward_3', label: 'Reward 3' },
+    { id: 'play_again_button', label: 'Play Again' },
+    { id: 'home_button', label: 'Home Button' },
+  ],
+};
 
 const ZOOM_STORAGE_KEY = 'game-layout-editor-zoom';
 
@@ -88,9 +126,13 @@ function resolveBgVariant(name: string, aspectSlug: string): string {
   return base + suffix + '.webp';
 }
 
-function makeDefaultBoxes(): Record<string, Box> {
+function getDefaultBoxDefs(sceneSlug: string) {
+  return SCENE_DEFAULT_BOXES[sceneSlug] ?? SCENE_DEFAULT_BOXES.gameplay;
+}
+
+function makeDefaultBoxes(sceneSlug: string): Record<string, Box> {
   const initialBoxes: Record<string, Box> = {};
-  DEFAULT_BOXES.forEach((box, i) => {
+  getDefaultBoxDefs(sceneSlug).forEach((box, i) => {
     initialBoxes[box.id] = {
       id: box.id,
       x: 50 + (i % 5) * 360,
@@ -104,9 +146,9 @@ function makeDefaultBoxes(): Record<string, Box> {
   return initialBoxes;
 }
 
-function mergeWithDefaults(boxes: Record<string, Box>): Record<string, Box> {
+function mergeWithDefaults(boxes: Record<string, Box>, sceneSlug: string): Record<string, Box> {
   const merged = { ...boxes };
-  DEFAULT_BOXES.forEach((box, i) => {
+  getDefaultBoxDefs(sceneSlug).forEach((box, i) => {
     if (!merged[box.id]) {
       merged[box.id] = {
         id: box.id,
@@ -151,6 +193,28 @@ function migrateBackgrounds(backgrounds: Record<string, string>): Record<string,
   return result;
 }
 
+// Extract a GameLayout for a given scene from the full file data.
+// Handles old flat format, old per-aspect format, and new multi-scene format.
+function extractSceneLayout(data: any, sceneSlug: string): GameLayout {
+  // New multi-scene format: { scenes: { gameplay: { backgrounds, boxes }, ... } }
+  if (data.scenes) {
+    const sceneData = data.scenes[sceneSlug];
+    if (sceneData) {
+      return migrateLayout(sceneData);
+    }
+    return { backgrounds: {}, boxes: {} };
+  }
+  // Legacy format — treat as gameplay scene
+  return migrateLayout(data);
+}
+
+// Merge updated scene back into full file data.
+function buildFullLayout(fullData: any, sceneSlug: string, sceneLayout: GameLayout): GameLayoutFile {
+  const scenes = fullData?.scenes ? { ...fullData.scenes } : { gameplay: fullData ?? {} };
+  scenes[sceneSlug] = sceneLayout;
+  return { scenes };
+}
+
 // Migrate old flat format { boxes: { enemy1: {...}, ... } }
 // to new per-aspect format { boxes: { "9-16": { enemy1: {...}, ... } } }
 function migrateLayout(data: any): GameLayout {
@@ -175,9 +239,19 @@ function migrateLayout(data: any): GameLayout {
 }
 
 export default function GameLayoutEditor() {
-  const { aspect } = useParams<{ aspect: string }>();
+  const { aspect, scene } = useParams<{ aspect: string; scene: string }>();
   const navigate = useNavigate();
   const aspectSlug = aspect || DEFAULT_ASPECT;
+  const sceneSlug = scene || 'gameplay';
+
+  // Persist last visited scene+aspect so the Game Layout button returns here
+  useEffect(() => {
+    localStorage.setItem('gameLayoutLast', `${sceneSlug}/${aspectSlug}`);
+  }, [sceneSlug, aspectSlug]);
+
+  // Holds the full file data so we can merge scene back in on save
+  const fullLayoutDataRef = useRef<any>(null);
+
 
   const preset = useMemo(
     () => getViewportForAspect(aspectSlug),
@@ -853,7 +927,8 @@ export default function GameLayoutEditor() {
     fetch('/api/game-layout')
       .then(res => res.json())
       .then(data => {
-        const migrated = migrateLayout(data);
+        fullLayoutDataRef.current = data;
+        const migrated = extractSceneLayout(data, sceneSlug);
 
         // Ensure current aspect has boxes (copy from default if missing)
         if (!migrated.boxes[aspectSlug] || Object.keys(migrated.boxes[aspectSlug]).length === 0) {
@@ -862,12 +937,12 @@ export default function GameLayoutEditor() {
             // Deep clone from default aspect
             migrated.boxes[aspectSlug] = JSON.parse(JSON.stringify(sourceBoxes));
           } else {
-            migrated.boxes[aspectSlug] = makeDefaultBoxes();
+            migrated.boxes[aspectSlug] = makeDefaultBoxes(sceneSlug);
           }
         }
 
         // Merge with default box definitions
-        migrated.boxes[aspectSlug] = mergeWithDefaults(migrated.boxes[aspectSlug]);
+        migrated.boxes[aspectSlug] = mergeWithDefaults(migrated.boxes[aspectSlug], sceneSlug);
 
         // Ensure background exists for this aspect
         if (!migrated.backgrounds[aspectSlug]) {
@@ -912,7 +987,7 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(setActions)
       .catch(err => console.error("Failed to fetch actions", err));
-  }, [aspectSlug]);
+  }, [aspectSlug, sceneSlug]);
 
   // Auto-save effect
   useEffect(() => {
@@ -934,10 +1009,12 @@ export default function GameLayoutEditor() {
 
     const timer = setTimeout(() => {
       setSaving(true);
+      const fullData = buildFullLayout(fullLayoutDataRef.current, sceneSlug, JSON.parse(currentString));
+      fullLayoutDataRef.current = fullData;
       fetch('/api/game-layout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: currentString,
+        body: JSON.stringify(fullData),
       })
         .then((response) => {
           if (!response.ok) {
@@ -1013,11 +1090,19 @@ export default function GameLayoutEditor() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between p-4 border-b bg-card">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild><Link to="/game-layout"><ArrowLeft className="h-4 w-4" /></Link></Button>
-          <h1 className="text-xl font-bold">Game Layout Editor</h1>
+          <Button variant="ghost" size="icon" asChild><Link to={`/game-layout/${sceneSlug}`}><ArrowLeft className="h-4 w-4" /></Link></Button>
+          <select
+            className="text-xl font-bold bg-transparent border-none outline-none cursor-pointer"
+            value={sceneSlug}
+            onChange={e => navigate(`/game-layout/${e.target.value}/${aspectSlug}`)}
+          >
+            {GAME_SCENES.map(s => (
+              <option key={s.slug} value={s.slug}>{s.label}</option>
+            ))}
+          </select>
           <div className="flex items-center gap-1">
             {ASPECT_PRESETS.map(p => (
-              <Link key={p.slug} to={`/game-layout/${p.slug}`}>
+              <Link key={p.slug} to={`/game-layout/${sceneSlug}/${p.slug}`}>
                 <Button
                   variant={p.slug === aspectSlug ? 'default' : 'outline'}
                   size="sm"

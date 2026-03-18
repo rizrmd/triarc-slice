@@ -168,3 +168,17 @@ export interface GameLayout {
   backgrounds: Record<string, string>; // key: aspect slug, value: background URL
   boxes: Record<string, Record<string, Box>>; // key: aspect slug, value: boxes for that aspect
 }
+
+export interface GameLayoutFile {
+  scenes: Record<string, GameLayout>; // key: scene slug (startup, login, home, gameplay, postgame)
+}
+
+export type GameSceneSlug = 'startup' | 'login' | 'home' | 'gameplay' | 'postgame';
+
+export const GAME_SCENES: { slug: GameSceneSlug; label: string; desc: string }[] = [
+  { slug: 'startup', label: 'Startup', desc: 'Logo intro & loading' },
+  { slug: 'login', label: 'Login / Register', desc: 'Auth screens' },
+  { slug: 'home', label: 'Home', desc: 'Main menu & navigation' },
+  { slug: 'gameplay', label: 'Gameplay', desc: 'In-game battle layout' },
+  { slug: 'postgame', label: 'Post Game', desc: 'Results & rewards' },
+];

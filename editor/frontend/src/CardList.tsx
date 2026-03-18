@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Loader2, Search, Layout, Plus, Trash } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ export default function CardList() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const tabParam = searchParams.get('tab');
   const activeTab = tabParam === 'actions' ? 'actions' : 'heroes';
 
@@ -182,11 +183,11 @@ export default function CardList() {
                 <Badge variant="secondary" className="w-fit text-xs whitespace-nowrap">
                   {activeTab === 'heroes' ? filteredCards.length : filteredActions.length} Item
                 </Badge>
-                <Button size="sm" variant="outline" asChild className="whitespace-nowrap">
-                  <Link to="/game-layout">
-                    <Layout className="mr-2 h-4 w-4" />
-                    Game Layout
-                  </Link>
+                <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => {
+                  navigate(`/game-layout/${localStorage.getItem('gameLayoutLast') || 'gameplay/9-16'}`);
+                }}>
+                  <Layout className="mr-2 h-4 w-4" />
+                  Game Layout
                 </Button>
                 <Button size="sm" onClick={() => setIsCreating(true)} className="whitespace-nowrap">
                   <Plus className="mr-2 h-4 w-4" />

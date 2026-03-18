@@ -14,7 +14,8 @@ function App() {
           <Route path="/" element={<CardList />} />
           <Route path="/edit/:slug" element={<EditorPage />} />
           <Route path="/game-layout" element={<GameLayoutPicker />} />
-          <Route path="/game-layout/:aspect" element={<GameLayoutEditor />} />
+          <Route path="/game-layout/:scene" element={<GameLayoutPicker />} />
+          <Route path="/game-layout/:scene/:aspect" element={<GameLayoutEditor />} />
         </Routes>
       </Suspense>
     </Router>

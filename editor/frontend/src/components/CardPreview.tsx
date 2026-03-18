@@ -171,7 +171,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
 
     // Add timestamp to bypass browser cache for static mask files
     const timestamp = Date.now();
-    const maskBgUrl = isAction ? '' : `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
+    const maskBgUrl = isAction ? `/data/action/${slug}/img/mask-bg.webp?t=${timestamp}` : `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
     const maskFgUrl = isAction ? '' : `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
 
     const loadImg = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {
@@ -273,7 +273,8 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
       }
 
       if (visibleLayers?.['char-bg']) {
-        drawLayer(bgImg, maskBgImg, {
+        const useMaskBg = visibleLayers?.['mask-bg'] ? maskBgImg : null;
+        drawLayer(bgImg, useMaskBg, {
           x: config.char_bg_pos.x,
           y: config.char_bg_pos.y,
           scale: config.char_bg_scale

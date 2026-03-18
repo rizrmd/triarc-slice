@@ -1,20 +1,35 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { ASPECT_PRESETS } from '@/lib/godot';
 import type { ViewportConfig } from '@/lib/godot';
+import { GAME_SCENES } from '@/types';
 
 export { ASPECT_PRESETS };
 export type AspectPreset = ViewportConfig;
 
 export default function GameLayoutPicker() {
+  const { scene } = useParams<{ scene?: string }>();
+
+  // Redirect to last opened scene+aspect if no scene specified
+  if (!scene) {
+    const last = localStorage.getItem('gameLayoutLast');
+    if (last) {
+      return <Navigate to={`/game-layout/${last}`} replace />;
+    }
+    return <Navigate to="/game-layout/gameplay/9-16" replace />;
+  }
+
+  const sceneInfo = GAME_SCENES.find(s => s.slug === scene);
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center gap-4 p-4 border-b bg-card">
         <Button variant="ghost" size="icon" asChild>
           <Link to="/"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
-        <h1 className="text-xl font-bold">Game Layout Editor - Choose Aspect Ratio</h1>
+        <h1 className="text-xl font-bold">
+          {sceneInfo?.label ?? scene} — Choose Aspect Ratio
+        </h1>
       </header>
       <div className="flex-1 p-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
@@ -25,7 +40,7 @@ export default function GameLayoutPicker() {
             return (
               <Link
                 key={preset.slug}
-                to={`/game-layout/${preset.slug}`}
+                to={`/game-layout/${scene}/${preset.slug}`}
                 className="group flex flex-col items-center gap-3 p-4 rounded-xl border bg-card hover:border-blue-500 hover:shadow-lg transition-all"
               >
                 <div
