@@ -188,76 +188,61 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   return (
-    <div className="w-full h-full border-l bg-card p-4 flex flex-col gap-6 overflow-y-auto">
+    <div className="w-full h-full border-l bg-card p-3 flex flex-col gap-4 overflow-y-auto">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-lg">Properties</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="font-semibold text-sm">Properties</h2>
           {multiSelectCount > 1 && (
-            <div className="text-xs text-muted-foreground">{multiSelectCount} items selected</div>
+            <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{multiSelectCount} selected</span>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <X className="h-3.5 w-3.5" />
         </Button>
       </div>
 
-      <div className="space-y-4">
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="text-xs font-medium text-muted-foreground mb-1">
-            {multiSelectCount > 1 ? 'Editing First Selection' : 'Selected Element'}
+      <div className="space-y-3">
+        {/* Selected Element */}
+        <div className="flex items-center gap-2 px-2 py-2 bg-muted/40 rounded-md">
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate">{selectedBox.label}</div>
+            <div className="text-[10px] text-muted-foreground font-mono">{selectedBox.id}</div>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="font-bold text-sm truncate">{selectedBox.label}</div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => onUpdate(selectedBox.id, { locked: !selectedBox.locked })}
-              title={selectedBox.locked ? "Unlock" : "Lock"}
-            >
-              {selectedBox.locked ? <Lock className="h-3 w-3 text-orange-500" /> : <Unlock className="h-3 w-3 text-muted-foreground" />}
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground font-mono mt-1">{selectedBox.id}</div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            onClick={() => onUpdate(selectedBox.id, { locked: !selectedBox.locked })}
+            title={selectedBox.locked ? "Unlock" : "Lock"}
+          >
+            {selectedBox.locked ? <Lock className="h-3.5 w-3.5 text-orange-500" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
+          </Button>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCopyPosition}
-          >
-            <Move className="mr-2 h-3 w-3" /> Copy Pos
+        {/* Quick Actions */}
+        <div className="flex items-center gap-1">
+          <span className="text-[11px] text-muted-foreground mr-0.5">Copy</span>
+          <Button variant="ghost" size="sm" className="flex-1 h-7 text-[11px] px-1" onClick={handleCopyPosition}>
+            <Move className="mr-1 h-3 w-3" /> Pos
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCopySize}
-          >
-            <Maximize className="mr-2 h-3 w-3" /> Copy Size
+          <Button variant="ghost" size="sm" className="flex-1 h-7 text-[11px] px-1" onClick={handleCopySize}>
+            <Maximize className="mr-1 h-3 w-3" /> Size
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleCopyAll}
-          >
-            <Copy className="mr-2 h-3 w-3" /> Copy All
+          <Button variant="ghost" size="sm" className="flex-1 h-7 text-[11px] px-1" onClick={handleCopyAll}>
+            <Copy className="mr-1 h-3 w-3" /> All
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handlePasteAll}
-            disabled={!fullBoxClipboard || selectedBox.locked}
-          >
-            <Clipboard className="mr-2 h-3 w-3" /> Paste
+          <div className="w-px h-4 bg-border mx-0.5" />
+          <Button variant="ghost" size="sm" className="flex-1 h-7 text-[11px] px-1" onClick={handlePasteAll} disabled={!fullBoxClipboard || selectedBox.locked}>
+            <Clipboard className="mr-1 h-3 w-3" /> Paste
           </Button>
         </div>
 
         {isHeroBox && (
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">Card Preview</Label>
-            <select 
-              className="w-full p-2 border rounded bg-background text-sm"
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-muted-foreground">Card Preview</Label>
+            <select
+              className="w-full px-2 py-1.5 border rounded-md bg-background text-xs"
               value={selectedBox.cardSlug || ''}
               onChange={(e) => onUpdate(selectedBox.id, { cardSlug: e.target.value || undefined })}
             >
@@ -270,10 +255,10 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
         )}
 
         {isActionBox && (
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">Action Preview</Label>
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-muted-foreground">Action Preview</Label>
             <select
-              className="w-full p-2 border rounded bg-background text-sm"
+              className="w-full px-2 py-1.5 border rounded-md bg-background text-xs"
               value={selectedBox.actionSlug || ''}
               onChange={(e) => onUpdate(selectedBox.id, { actionSlug: e.target.value || undefined })}
             >
@@ -286,11 +271,11 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
         )}
 
         {!isHeroBox && !isActionBox && (
-          <div className="space-y-2">
-            <Label className="text-xs font-medium">Asset / Pose</Label>
-            <div className="flex gap-2">
-                <select 
-                    className="w-1/3 p-2 border rounded bg-background text-sm"
+          <div className="space-y-1">
+            <Label className="text-[11px] font-medium text-muted-foreground">Asset / Pose</Label>
+            <div className="flex gap-1.5">
+                <select
+                    className="w-1/3 px-2 py-1.5 border rounded-md bg-background text-xs"
                     onChange={(e) => {
                       const newCat = e.target.value as 'ui' | 'characters' | 'places' | 'pose';
                       setAssetCategory(newCat);
@@ -308,8 +293,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     <option value="pose">Pose</option>
                 </select>
                 {assetCategory === 'pose' ? (
-                  <select 
-                    className="flex-1 p-2 border rounded bg-background text-sm"
+                  <select
+                    className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
                     value={selectedBox.poseSlug || ''}
                     onChange={(e) => onUpdate(selectedBox.id, { poseSlug: e.target.value || undefined, asset: undefined })}
                   >
@@ -319,8 +304,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     ))}
                   </select>
                 ) : (
-                  <select 
-                    className="flex-1 p-2 border rounded bg-background text-sm"
+                  <select
+                    className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
                     value={selectedBox.asset || ''}
                     onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined, poseSlug: undefined })}
                   >
@@ -335,110 +320,111 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
         )}
 
         {!isVerticalCenterPivotCard && (
-        <div className="space-y-2">
-          <Label className="text-xs font-medium">Pivot Point</Label>
-          <div className={`grid grid-cols-3 gap-1 w-[120px] mx-auto bg-muted p-1 rounded-md ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
-            {PIVOT_OPTIONS.map((option) => (
-              <button
-                key={option}
-                onClick={() => onUpdate(selectedBox.id, { pivot: option })}
-                className={`
-                  w-8 h-8 rounded-sm transition-all border
-                  ${selectedBox.pivot === option
-                    ? 'bg-primary border-primary'
-                    : 'bg-background hover:bg-accent border-transparent'}
-                `}
-                title={option}
-                disabled={selectedBox.locked}
-              >
-                <div className={`
-                  w-2 h-2 rounded-full mx-auto
-                  ${selectedBox.pivot === option ? 'bg-primary-foreground' : 'bg-muted-foreground'}
-                `} />
-              </button>
-            ))}
-          </div>
-          <div className="text-center text-xs text-muted-foreground mt-1 capitalize">
-            {selectedBox.pivot?.replace('-', ' ')}
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-medium text-muted-foreground">Pivot Point</Label>
+          <div className="flex items-center gap-2">
+            <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md shrink-0 ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
+              {PIVOT_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => onUpdate(selectedBox.id, { pivot: option })}
+                  className={`
+                    w-6 h-6 rounded-sm transition-all border
+                    ${selectedBox.pivot === option
+                      ? 'bg-primary border-primary'
+                      : 'bg-background hover:bg-accent border-transparent'}
+                  `}
+                  title={option}
+                  disabled={selectedBox.locked}
+                >
+                  <div className={`
+                    w-1.5 h-1.5 rounded-full mx-auto
+                    ${selectedBox.pivot === option ? 'bg-primary-foreground' : 'bg-muted-foreground'}
+                  `} />
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-muted-foreground capitalize">
+              {selectedBox.pivot?.replace('-', ' ')}
+            </span>
           </div>
         </div>
         )}
 
-          <div className="space-y-3">
-            {/* Special Size Control for Heroes */}
-            {isHeroBox && (
-              <div className="flex items-center gap-2 mb-2">
-                <Label 
-                  className={`w-16 text-xs font-bold text-blue-500 select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-400'}`}
-                  onMouseDown={handleSizeDragStart}
-                >
-                  Size
-                </Label>
-                <Input 
-                  type="number" 
-                  step="0.1"
-                  value={sizeInputValue} 
-                  onFocus={() => setIsEditingSize(true)}
-                  onBlur={() => setIsEditingSize(false)}
-                  onChange={(e) => {
-                     const valStr = e.target.value;
-                     setSizeInputValue(valStr);
-                     const val = parseFloat(valStr);
-                     if (!isNaN(val) && val > 0) {
-                        const newW = (val / 100) * 1080;
-                        const ratio = selectedBox.height / selectedBox.width;
-                        onUpdate(selectedBox.id, { 
-                          width: Math.round(newW), 
-                          height: Math.round(newW * ratio) 
-                        });
-                     }
-                  }}
-                  className="h-8 text-xs font-bold bg-blue-500/10 border-blue-500/30"
-                  disabled={selectedBox.locked}
-                />
-                <div className="w-16 text-[10px] text-muted-foreground">
-                   of screen width
-                </div>
-              </div>
-            )}
-
-            {(isHeroBox ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
-            const prop = p as 'x' | 'y' | 'width' | 'height';
-            return (
-            <div key={prop} className="flex items-center gap-2">
-              <Label 
-                className={`w-16 capitalize text-xs select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-500'}`}
-                onMouseDown={(e) => handleLabelDragStart(e, prop, selectedBox[prop])}
+        <div className="space-y-2">
+          {/* Special Size Control for Heroes */}
+          {isHeroBox && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <Label
+                className={`w-12 text-[11px] font-bold text-blue-500 select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-400'}`}
+                onMouseDown={handleSizeDragStart}
               >
-                {prop}
+                Size
               </Label>
-              <PropertyInput 
-                value={selectedBox[prop] ?? 0}
-                onChange={(val) => onUpdate(selectedBox.id, { [prop]: val })}
-                className="h-8 text-xs"
+              <Input
+                type="number"
+                step="0.1"
+                value={sizeInputValue}
+                onFocus={() => setIsEditingSize(true)}
+                onBlur={() => setIsEditingSize(false)}
+                onChange={(e) => {
+                   const valStr = e.target.value;
+                   setSizeInputValue(valStr);
+                   const val = parseFloat(valStr);
+                   if (!isNaN(val) && val > 0) {
+                      const newW = (val / 100) * 1080;
+                      const ratio = selectedBox.height / selectedBox.width;
+                      onUpdate(selectedBox.id, {
+                        width: Math.round(newW),
+                        height: Math.round(newW * ratio)
+                      });
+                   }
+                }}
+                className="h-7 text-xs font-bold bg-blue-500/10 border-blue-500/30"
                 disabled={selectedBox.locked}
               />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => handleCopy(prop, selectedBox[prop])}
-                title="Copy value"
-              >
-                {copiedProp === prop ? <span className="text-xs">✓</span> : <Copy className="h-3 w-3" />}
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                onClick={() => handlePaste(prop)}
-                title="Paste value"
-                disabled={selectedBox.locked}
-              >
-                <Clipboard className="h-3 w-3" />
-              </Button>
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">% width</span>
             </div>
-          )})}
+          )}
+
+          {(isHeroBox ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
+            const prop = p as 'x' | 'y' | 'width' | 'height';
+            return (
+              <div key={prop} className="flex items-center gap-1.5">
+                <Label
+                  className={`w-12 capitalize text-[11px] select-none ${selectedBox.locked ? 'opacity-50' : 'cursor-ew-resize hover:text-blue-500'}`}
+                  onMouseDown={(e) => handleLabelDragStart(e, prop, selectedBox[prop])}
+                >
+                  {prop}
+                </Label>
+                <PropertyInput
+                  value={selectedBox[prop] ?? 0}
+                  onChange={(val) => onUpdate(selectedBox.id, { [prop]: val })}
+                  className="h-7 text-xs"
+                  disabled={selectedBox.locked}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => handleCopy(prop, selectedBox[prop])}
+                  title="Copy value"
+                >
+                  {copiedProp === prop ? <span className="text-[10px]">✓</span> : <Copy className="h-3 w-3" />}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => handlePaste(prop)}
+                  title="Paste value"
+                  disabled={selectedBox.locked}
+                >
+                  <Clipboard className="h-3 w-3" />
+                </Button>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

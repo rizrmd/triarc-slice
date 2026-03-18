@@ -28,6 +28,7 @@
   "visible_layers": {
     "card": true,
     "char-bg": true,
-    "name": true
+    "name": true,
+    "mask-bg": true
   }
 }
