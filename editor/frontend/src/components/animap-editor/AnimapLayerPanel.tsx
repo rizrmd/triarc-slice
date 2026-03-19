@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { AnimapConfig } from '@/types';
 import { useState } from 'react';
-import { addAnimapState, DEFAULT_STATE_ID, deleteAnimapState, normalizeAnimapConfig } from '@/lib/animap-state';
+import { addAnimapState, DEFAULT_STATE_ID, deleteAnimapState, normalizeAnimapConfig, renameAnimapState } from '@/lib/animap-state';
 import { toKebabCase } from '@/lib/utils';
 
 interface AnimapLayerPanelProps {
@@ -135,6 +135,14 @@ export function AnimapLayerPanel({
             </option>
           ))}
         </select>
+        {selectedStateId !== DEFAULT_STATE_ID && (
+          <Input
+            className="h-7 text-xs"
+            value={states.find((s) => s.id === selectedStateId)?.name ?? ''}
+            onChange={(e) => commitConfig((prev) => renameAnimapState(prev, selectedStateId, e.target.value))}
+            placeholder="State name"
+          />
+        )}
         <div className="flex gap-1">
           <Input
             placeholder="New state"

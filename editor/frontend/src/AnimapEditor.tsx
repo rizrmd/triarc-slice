@@ -7,14 +7,11 @@ import { ArrowLeft, Loader2, Redo2, Save, Undo2 } from 'lucide-react';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
 import { AnimapCanvas } from '@/components/animap-editor/AnimapCanvas';
 import { AnimapPropertyPanel } from '@/components/animap-editor/AnimapPropertyPanel';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   DEFAULT_STATE_ID,
   getAnimapState,
   getEffectiveLayer,
   normalizeAnimapConfig,
-  renameAnimapState,
 } from '@/lib/animap-state';
 
 function cloneConfig(c: AnimapConfig): AnimapConfig {
@@ -58,6 +55,7 @@ export default function AnimapEditor() {
   const [brushMode, setBrushMode] = useState<'paint' | 'erase'>('paint');
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [maskDirty, setMaskDirty] = useState(false);
+  const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const [showSizeEdit, setShowSizeEdit] = useState(false);
   const [editWidth, setEditWidth] = useState('');
   const [editHeight, setEditHeight] = useState('');
@@ -441,15 +439,6 @@ export default function AnimapEditor() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2 rounded-md border px-2 py-1">
-            <Label className="text-xs text-muted-foreground whitespace-nowrap">State</Label>
-            <Input
-              className="h-6 text-xs w-28"
-              value={selectedState.name}
-              disabled={selectedStateId === DEFAULT_STATE_ID}
-              onChange={(e) => commitConfig((prev) => renameAnimapState(prev, selectedStateId, e.target.value))}
-            />
-          </div>
           {hasUnsavedChanges && (
             <Badge variant="outline" className="text-xs text-yellow-500 border-yellow-500">
               Unsaved
@@ -523,6 +512,7 @@ export default function AnimapEditor() {
             brushMode={brushMode}
             maskCanvasRef={maskCanvasRef}
             setMaskDirty={setMaskDirty}
+            activeVideoRef={activeVideoRef}
           />
         </div>
 
@@ -547,6 +537,7 @@ export default function AnimapEditor() {
             brushMode={brushMode}
             setBrushMode={setBrushMode}
             convertProgress={convertProgress}
+            activeVideoRef={activeVideoRef}
           />
         </div>
       </div>

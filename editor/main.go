@@ -157,17 +157,7 @@ func getFFmpegPath(requiredCodecs ...string) (string, error) {
 		return true
 	}
 
-	// Check system PATH
-	if p, err := exec.LookPath("ffmpeg"); err == nil {
-		if checkCodecs(p) {
-			cachedFFmpegPaths.Store(cacheKey, p)
-			return p, nil
-		}
-		if len(requiredCodecs) > 0 {
-			log.Printf("System ffmpeg at %s lacks required codecs %v, trying downloaded binary...", p, requiredCodecs)
-		}
-	}
-	// Check local bin directory
+	// Check local bin directory first (downloaded binary with full codec support)
 	binName := "ffmpeg"
 	if runtime.GOOS == "windows" {
 		binName = "ffmpeg.exe"
@@ -177,6 +167,13 @@ func getFFmpegPath(requiredCodecs ...string) (string, error) {
 		if checkCodecs(localPath) {
 			cachedFFmpegPaths.Store(cacheKey, localPath)
 			return localPath, nil
+		}
+	}
+	// Fall back to system PATH
+	if p, err := exec.LookPath("ffmpeg"); err == nil {
+		if checkCodecs(p) {
+			cachedFFmpegPaths.Store(cacheKey, p)
+			return p, nil
 		}
 	}
 	// Download
@@ -1095,7 +1092,7 @@ func saveAsWebP(data []byte, targetPath string) error {
 		return os.WriteFile(targetPath, data, 0644)
 	}
 
-	ffmpegBin, err := getFFmpegPath()
+	ffmpegBin, err := getFFmpegPath("libwebp")
 	if err != nil {
 		return fmt.Errorf("ffmpeg not available: %v", err)
 	}
