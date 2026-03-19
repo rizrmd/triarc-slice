@@ -444,14 +444,14 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
       if (isAction && actionCost !== null) {
         ctx.save();
         ctx.fillStyle = 'white';
-        const costFontSize = Math.round(cardW * 0.08);
+        const costFontSize = Math.round(cardW * 0.13);
         ctx.font = `bold ${costFontSize}px "Vollkorn", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
         ctx.shadowBlur = 2;
-        const costX = cardW * 0.11 + offsetX;
-        const costY = cardH * 0.071 + offsetY;
+        const costX = cardW * 0.112 + offsetX;
+        const costY = cardH * 0.08 + offsetY;
         ctx.fillText(String(actionCost), costX, costY);
         ctx.restore();
       }

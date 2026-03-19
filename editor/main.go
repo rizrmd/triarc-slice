@@ -1128,7 +1128,7 @@ func saveAsWebP(data []byte, targetPath string) error {
 	}
 	defer os.Remove(tmpFile)
 
-	cmd := exec.Command(ffmpegBin, "-y", "-i", tmpFile, "-quality", "90", targetPath)
+	cmd := exec.Command(ffmpegBin, "-y", "-i", tmpFile, "-c:v", "libwebp", "-quality", "90", "-f", "webp", targetPath)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("ffmpeg webp conversion failed: %v\n%s", err, output)
 	}
