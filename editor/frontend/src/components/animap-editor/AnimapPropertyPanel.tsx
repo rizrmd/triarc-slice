@@ -682,14 +682,18 @@ export function AnimapPropertyPanel({
           {convertProgress !== null ? (
             <div className="space-y-1">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>Converting to OGV...</span>
-                <span>{convertProgress}%</span>
+                <span>{convertProgress >= 0 ? 'Converting...' : 'Processing...'}</span>
+                {convertProgress >= 0 && <span>{convertProgress}%</span>}
               </div>
               <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-300"
-                  style={{ width: `${convertProgress}%` }}
-                />
+                {convertProgress >= 0 ? (
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${convertProgress}%` }}
+                  />
+                ) : (
+                  <div className="h-full w-full rounded-full bg-primary/50 animate-pulse" />
+                )}
               </div>
             </div>
           ) : (

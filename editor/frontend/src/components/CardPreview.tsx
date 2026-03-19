@@ -440,6 +440,22 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
         ctx.restore();
       }
 
+      // Draw action cost number on the frame's cost circle
+      if (isAction && actionCost !== null) {
+        ctx.save();
+        ctx.fillStyle = 'white';
+        const costFontSize = Math.round(cardW * 0.08);
+        ctx.font = `bold ${costFontSize}px "Vollkorn", serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx.shadowBlur = 2;
+        const costX = cardW * 0.11 + offsetX;
+        const costY = cardH * 0.071 + offsetY;
+        ctx.fillText(String(actionCost), costX, costY);
+        ctx.restore();
+      }
+
       if (isAction) {
         ctx.restore();
       }
@@ -469,14 +485,6 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
             objectFit: 'contain'
           }}
         />
-        {actionCost !== null && (
-          <div
-            className="pointer-events-none absolute z-20 rounded-md border border-black/40 bg-black/75 font-bold leading-none text-white shadow-lg"
-            style={{ fontFamily: '"Vollkorn", serif', left: '3%', top: '2%', fontSize: 'clamp(8px, 5cqw, 19px)', padding: '1.5% 3%' }}
-          >
-            {actionCost}
-          </div>
-        )}
       </div>
       {showHoverName && config?.full_name && (
         <div className="pointer-events-none absolute inset-x-2 bottom-2 z-10 translate-y-2 rounded-md bg-black/80 px-3 py-2 text-center text-sm font-medium text-white opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">

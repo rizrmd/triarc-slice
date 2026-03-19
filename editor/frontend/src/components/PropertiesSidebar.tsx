@@ -18,6 +18,7 @@ interface PropertiesSidebarProps {
   onClose: () => void;
   cards: string[];
   actions: string[];
+  animaps?: string[];
   uiAssets?: { name: string; url: string }[];
   charAssets?: { name: string; url: string }[];
   placeAssets?: { name: string; url: string }[];
@@ -84,22 +85,24 @@ function PercentInput({ value, onChange, disabled, className }: { value: number,
   );
 }
 
-export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], uiAssets = [], charAssets = [], placeAssets = [], multiSelectCount = 1, viewport = { width: 1080, height: 1920 } }: PropertiesSidebarProps) {
+export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], animaps = [], uiAssets = [], charAssets = [], placeAssets = [], multiSelectCount = 1, viewport = { width: 1080, height: 1920 } }: PropertiesSidebarProps) {
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
   
-  const [assetCategory, setAssetCategory] = useState<'ui' | 'characters' | 'places' | 'pose'>('ui');
+  const [assetCategory, setAssetCategory] = useState<'ui' | 'characters' | 'places' | 'pose' | 'animap'>('ui');
 
   // Sync category with current asset if present
   useEffect(() => {
-    if (selectedBox?.poseSlug) {
+    if (selectedBox?.animapSlug) {
+      setAssetCategory('animap');
+    } else if (selectedBox?.poseSlug) {
       setAssetCategory('pose');
     } else if (selectedBox?.asset) {
        if (selectedBox.asset.includes('/ui/')) setAssetCategory('ui');
        else if (selectedBox.asset.includes('/characters/')) setAssetCategory('characters');
        else if (selectedBox.asset.includes('/places/')) setAssetCategory('places');
     }
-  }, [selectedBox?.id, selectedBox?.asset, selectedBox?.poseSlug]); // Run when box or asset changes
+  }, [selectedBox?.id, selectedBox?.asset, selectedBox?.poseSlug, selectedBox?.animapSlug]); // Run when box or asset changes
 
   const currentAssets = assetCategory === 'ui' ? uiAssets : assetCategory === 'characters' ? charAssets : assetCategory === 'places' ? placeAssets : [];
 
@@ -309,12 +312,14 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                 <select
                     className="w-1/3 px-2 py-1.5 border rounded-md bg-background text-xs"
                     onChange={(e) => {
-                      const newCat = e.target.value as 'ui' | 'characters' | 'places' | 'pose';
+                      const newCat = e.target.value as 'ui' | 'characters' | 'places' | 'pose' | 'animap';
                       setAssetCategory(newCat);
-                      if (newCat === 'pose') {
-                         onUpdate(selectedBox.id, { asset: undefined });
+                      if (newCat === 'animap') {
+                        onUpdate(selectedBox.id, { asset: undefined, poseSlug: undefined });
+                      } else if (newCat === 'pose') {
+                        onUpdate(selectedBox.id, { asset: undefined, animapSlug: undefined });
                       } else {
-                        onUpdate(selectedBox.id, { poseSlug: undefined });
+                        onUpdate(selectedBox.id, { poseSlug: undefined, animapSlug: undefined });
                       }
                     }}
                     value={assetCategory}
@@ -323,12 +328,24 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     <option value="characters">Char</option>
                     <option value="places">Place</option>
                     <option value="pose">Pose</option>
+                    <option value="animap">Animap</option>
                 </select>
-                {assetCategory === 'pose' ? (
+                {assetCategory === 'animap' ? (
+                  <select
+                    className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
+                    value={selectedBox.animapSlug || ''}
+                    onChange={(e) => onUpdate(selectedBox.id, { animapSlug: e.target.value || undefined, asset: undefined, poseSlug: undefined })}
+                  >
+                    <option value="">(None)</option>
+                    {animaps.map(slug => (
+                      <option key={slug} value={slug}>{slug}</option>
+                    ))}
+                  </select>
+                ) : assetCategory === 'pose' ? (
                   <select
                     className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
                     value={selectedBox.poseSlug || ''}
-                    onChange={(e) => onUpdate(selectedBox.id, { poseSlug: e.target.value || undefined, asset: undefined })}
+                    onChange={(e) => onUpdate(selectedBox.id, { poseSlug: e.target.value || undefined, asset: undefined, animapSlug: undefined })}
                   >
                     <option value="">(None)</option>
                     {cards.map(slug => (
@@ -339,7 +356,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                   <select
                     className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
                     value={selectedBox.asset || ''}
-                    onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined, poseSlug: undefined })}
+                    onChange={(e) => onUpdate(selectedBox.id, { asset: e.target.value || undefined, poseSlug: undefined, animapSlug: undefined })}
                   >
                     <option value="">(None)</option>
                     {currentAssets.map(asset => (

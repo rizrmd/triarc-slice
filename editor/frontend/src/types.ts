@@ -160,6 +160,7 @@ export interface Box {
   cardSlug?: string;
   actionSlug?: string;
   poseSlug?: string;
+  animapSlug?: string;
   asset?: string;
   locked?: boolean;
   screen_relative?: boolean;

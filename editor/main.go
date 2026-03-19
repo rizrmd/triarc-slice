@@ -354,6 +354,21 @@ func convertVideoToOGV(taskID, ffmpegBin, srcPath, dstPath string) {
 		return
 	}
 
+	// Generate preview .webm before marking done so it's cached when the frontend requests it
+	convertTasks.Store(taskID, &convertTask{Progress: 99})
+	if previewBin, err := getFFmpegPath(); err == nil {
+		webmPath := dstPath[:len(dstPath)-4] + ".preview.webm"
+		previewCmd := exec.Command(previewBin, "-y", "-i", dstPath,
+			"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+			"-an",
+			webmPath)
+		if output, err := previewCmd.CombinedOutput(); err != nil {
+			log.Printf("Preview generation failed: %v\n%s", err, output)
+		} else {
+			log.Printf("Preview generated: %s", webmPath)
+		}
+	}
+
 	file := filepath.Base(dstPath)
 	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: file})
 }
