@@ -1116,7 +1116,7 @@ export default function GameLayoutEditor() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between p-4 border-b bg-card">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild><Link to={`/game-layout/${sceneSlug}`}><ArrowLeft className="h-4 w-4" /></Link></Button>
+          <Button variant="ghost" size="icon" asChild><Link to="/"><ArrowLeft className="h-4 w-4" /></Link></Button>
           <select
             className="text-xl font-bold bg-transparent border-none outline-none cursor-pointer"
             value={sceneSlug}

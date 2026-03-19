@@ -19,6 +19,7 @@ function App() {
           <Route path="/game-layout/:scene" element={<GameLayoutPicker />} />
           <Route path="/game-layout/:scene/:aspect" element={<GameLayoutEditor />} />
           <Route path="/animaps" element={<AnimapList />} />
+          <Route path="/animaps/:category" element={<AnimapList />} />
           <Route path="/animap/:slug" element={<AnimapEditor />} />
         </Routes>
       </Suspense>

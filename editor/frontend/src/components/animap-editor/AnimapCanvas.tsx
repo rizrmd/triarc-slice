@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import type { AnimapConfig, AnimapLayer } from '@/types';
+import { getEffectiveLayers, updateStateLayerOverride } from '@/lib/animap-state';
 
 function buildCssFilter(layer: AnimapLayer): string | undefined {
   const parts: string[] = [];
@@ -16,10 +17,11 @@ function buildCssFilter(layer: AnimapLayer): string | undefined {
 interface AnimapCanvasProps {
   slug: string;
   config: AnimapConfig;
+  selectedStateId: string;
   selectedLayerId: string | null;
-  setSelectedLayerId: (id: string | null) => void;
   commitConfig: (updater: (prev: AnimapConfig) => AnimapConfig) => void;
   canvasZoom: number;
+  setCanvasZoom: (zoom: number) => void;
   canvasPan: { x: number; y: number };
   setCanvasPan: (pan: { x: number; y: number }) => void;
   fileVersion: number;
@@ -34,10 +36,11 @@ interface AnimapCanvasProps {
 export function AnimapCanvas({
   slug,
   config,
+  selectedStateId,
   selectedLayerId,
-  setSelectedLayerId: _setSelectedLayerId,
   commitConfig,
   canvasZoom,
+  setCanvasZoom,
   canvasPan,
   setCanvasPan,
   fileVersion,
@@ -62,7 +65,8 @@ export function AnimapCanvas({
   // Mask drawing state
   const isMaskPainting = useRef(false);
   const lastMaskPoint = useRef<{ x: number; y: number } | null>(null);
-  const selectedLayer = config.layers.find((l) => l.id === selectedLayerId);
+  const effectiveLayers = getEffectiveLayers(config, selectedStateId);
+  const selectedLayer = effectiveLayers.find((l) => l.id === selectedLayerId);
   const isMaskMode = selectedLayer?.type === 'mask';
 
   // Init mask canvas when selecting a mask layer
@@ -111,24 +115,37 @@ export function AnimapCanvas({
     };
   }, []);
 
-  // Wheel zoom
+  // Wheel: pinch-to-zoom (ctrlKey) and two-finger pan (no modifier)
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     const handler = (e: WheelEvent) => {
+      e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const delta = e.deltaY > 0 ? -10 : 10;
+        // Pinch-to-zoom on macOS trackpad sends wheel events with ctrlKey
+        // Zoom toward cursor position
+        const rect = container.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left - rect.width / 2;
+        const cursorY = e.clientY - rect.top - rect.height / 2;
+        const delta = -e.deltaY * 2;
         const newZoom = Math.max(10, Math.min(400, canvasZoom + delta));
-        // We can't call setCanvasZoom here since it's a prop, we need a workaround
-        // Actually we need to pass setCanvasZoom too but it's not in props
-        // For now dispatch a custom event
-        container.dispatchEvent(new CustomEvent('canvas-zoom', { detail: newZoom }));
+        const ratio = newZoom / canvasZoom;
+        setCanvasPan({
+          x: cursorX - ratio * (cursorX - canvasPan.x),
+          y: cursorY - ratio * (cursorY - canvasPan.y),
+        });
+        setCanvasZoom(newZoom);
+      } else {
+        // Two-finger pan
+        setCanvasPan({
+          x: canvasPan.x - e.deltaX,
+          y: canvasPan.y - e.deltaY,
+        });
       }
     };
     container.addEventListener('wheel', handler, { passive: false });
     return () => container.removeEventListener('wheel', handler);
-  }, [canvasZoom]);
+  }, [canvasZoom, canvasPan, setCanvasZoom, setCanvasPan]);
 
   const getCanvasCoords = useCallback(
     (clientX: number, clientY: number) => {
@@ -198,7 +215,7 @@ export function AnimapCanvas({
       return;
     }
 
-    if (isMaskMode && e.button === 0) {
+    if (isMaskMode && e.button === 0 && !selectedLayer?.locked) {
       // Mask painting
       isMaskPainting.current = true;
       const coords = getCanvasCoords(e.clientX, e.clientY);
@@ -211,7 +228,7 @@ export function AnimapCanvas({
 
     // Layer dragging (skip if locked)
     if (e.button === 0 && selectedLayerId) {
-      const layer = config.layers.find((l) => l.id === selectedLayerId);
+      const layer = selectedLayer;
       if (layer && !layer.locked && (layer.type === 'image' || layer.type === 'video')) {
         isDragging.current = true;
         dragLayerId.current = selectedLayerId;
@@ -247,18 +264,15 @@ export function AnimapCanvas({
       const scale = canvasZoom / 100;
       const dx = e.clientX / scale - dragStart.current.x;
       const dy = e.clientY / scale - dragStart.current.y;
-      commitConfig((prev) => ({
-        ...prev,
-        layers: prev.layers.map((l) =>
-          l.id === dragLayerId.current
-            ? {
-                ...l,
-                x: Math.round(dragStartPos.current.x + dx),
-                y: Math.round(dragStartPos.current.y + dy),
-              }
-            : l
-        ),
-      }));
+      commitConfig((prev) =>
+        updateStateLayerOverride(
+          updateStateLayerOverride(prev, selectedStateId, dragLayerId.current!, 'x', Math.round(dragStartPos.current.x + dx)),
+          selectedStateId,
+          dragLayerId.current!,
+          'y',
+          Math.round(dragStartPos.current.y + dy),
+        )
+      );
     }
   };
 
@@ -274,7 +288,7 @@ export function AnimapCanvas({
 
   // Build mask lookup: for each non-mask layer, collect all mask URLs that target it
   const maskLookup: Record<string, string[]> = {};
-  config.layers.forEach((layer) => {
+  effectiveLayers.forEach((layer) => {
     if (layer.type === 'mask' && layer.visible && layer.file && layer.targets) {
       for (const targetId of layer.targets) {
         if (!maskLookup[targetId]) maskLookup[targetId] = [];
@@ -296,7 +310,7 @@ export function AnimapCanvas({
       style={{
         background:
           'repeating-conic-gradient(#1a1a2e 0% 25%, #16162a 0% 50%) 0 0 / 20px 20px',
-        cursor: spaceHeld ? 'grab' : isMaskMode ? 'crosshair' : 'default',
+        cursor: spaceHeld ? 'grab' : (isMaskMode && !selectedLayer?.locked) ? 'crosshair' : 'default',
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -315,7 +329,7 @@ export function AnimapCanvas({
         }}
       >
         {/* Layer rendering */}
-        {config.layers.map((layer) => {
+        {effectiveLayers.map((layer) => {
           if (!layer.visible) return null;
 
           const fileUrl = layer.file
@@ -341,7 +355,6 @@ export function AnimapCanvas({
             return (
               <div
                 key={layer.id}
-                onClick={(e) => { e.stopPropagation(); }}
                 style={{
                   position: 'absolute',
                   left: layer.x ?? 0,
@@ -351,7 +364,7 @@ export function AnimapCanvas({
                   opacity: layer.opacity ?? 1,
                   filter: cssFilter,
                   pointerEvents: isMaskMode ? 'none' : 'auto',
-                  cursor: 'move',
+                  cursor: layer.locked ? 'default' : 'move',
                   outline: selectedLayerId === layer.id ? '2px solid #3b82f6' : 'none',
                   ...(hasMask ? maskStyle : {}),
                 }}
@@ -367,18 +380,20 @@ export function AnimapCanvas({
           }
 
           if (layer.type === 'video' && fileUrl) {
+            const previewUrl = layer.file
+              ? `/api/animap-preview/${slug}/${layer.file}?v=${fileVersion}`
+              : fileUrl;
             return (
               <VideoLayer
                 key={layer.id}
                 layer={layer}
-                fileUrl={fileUrl}
+                fileUrl={previewUrl}
                 cssFilter={cssFilter}
                 selected={selectedLayerId === layer.id}
                 isMaskMode={isMaskMode}
                 maskUrls={maskLookup[layer.id] ?? []}
                 configWidth={config.width}
                 configHeight={config.height}
-                onSelect={() => {}}
               />
             );
           }
@@ -417,9 +432,8 @@ function VideoLayer({
   maskUrls,
   configWidth,
   configHeight,
-  onSelect,
 }: {
-  layer: { id: string; name: string; x?: number; y?: number; scale?: number; opacity?: number; loop_start?: number; loop_end?: number };
+  layer: { id: string; name: string; x?: number; y?: number; scale?: number; opacity?: number; loop?: boolean; loop_start?: number; loop_end?: number; locked?: boolean };
   fileUrl: string;
   cssFilter?: string;
   selected: boolean;
@@ -427,7 +441,6 @@ function VideoLayer({
   maskUrls: string[];
   configWidth: number;
   configHeight: number;
-  onSelect: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -439,13 +452,23 @@ function VideoLayer({
     const video = videoRef.current;
     if (!video) return;
 
+    const loopEnabled = layer.loop ?? true;
     const loopStart = layer.loop_start ?? 0;
     const loopEnd = layer.loop_end ?? 0;
 
     const handleTimeUpdate = () => {
       if (!video) return;
       const end = loopEnd > 0 ? loopEnd : video.duration;
-      if (video.currentTime >= end) video.currentTime = loopStart;
+      if (video.currentTime < end) return;
+
+      if (loopEnabled) {
+        video.currentTime = loopStart;
+        if (video.paused) void video.play().catch(() => {});
+        return;
+      }
+
+      video.currentTime = end;
+      video.pause();
     };
     const handleLoaded = () => {
       if (loopStart > 0) video.currentTime = loopStart;
@@ -457,7 +480,7 @@ function VideoLayer({
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadedmetadata', handleLoaded);
     };
-  }, [layer.loop_start, layer.loop_end]);
+  }, [layer.loop, layer.loop_start, layer.loop_end]);
 
   // Load mask images
   useEffect(() => {
@@ -470,6 +493,23 @@ function VideoLayer({
       return img;
     });
   }, [maskUrls.join(',')]);
+
+  // Ensure video plays (autoplay can be blocked even when muted)
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    console.log('[video] mount', layer.name, 'src:', fileUrl, 'readyState:', video.readyState, 'paused:', video.paused, 'networkState:', video.networkState);
+    const tryPlay = () => {
+      console.log('[video] tryPlay', layer.name, 'readyState:', video.readyState, 'paused:', video.paused);
+      video.play().then(() => console.log('[video] playing', layer.name)).catch((err) => console.error('[video] play error', layer.name, err));
+    };
+    video.addEventListener('canplay', () => { console.log('[video] canplay event', layer.name); tryPlay(); });
+    video.addEventListener('error', () => console.error('[video] error event', layer.name, video.error));
+    video.addEventListener('loadedmetadata', () => console.log('[video] loadedmetadata', layer.name, video.videoWidth, video.videoHeight));
+    video.addEventListener('stalled', () => console.log('[video] stalled', layer.name));
+    video.addEventListener('waiting', () => console.log('[video] waiting', layer.name));
+    if (video.readyState >= 3) tryPlay();
+  }, [fileUrl]);
 
   // Draw video frames to canvas, apply mask if present
   useEffect(() => {
@@ -512,7 +552,6 @@ function VideoLayer({
 
   return (
     <div
-      onClick={(e) => { e.stopPropagation(); onSelect(); }}
       style={{
         position: 'absolute',
         left: layer.x ?? 0,
@@ -522,7 +561,7 @@ function VideoLayer({
         opacity: layer.opacity ?? 1,
         filter: cssFilter,
         pointerEvents: isMaskMode ? 'none' : 'auto',
-        cursor: 'move',
+        cursor: layer.locked ? 'default' : 'move',
         outline: selected ? '2px solid #3b82f6' : 'none',
       }}
     >
@@ -532,7 +571,7 @@ function VideoLayer({
         muted
         autoPlay
         playsInline
-        loop
+        loop={(layer.loop ?? true) && (layer.loop_end ?? 0) <= 0}
         style={{ position: 'absolute', top: 0, left: 0, opacity: 0.01, pointerEvents: 'none' }}
       />
       <canvas ref={canvasRef} style={{ display: 'block' }} />

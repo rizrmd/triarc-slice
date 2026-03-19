@@ -19,12 +19,12 @@
       "id": "layer-1773846729733",
       "name": "flag",
       "type": "video",
-      "file": "layer-1773846729733.mp4",
+      "file": "flag.ogv",
       "visible": true,
       "opacity": 1,
-      "x": 538,
-      "y": 422,
-      "scale": 0.12,
+      "x": 533,
+      "y": 428,
+      "scale": 0.124,
       "loop": true,
       "loop_start": 1.8,
       "loop_end": 5.8
@@ -33,6 +33,7 @@
       "id": "layer-1773850359217",
       "name": "flag-mask",
       "type": "mask",
+<<<<<<< HEAD
       "file": "layer-1773850359217.webp",
       "visible": true
     },
@@ -55,6 +56,9 @@
       "name": "water-mask",
       "type": "mask",
       "file": "layer-1773851567415.webp",
+=======
+      "file": "flag-mask.webp",
+>>>>>>> 5aaeae75ef37d16c4d842936688c0560beb90ca9
       "visible": true,
       "targets": [
         "layer-1773851417394"

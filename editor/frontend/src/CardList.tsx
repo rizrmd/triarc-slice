@@ -188,7 +188,7 @@ export default function CardList() {
                   Animaps
                 </Button>
                 <Button size="sm" variant="outline" className="whitespace-nowrap" onClick={() => {
-                  navigate(`/game-layout/${localStorage.getItem('gameLayoutLast') || 'gameplay/9-16'}`);
+                  navigate(`/game-layout/${localStorage.getItem('gameLayoutLast') || 'startup/9-16'}`);
                 }}>
                   <Layout className="mr-2 h-4 w-4" />
                   Game Layout
