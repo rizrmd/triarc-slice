@@ -1740,18 +1740,54 @@
     "startup": {
       "backgrounds": {},
       "boxes": {
+        "10-16": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.49921875,
+            "ny": 0.5,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": 59,
+            "y": 0
+          }
+        },
         "2-3": {
           "logo": {
             "fill": "contain",
-            "height": 516,
+            "height": 2160,
+            "height_percent": 100,
             "id": "logo",
             "label": "Logo",
-            "nx": 0.28935185185185186,
-            "ny": 0.2953703703703704,
+            "nx": 0.5,
+            "ny": 0.5,
             "pivot": "center",
-            "width": 344,
-            "x": 93,
-            "y": 380
+            "width": 1440,
+            "width_percent": 100,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "3-4": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.5065104166666666,
+            "ny": 0.4939236111111111,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": 238,
+            "y": 50
           }
         },
         "9-16": {
@@ -1769,6 +1805,74 @@
             "width_percent": 100,
             "x": -1,
             "y": 0
+          }
+        },
+        "9-19.5": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.49935897435897436,
+            "ny": 0.497008547008547,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": -1,
+            "y": 203
+          }
+        },
+        "9-20": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.499375,
+            "ny": 0.49541666666666667,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": -1,
+            "y": 229
+          }
+        },
+        "9-21": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.4994047619047619,
+            "ny": 0.49603174603174605,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": -1,
+            "y": 290
+          }
+        },
+        "9-22": {
+          "logo": {
+            "asset": "/assets/ui/logo.ogv",
+            "fill": "cover",
+            "height": 1920,
+            "height_percent": 100,
+            "id": "logo",
+            "label": "Logo",
+            "nx": 0.4994318181818182,
+            "ny": 0.4943181818181818,
+            "pivot": "center",
+            "width": 1080,
+            "width_percent": 100,
+            "x": -1,
+            "y": 345
           }
         }
       }

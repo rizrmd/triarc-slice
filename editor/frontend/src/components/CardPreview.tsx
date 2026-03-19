@@ -2,6 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import type { CardConfig, HeroConfig, VisibleLayers } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
+function useInView(rootMargin = '200px') {
+  const ref = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [rootMargin]);
+
+  return { ref, inView };
+}
+
 const frameImage = '/assets/ui/hero-frame.webp';
 const actionFrameImage = '/assets/ui/action-frame.webp';
 const barBg = '/assets/ui/bar/bar-bg.webp';
@@ -28,6 +51,26 @@ interface CardPreviewProps {
 }
 
 export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge, showSoundBadge, showHoverName }: CardPreviewProps) {
+  const { ref: lazyRef, inView } = useInView();
+
+  return (
+    <div ref={lazyRef} className={`h-full w-full ${transparent ? 'bg-transparent' : 'bg-[#1b1e25]'}`} style={{ aspectRatio: '2/3' }}>
+      {inView && (
+        <CardPreviewInner
+          slug={slug}
+          type={type}
+          transparent={transparent}
+          onAspectRatioLoaded={onAspectRatioLoaded}
+          showPoseBadge={showPoseBadge}
+          showSoundBadge={showSoundBadge}
+          showHoverName={showHoverName}
+        />
+      )}
+    </div>
+  );
+}
+
+function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge, showSoundBadge, showHoverName }: CardPreviewProps) {
   const isAction = type === 'action';
   const [config, setConfig] = useState<CardConfig | null>(null);
   const [poseFileExists, setPoseFileExists] = useState(false);
@@ -171,7 +214,8 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
 
     // Add timestamp to bypass browser cache for static mask files
     const timestamp = Date.now();
-    const maskBgUrl = isAction ? `/data/action/${slug}/img/mask-bg.webp?t=${timestamp}` : `/data/hero/${slug}/img/mask-bg.webp?t=${timestamp}`;
+    const basePath = isAction ? 'action' : 'hero';
+    const maskBgUrl = `/data/${basePath}/${slug}/img/mask-bg.webp?t=${timestamp}`;
     const maskFgUrl = isAction ? '' : `/data/hero/${slug}/img/mask-fg.webp?t=${timestamp}`;
 
     const loadImg = (src: string) => new Promise<HTMLImageElement | null>((resolve) => {

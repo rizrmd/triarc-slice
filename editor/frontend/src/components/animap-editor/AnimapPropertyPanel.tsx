@@ -14,10 +14,10 @@ import {
   getAnimapTransition,
   getStateOverrideValue,
   normalizeAnimapConfig,
-  renameAnimapState,
   updateAnimapTransition,
   updateStateLayerOverride,
 } from '@/lib/animap-state';
+import { toKebabCase } from '@/lib/utils';
 
 function PropertyRow({
   label,
@@ -406,6 +406,7 @@ interface AnimapPropertyPanelProps {
   setBrushHardness: (hardness: number) => void;
   brushMode: 'paint' | 'erase';
   setBrushMode: (mode: 'paint' | 'erase') => void;
+  convertProgress: number | null;
 }
 
 export function AnimapPropertyPanel({
@@ -426,6 +427,7 @@ export function AnimapPropertyPanel({
   setBrushHardness,
   brushMode,
   setBrushMode,
+  convertProgress,
 }: AnimapPropertyPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -473,31 +475,16 @@ export function AnimapPropertyPanel({
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="space-y-2 rounded-md border p-3">
-          <div className="space-y-1">
-            <Label className="text-xs">State Name</Label>
-            <Input
-              value={selectedState.name}
-              disabled={selectedStateId === DEFAULT_STATE_ID}
-              onChange={(e) => commitConfig((prev) => renameAnimapState(prev, selectedStateId, e.target.value))}
-            />
-          </div>
-          <div className="text-[11px] text-muted-foreground">
-            {selectedStateId === DEFAULT_STATE_ID
-              ? 'Default state edits the base layer values.'
-              : 'This state only stores overrides. Unchanged fields inherit from Default.'}
-          </div>
-        </div>
-
         {/* Name */}
         <div className="space-y-1">
           <Label className="text-xs">Name</Label>
           <Input
             value={selectedLayer.name}
             onChange={(e) => {
+              const kebab = toKebabCase(e.target.value);
               commitConfig((prev) => ({
                 ...prev,
-                layers: prev.layers.map((layer) => (layer.id === selectedLayer.id ? { ...layer, name: e.target.value } : layer)),
+                layers: prev.layers.map((layer) => (layer.id === selectedLayer.id ? { ...layer, name: kebab } : layer)),
               }));
             }}
           />
@@ -506,32 +493,49 @@ export function AnimapPropertyPanel({
         {/* File upload */}
         <div className="space-y-1">
           <Label className="text-xs">File</Label>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-3 w-3" />
-              Upload
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept={
-                selectedLayer.type === 'video'
-                  ? 'video/*,.ogv,.mp4,.webm'
-                  : 'image/*'
-              }
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onUpload(selectedLayer.id, file);
-                e.target.value = '';
-              }}
-            />
-          </div>
+          {convertProgress !== null ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Converting to OGV...</span>
+                <span>{convertProgress}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${convertProgress}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-3 w-3" />
+                  Upload
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={
+                    selectedLayer.type === 'video'
+                      ? 'video/*,.ogv'
+                      : 'image/*'
+                  }
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onUpload(selectedLayer.id, file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </>
+          )}
           {selectedLayer.file && (
             <p className="text-xs text-muted-foreground truncate">{selectedLayer.file}</p>
           )}

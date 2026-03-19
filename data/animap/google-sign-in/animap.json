@@ -1,0 +1,47 @@
+{
+  "name": "google-sign-in",
+  "width": 300,
+  "height": 60,
+  "layers": [
+    {
+      "id": "default",
+      "name": "default",
+      "type": "image",
+      "file": "default.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    },
+    {
+      "id": "clicked",
+      "name": "clicked",
+      "type": "image",
+      "file": "clicked.webp",
+      "visible": false,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default",
+      "layer_overrides": {
+        "default": { "visible": true },
+        "clicked": { "visible": false }
+      }
+    },
+    {
+      "id": "clicked",
+      "name": "Clicked",
+      "layer_overrides": {
+        "default": { "visible": false },
+        "clicked": { "visible": true }
+      }
+    }
+  ]
+}

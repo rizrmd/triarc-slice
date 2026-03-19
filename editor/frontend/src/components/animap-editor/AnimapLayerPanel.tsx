@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import type { AnimapConfig } from '@/types';
 import { useState } from 'react';
 import { addAnimapState, DEFAULT_STATE_ID, deleteAnimapState, normalizeAnimapConfig } from '@/lib/animap-state';
+import { toKebabCase } from '@/lib/utils';
 
 interface AnimapLayerPanelProps {
   config: AnimapConfig;
@@ -44,10 +45,12 @@ export function AnimapLayerPanel({
 
   const addLayer = () => {
     if (!newLayerName.trim()) return;
+    const kebabName = toKebabCase(newLayerName);
+    if (!kebabName) return;
     const id = `layer-${Date.now()}`;
     const layer = {
       id,
-      name: newLayerName,
+      name: kebabName,
       type: newLayerType,
       file: '',
       visible: true,

@@ -7,11 +7,14 @@ import { ArrowLeft, Loader2, Redo2, Save, Undo2 } from 'lucide-react';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
 import { AnimapCanvas } from '@/components/animap-editor/AnimapCanvas';
 import { AnimapPropertyPanel } from '@/components/animap-editor/AnimapPropertyPanel';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   DEFAULT_STATE_ID,
   getAnimapState,
   getEffectiveLayer,
   normalizeAnimapConfig,
+  renameAnimapState,
 } from '@/lib/animap-state';
 
 function cloneConfig(c: AnimapConfig): AnimapConfig {
@@ -32,6 +35,7 @@ export default function AnimapEditor() {
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [selectedStateId, setSelectedStateId] = useState(DEFAULT_STATE_ID);
   const [fileVersion, setFileVersion] = useState(0);
+  const [convertProgress, setConvertProgress] = useState<number | null>(null);
 
   const zoomStorageKey = 'animap-editor-zoom';
   const [canvasZoom, setCanvasZoom] = useState(() => {
@@ -123,36 +127,29 @@ export default function AnimapEditor() {
       });
   }, [slug]);
 
-  // Save mask canvas to server and update layer.file
+  // Upload mask canvas to server. Returns new filename on success, null on failure.
   // Saves raw strokes: white where painted, transparent elsewhere.
   // Video layers use canvas destination-out to hide painted areas.
-  const saveMaskCanvas = useCallback(async (layerId: string) => {
-    if (!slug || !maskCanvasRef.current) return;
+  const saveMaskCanvas = useCallback(async (layerId: string): Promise<string | null> => {
+    if (!slug || !maskCanvasRef.current || !config) return null;
     const blob = await new Promise<Blob | null>((resolve) =>
       maskCanvasRef.current!.toBlob(resolve, 'image/webp', 0.9)
     );
-    if (!blob) return;
+    if (!blob) return null;
+    const layer = config.layers.find((l) => l.id === layerId);
     const fd = new FormData();
     fd.append('file', blob, `${layerId}.webp`);
+    if (layer?.name) fd.append('name', layer.name);
+    if (layer?.file) fd.append('old_file', layer.file);
     const res = await fetch(`/api/animap-layer/${slug}/${layerId}`, {
       method: 'POST',
       body: fd,
     });
-    if (res.ok) {
-      const data = await res.json();
-      setConfig((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          layers: prev.layers.map((l) =>
-            l.id === layerId ? { ...l, file: data.file } : l
-          ),
-        };
-      });
-      setFileVersion((v) => v + 1);
-    }
-    setMaskDirty(false);
-  }, [slug]);
+    if (!res.ok) return null;
+    const data = await res.json();
+    setFileVersion((v) => v + 1);
+    return data.file as string;
+  }, [slug, config]);
 
   // Save
   const handleSave = useCallback(async () => {
@@ -161,11 +158,21 @@ export default function AnimapEditor() {
     setSaveError(null);
 
     try {
+      let configToSave = config;
+
       // Save mask if dirty
       if (maskDirty && selectedLayerId) {
         const selectedLayer = config.layers.find((l) => l.id === selectedLayerId);
         if (selectedLayer?.type === 'mask') {
-          await saveMaskCanvas(selectedLayerId);
+          const newFile = await saveMaskCanvas(selectedLayerId);
+          if (newFile) {
+            configToSave = {
+              ...configToSave,
+              layers: configToSave.layers.map((l) =>
+                l.id === selectedLayerId ? { ...l, file: newFile } : l
+              ),
+            };
+          }
         }
       }
 
@@ -173,10 +180,12 @@ export default function AnimapEditor() {
       const res = await fetch(`/api/animap/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(configToSave),
       });
       if (!res.ok) throw new Error('Save failed');
-      setInitialConfig(cloneConfig(config));
+      setConfig(configToSave);
+      setInitialConfig(cloneConfig(configToSave));
+      setMaskDirty(false);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Save failed');
     } finally {
@@ -189,18 +198,30 @@ export default function AnimapEditor() {
     if (maskDirty && selectedLayerId && selectedLayerId !== id && maskCanvasRef.current && config) {
       const currentLayer = config.layers.find((l) => l.id === selectedLayerId);
       if (currentLayer?.type === 'mask') {
-        await saveMaskCanvas(selectedLayerId);
+        const newFile = await saveMaskCanvas(selectedLayerId);
+        if (newFile) {
+          setConfig((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              layers: prev.layers.map((l) =>
+                l.id === selectedLayerId ? { ...l, file: newFile } : l
+              ),
+            };
+          });
+        }
+        setMaskDirty(false);
       }
     }
     setSelectedLayerId(id);
   }, [maskDirty, selectedLayerId, config, saveMaskCanvas]);
 
-  // Auto-save: debounce 1s after config changes
+  // Auto-save: debounce 1s after config or mask changes
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (!config || !slug || loading) return;
-    // Skip if config hasn't changed from initial load
-    if (initialConfig && JSON.stringify(config) === JSON.stringify(initialConfig)) return;
+    const configChanged = initialConfig && JSON.stringify(config) !== JSON.stringify(initialConfig);
+    if (!configChanged && !maskDirty) return;
 
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
@@ -210,7 +231,7 @@ export default function AnimapEditor() {
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [config, slug, loading]);
+  }, [config, slug, loading, maskDirty]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -257,23 +278,55 @@ export default function AnimapEditor() {
 
   const handleLayerUpload = async (layerId: string, file: File) => {
     if (!slug || !config) return;
+    const layer = config.layers.find((l) => l.id === layerId);
     const fd = new FormData();
     fd.append('file', file);
+    if (layer?.name) fd.append('name', layer.name);
+    if (layer?.file) fd.append('old_file', layer.file);
     try {
+      setConvertProgress(null);
       const res = await fetch(`/api/animap-layer/${slug}/${layerId}`, {
         method: 'POST',
         body: fd,
       });
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
-      commitConfig((prev) => ({
-        ...prev,
-        layers: prev.layers.map((l) =>
-          l.id === layerId ? { ...l, file: data.file } : l
-        ),
-      }));
+
+      if (data.status === 'converting' && data.task) {
+        // Poll for conversion progress
+        setConvertProgress(0);
+        const pollProgress = async (): Promise<string> => {
+          while (true) {
+            await new Promise((r) => setTimeout(r, 500));
+            const statusRes = await fetch(`/api/animap-convert-status/${data.task}`);
+            if (!statusRes.ok) throw new Error('Conversion status check failed');
+            const status = await statusRes.json();
+            setConvertProgress(status.progress);
+            if (status.done) {
+              if (status.error) throw new Error(status.error);
+              return status.file;
+            }
+          }
+        };
+        const fileName = await pollProgress();
+        setConvertProgress(null);
+        commitConfig((prev) => ({
+          ...prev,
+          layers: prev.layers.map((l) =>
+            l.id === layerId ? { ...l, file: fileName } : l
+          ),
+        }));
+      } else {
+        commitConfig((prev) => ({
+          ...prev,
+          layers: prev.layers.map((l) =>
+            l.id === layerId ? { ...l, file: data.file } : l
+          ),
+        }));
+      }
       setFileVersion((v) => v + 1);
     } catch (err) {
+      setConvertProgress(null);
       alert('Upload failed: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
@@ -388,6 +441,15 @@ export default function AnimapEditor() {
               </div>
             )}
           </div>
+          <div className="flex items-center gap-2 rounded-md border px-2 py-1">
+            <Label className="text-xs text-muted-foreground whitespace-nowrap">State</Label>
+            <Input
+              className="h-6 text-xs w-28"
+              value={selectedState.name}
+              disabled={selectedStateId === DEFAULT_STATE_ID}
+              onChange={(e) => commitConfig((prev) => renameAnimapState(prev, selectedStateId, e.target.value))}
+            />
+          </div>
           {hasUnsavedChanges && (
             <Badge variant="outline" className="text-xs text-yellow-500 border-yellow-500">
               Unsaved
@@ -449,9 +511,9 @@ export default function AnimapEditor() {
             config={config}
             selectedStateId={selectedStateId}
             selectedLayerId={selectedLayerId}
-            setSelectedLayerId={handleSelectLayer}
             commitConfig={commitConfig}
             canvasZoom={canvasZoom}
+            setCanvasZoom={setCanvasZoom}
             canvasPan={canvasPan}
             setCanvasPan={setCanvasPan}
             fileVersion={fileVersion}
@@ -484,6 +546,7 @@ export default function AnimapEditor() {
             setBrushHardness={setBrushHardness}
             brushMode={brushMode}
             setBrushMode={setBrushMode}
+            convertProgress={convertProgress}
           />
         </div>
       </div>
