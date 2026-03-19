@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, type RefObject, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, useCallback, type RefObject, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import type { AnimapConfig, AnimapLayer } from '@/types';
 import { getEffectiveLayers, updateStateLayerOverride } from '@/lib/animap-state';
 
@@ -31,6 +31,7 @@ interface AnimapCanvasProps {
   brushMode: 'paint' | 'erase';
   maskCanvasRef: RefObject<HTMLCanvasElement | null>;
   setMaskDirty: (dirty: boolean) => void;
+  activeVideoRef: MutableRefObject<HTMLVideoElement | null>;
 }
 
 export function AnimapCanvas({
@@ -50,6 +51,7 @@ export function AnimapCanvas({
   brushMode,
   maskCanvasRef,
   setMaskDirty,
+  activeVideoRef,
 }: AnimapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
@@ -69,7 +71,10 @@ export function AnimapCanvas({
   const selectedLayer = effectiveLayers.find((l) => l.id === selectedLayerId);
   const isMaskMode = selectedLayer?.type === 'mask';
 
-  // Init mask canvas when selecting a mask layer
+  // Init mask canvas when selecting a mask layer.
+  // Deliberately excludes selectedLayer?.file and fileVersion from deps:
+  // saving the mask updates both, but the canvas already has the correct
+  // content — re-running would clear and reload mid-stroke, causing stutter.
   useEffect(() => {
     if (!isMaskMode || !maskCanvasRef.current) return;
     const canvas = maskCanvasRef.current;
@@ -89,7 +94,8 @@ export function AnimapCanvas({
       };
       img.src = `/data/animap/${slug}/${selectedLayer.file}?v=${fileVersion}`;
     }
-  }, [isMaskMode, selectedLayerId, config.width, config.height, slug, selectedLayer?.file, fileVersion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMaskMode, selectedLayerId, config.width, config.height, slug]);
 
   // Space key for panning
   useEffect(() => {
@@ -257,6 +263,8 @@ export function AnimapCanvas({
         drawBrushStroke(coords.x, coords.y);
       }
       lastMaskPoint.current = coords;
+      // Re-assert dirty so auto-save schedules again if it fired mid-stroke
+      setMaskDirty(true);
       return;
     }
 
@@ -394,6 +402,7 @@ export function AnimapCanvas({
                 maskUrls={maskLookup[layer.id] ?? []}
                 configWidth={config.width}
                 configHeight={config.height}
+                activeVideoRef={selectedLayerId === layer.id ? activeVideoRef : undefined}
               />
             );
           }
@@ -432,6 +441,7 @@ function VideoLayer({
   maskUrls,
   configWidth,
   configHeight,
+  activeVideoRef,
 }: {
   layer: { id: string; name: string; x?: number; y?: number; scale?: number; opacity?: number; loop?: boolean; loop_start?: number; loop_end?: number; locked?: boolean };
   fileUrl: string;
@@ -441,46 +451,86 @@ function VideoLayer({
   maskUrls: string[];
   configWidth: number;
   configHeight: number;
+  activeVideoRef?: MutableRefObject<HTMLVideoElement | null>;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoARef = useRef<HTMLVideoElement>(null);
+  const videoBRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const maskImagesRef = useRef<HTMLImageElement[]>([]);
+  const loopFrameRef = useRef<ImageBitmap | null>(null);
+  const SWAP_MARGIN = 0.05;
 
-  // Loop handling
+  // Track latest activeVideoRef prop without restarting effects
+  const activeVideoRefLatest = useRef(activeVideoRef);
+  activeVideoRefLatest.current = activeVideoRef;
+
+  // Clean up parent ref when deselected
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    if (!activeVideoRef) return;
+    return () => { activeVideoRef.current = null; };
+  }, [activeVideoRef]);
 
-    const loopEnabled = layer.loop ?? true;
-    const loopStart = layer.loop_start ?? 0;
-    const loopEnd = layer.loop_end ?? 0;
+  // Determine if we need custom loop logic (non-trivial loop boundaries)
+  const loopEnabled = layer.loop ?? true;
+  const loopStart = layer.loop_start ?? 0;
+  const loopEnd = layer.loop_end ?? 0;
+  const hasCustomLoop = loopStart > 0 || loopEnd > 0;
 
-    const handleTimeUpdate = () => {
-      if (!video) return;
-      const end = loopEnd > 0 ? loopEnd : video.duration;
-      if (video.currentTime < end) return;
+  // Custom loop: both videos play continuously, offset by half the loop duration.
+  // Both decoders stay warm — at the loop boundary we just switch which one we draw.
+  useEffect(() => {
+    const videoA = videoARef.current;
+    const videoB = videoBRef.current;
+    if (!videoA || !videoB || !hasCustomLoop) return;
 
-      if (loopEnabled) {
-        video.currentTime = loopStart;
-        if (video.paused) void video.play().catch(() => {});
-        return;
+    let initialized = false;
+    const tryInit = () => {
+      if (initialized || videoA.readyState < 1 || videoB.readyState < 1) return;
+      const dur = videoA.duration;
+      if (!dur || isNaN(dur)) return;
+      initialized = true;
+      const end = loopEnd > 0 ? loopEnd : dur;
+      const loopDur = end - loopStart;
+      videoA.currentTime = loopStart;
+      void videoA.play().catch(() => {});
+      videoB.currentTime = loopStart + loopDur / 2;
+      void videoB.play().catch(() => {});
+    };
+
+    const captureLoopFrame = (video: HTMLVideoElement) => {
+      if (video.readyState >= 2 && video.videoWidth > 0) {
+        createImageBitmap(video).then(bmp => {
+          loopFrameRef.current?.close();
+          loopFrameRef.current = bmp;
+        }).catch(() => {});
       }
-
-      video.currentTime = end;
-      video.pause();
     };
-    const handleLoaded = () => {
-      if (loopStart > 0) video.currentTime = loopStart;
-    };
+    const onSeekedA = () => { if (Math.abs(videoA.currentTime - loopStart) < 0.15) captureLoopFrame(videoA); };
+    const onSeekedB = () => { if (Math.abs(videoB.currentTime - loopStart) < 0.15) captureLoopFrame(videoB); };
+    // Safety net: if a video reaches its natural file end, restart it
+    const onEndedA = () => { videoA.currentTime = loopStart; void videoA.play().catch(() => {}); };
+    const onEndedB = () => { videoB.currentTime = loopStart; void videoB.play().catch(() => {}); };
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('loadedmetadata', handleLoaded);
+    videoA.addEventListener('loadedmetadata', tryInit);
+    videoB.addEventListener('loadedmetadata', tryInit);
+    videoA.addEventListener('seeked', onSeekedA);
+    videoB.addEventListener('seeked', onSeekedB);
+    videoA.addEventListener('ended', onEndedA);
+    videoB.addEventListener('ended', onEndedB);
+    tryInit();
+
     return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('loadedmetadata', handleLoaded);
+      videoA.removeEventListener('loadedmetadata', tryInit);
+      videoB.removeEventListener('loadedmetadata', tryInit);
+      videoA.removeEventListener('seeked', onSeekedA);
+      videoB.removeEventListener('seeked', onSeekedB);
+      videoA.removeEventListener('ended', onEndedA);
+      videoB.removeEventListener('ended', onEndedB);
+      loopFrameRef.current?.close();
+      loopFrameRef.current = null;
     };
-  }, [layer.loop, layer.loop_start, layer.loop_end]);
+  }, [loopStart, loopEnd, hasCustomLoop]);
 
   // Load mask images
   useEffect(() => {
@@ -494,43 +544,87 @@ function VideoLayer({
     });
   }, [maskUrls.join(',')]);
 
-  // Ensure video plays (autoplay can be blocked even when muted)
+  // Ensure primary video plays (autoplay can be blocked even when muted)
   useEffect(() => {
-    const video = videoRef.current;
+    const video = videoARef.current;
     if (!video) return;
-    console.log('[video] mount', layer.name, 'src:', fileUrl, 'readyState:', video.readyState, 'paused:', video.paused, 'networkState:', video.networkState);
-    const tryPlay = () => {
-      console.log('[video] tryPlay', layer.name, 'readyState:', video.readyState, 'paused:', video.paused);
-      video.play().then(() => console.log('[video] playing', layer.name)).catch((err) => console.error('[video] play error', layer.name, err));
-    };
-    video.addEventListener('canplay', () => { console.log('[video] canplay event', layer.name); tryPlay(); });
-    video.addEventListener('error', () => console.error('[video] error event', layer.name, video.error));
-    video.addEventListener('loadedmetadata', () => console.log('[video] loadedmetadata', layer.name, video.videoWidth, video.videoHeight));
-    video.addEventListener('stalled', () => console.log('[video] stalled', layer.name));
-    video.addEventListener('waiting', () => console.log('[video] waiting', layer.name));
+    const tryPlay = () => { video.play().catch(() => {}); };
+    video.addEventListener('canplay', tryPlay);
     if (video.readyState >= 3) tryPlay();
+    return () => { video.removeEventListener('canplay', tryPlay); };
   }, [fileUrl]);
 
-  // Draw video frames to canvas, apply mask if present
+  // Draw video frames to canvas, apply mask if present, handle loop boundaries
   useEffect(() => {
-    const video = videoRef.current;
+    const videoA = videoARef.current;
+    const videoB = videoBRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!videoA || !videoB || !canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const draw = () => {
-      if (video.readyState >= 2 && video.videoWidth > 0) {
-        const vw = video.videoWidth;
-        const vh = video.videoHeight;
+      let video: HTMLVideoElement;
+
+      if (loopEnabled && hasCustomLoop) {
+        // Both videos play continuously, offset by half the loop duration.
+        // Reset any video that crosses loopEnd back to loopStart.
+        const dur = videoA.duration;
+        const end = loopEnd > 0 ? loopEnd : dur;
+        if (end > 0 && !isNaN(end)) {
+          for (const v of [videoA, videoB]) {
+            if (v.readyState >= 1 && !v.paused && !v.seeking) {
+              if (v.currentTime >= end - SWAP_MARGIN || v.currentTime < loopStart - 0.05) {
+                v.currentTime = loopStart;
+              }
+            }
+          }
+        }
+
+        // Pick whichever video is further into the loop (less recently seeked, decoder warmer)
+        const aTime = videoA.currentTime;
+        const bTime = videoB.currentTime;
+        const endV = loopEnd > 0 ? loopEnd : (dur || Infinity);
+        const aOk = aTime >= loopStart && aTime < endV && videoA.readyState >= 2 && !videoA.seeking;
+        const bOk = bTime >= loopStart && bTime < endV && videoB.readyState >= 2 && !videoB.seeking;
+
+        if (aOk && bOk) {
+          video = (aTime - loopStart) > (bTime - loopStart) ? videoA : videoB;
+        } else if (aOk) {
+          video = videoA;
+        } else if (bOk) {
+          video = videoB;
+        } else {
+          video = videoA; // fallback
+        }
+      } else {
+        video = videoA;
+        // Non-loop: stop at end
+        if (!loopEnabled && video.readyState >= 2) {
+          const end = loopEnd > 0 ? loopEnd : video.duration;
+          if (end > 0 && !isNaN(end) && !video.paused && video.currentTime >= end) {
+            video.currentTime = end;
+            video.pause();
+          }
+        }
+        // Full-video loop: native `loop` attribute handles it, nothing to do.
+      }
+
+      if (activeVideoRefLatest.current) activeVideoRefLatest.current.current = video;
+
+      // Draw from live video, fall back to cached loop-start frame during seeks
+      const hasLiveFrame = video.readyState >= 2 && video.videoWidth > 0;
+      const drawSource: CanvasImageSource | null = hasLiveFrame ? video : loopFrameRef.current;
+      const vw = hasLiveFrame ? video.videoWidth : (loopFrameRef.current?.width ?? 0);
+      const vh = hasLiveFrame ? video.videoHeight : (loopFrameRef.current?.height ?? 0);
+      if (drawSource && vw > 0 && vh > 0) {
         if (canvas.width !== vw || canvas.height !== vh) {
           canvas.width = vw;
           canvas.height = vh;
         }
         ctx.clearRect(0, 0, vw, vh);
-        ctx.drawImage(video, 0, 0);
+        ctx.drawImage(drawSource, 0, 0);
 
-        // Apply mask: cut out video where mask is opaque (painted)
         if (maskImagesRef.current.length > 0) {
           ctx.globalCompositeOperation = 'destination-out';
           const lx = layer.x ?? 0;
@@ -548,7 +642,7 @@ function VideoLayer({
     };
     draw();
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [fileUrl, maskUrls.join(','), layer.x, layer.y, configWidth, configHeight]);
+  }, [fileUrl, maskUrls.join(','), layer.x, layer.y, configWidth, configHeight, loopEnabled, loopStart, loopEnd, hasCustomLoop]);
 
   return (
     <div
@@ -566,12 +660,21 @@ function VideoLayer({
       }}
     >
       <video
-        ref={videoRef}
+        ref={videoARef}
         src={fileUrl}
         muted
         autoPlay
         playsInline
-        loop={(layer.loop ?? true) && (layer.loop_end ?? 0) <= 0}
+        preload="auto"
+        loop={loopEnabled && !hasCustomLoop}
+        style={{ position: 'absolute', top: 0, left: 0, opacity: 0.01, pointerEvents: 'none' }}
+      />
+      <video
+        ref={videoBRef}
+        src={fileUrl}
+        muted
+        playsInline
+        preload="auto"
         style={{ position: 'absolute', top: 0, left: 0, opacity: 0.01, pointerEvents: 'none' }}
       />
       <canvas ref={canvasRef} style={{ display: 'block' }} />

@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, type MutableRefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Upload, Brush, Eraser, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -153,6 +153,7 @@ function VideoTimeline({
   loopStart,
   loopEnd,
   onChange,
+  activeVideoRef,
 }: {
   slug: string;
   layerId: string;
@@ -161,6 +162,7 @@ function VideoTimeline({
   loopStart: number;
   loopEnd: number;
   onChange: (start: number, end: number) => void;
+  activeVideoRef: MutableRefObject<HTMLVideoElement | null>;
 }) {
   const [duration, setDuration] = useState(0);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -169,6 +171,16 @@ function VideoTimeline({
   const thumbCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [hoverInfo, setHoverInfo] = useState<{ time: number; x: number; trackTop: number } | null>(null);
   const seekingRef = useRef(false);
+  const scrubberRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number>(0);
+  const isSeeking = useRef(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
+  const analyzeAbortRef = useRef(false);
+
+  useEffect(() => {
+    return () => { analyzeAbortRef.current = true; };
+  }, []);
 
   // Load video for duration + thumbnail seeking
   useEffect(() => {
@@ -176,7 +188,7 @@ function VideoTimeline({
     const video = document.createElement('video');
     video.preload = 'auto';
     video.crossOrigin = 'anonymous';
-    video.src = `/data/animap/${slug}/${file}?v=${fileVersion}`;
+    video.src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
     video.onloadedmetadata = () => {
       setDuration(video.duration);
     };
@@ -209,6 +221,23 @@ function VideoTimeline({
     video.onseeked = drawFrame;
   }, [hoverInfo?.time]);
 
+  // Animate scrubber head via RAF — synced to actual video currentTime
+  useEffect(() => {
+    if (!duration) return;
+    const max = duration || 10;
+
+    const tick = () => {
+      const video = activeVideoRef.current;
+      if (scrubberRef.current && video) {
+        scrubberRef.current.style.left = `${(video.currentTime / max) * 100}%`;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [duration]);
+
   const effectiveEnd = loopEnd > 0 ? loopEnd : duration;
   const maxVal = duration || 10;
 
@@ -236,11 +265,30 @@ function VideoTimeline({
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
+  const handleTrackPointerDown = (e: React.PointerEvent) => {
+    // Don't interfere with loop handle dragging (handles fire first via bubbling)
+    if (dragging.current) return;
+    const video = activeVideoRef.current;
+    if (!video || !duration) return;
+
+    isSeeking.current = true;
+    video.pause();
+    const t = pxToTime(e.clientX);
+    video.currentTime = Math.max(0, Math.min(t, video.duration));
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
   const handlePointerMove = (e: React.PointerEvent) => {
     // Thumbnail on hover — use screen coords for fixed positioning
     const t = pxToTime(e.clientX);
     if (duration > 0) {
       setHoverInfo({ time: t, x: e.clientX, trackTop: trackRef.current?.getBoundingClientRect().top ?? 0 });
+    }
+
+    if (isSeeking.current) {
+      const video = activeVideoRef.current;
+      if (video) video.currentTime = Math.max(0, Math.min(t, video.duration));
+      return;
     }
 
     if (!dragging.current) return;
@@ -253,12 +301,126 @@ function VideoTimeline({
   };
 
   const handlePointerUp = () => {
+    if (isSeeking.current) {
+      isSeeking.current = false;
+      const video = activeVideoRef.current;
+      if (video) video.play().catch(() => {});
+    }
     dragging.current = null;
   };
 
   const handlePointerLeaveTrack = () => {
+    if (isSeeking.current) {
+      isSeeking.current = false;
+      const video = activeVideoRef.current;
+      if (video) video.play().catch(() => {});
+    }
     dragging.current = null;
     setHoverInfo(null);
+  };
+
+  const findPerfectLoop = async () => {
+    if (!file || analyzing) return;
+
+    setAnalyzing(true);
+    setAnalyzeProgress(0);
+    analyzeAbortRef.current = false;
+
+    try {
+      // Use a dedicated video element so we don't interfere with thumbnail preview
+      const video = document.createElement('video');
+      video.preload = 'auto';
+      video.crossOrigin = 'anonymous';
+      video.src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
+
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('Failed to load video'));
+      });
+
+      const dur = video.duration;
+      if (dur < 0.5) { setAnalyzing(false); return; }
+
+      const sampleInterval = 0.1; // 10 fps sampling
+      const totalFrames = Math.min(300, Math.floor(dur / sampleInterval));
+      const analyzeWidth = 64;
+      const aspect = video.videoWidth / video.videoHeight;
+      const analyzeHeight = Math.round(analyzeWidth / aspect);
+      const pixelCount = analyzeWidth * analyzeHeight;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = analyzeWidth;
+      canvas.height = analyzeHeight;
+      const ctx = canvas.getContext('2d')!;
+
+      // Phase 1: Extract grayscale frames
+      const frames: Uint8Array[] = [];
+      const frameTimes: number[] = [];
+
+      for (let i = 0; i < totalFrames; i++) {
+        if (analyzeAbortRef.current) { setAnalyzing(false); return; }
+
+        const time = (i / totalFrames) * dur;
+        frameTimes.push(time);
+
+        video.currentTime = time;
+        await new Promise<void>((resolve) => { video.onseeked = () => resolve(); });
+
+        ctx.drawImage(video, 0, 0, analyzeWidth, analyzeHeight);
+        const imageData = ctx.getImageData(0, 0, analyzeWidth, analyzeHeight);
+        const gray = new Uint8Array(pixelCount);
+        for (let j = 0; j < pixelCount; j++) {
+          const idx = j * 4;
+          gray[j] = Math.round(
+            0.299 * imageData.data[idx] +
+            0.587 * imageData.data[idx + 1] +
+            0.114 * imageData.data[idx + 2]
+          );
+        }
+        frames.push(gray);
+
+        setAnalyzeProgress(Math.round(((i + 1) / totalFrames) * 60));
+      }
+
+      // Phase 2: Find frame pair with minimum Mean Absolute Difference
+      const minGapFrames = Math.max(5, Math.ceil(0.5 / sampleInterval));
+      let bestMAD = Infinity;
+      let bestI = 0;
+      let bestJ = 0;
+
+      for (let i = 0; i < frames.length; i++) {
+        if (analyzeAbortRef.current) { setAnalyzing(false); return; }
+
+        for (let j = i + minGapFrames; j < frames.length; j++) {
+          let sum = 0;
+          const a = frames[i];
+          const b = frames[j];
+          for (let k = 0; k < pixelCount; k++) {
+            sum += Math.abs(a[k] - b[k]);
+          }
+          const mad = sum / pixelCount;
+          if (mad < bestMAD) {
+            bestMAD = mad;
+            bestI = i;
+            bestJ = j;
+          }
+        }
+
+        // Yield to UI thread periodically
+        if (i % 10 === 0) {
+          setAnalyzeProgress(60 + Math.round(((i + 1) / frames.length) * 40));
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+
+      const start = parseFloat(frameTimes[bestI].toFixed(1));
+      const end = parseFloat(frameTimes[bestJ].toFixed(1));
+      onChange(start, end);
+    } catch (err) {
+      console.error('Perfect loop analysis failed:', err);
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   if (!file) {
@@ -271,12 +433,24 @@ function VideoTimeline({
 
   return (
     <div className="space-y-2">
-      <Label className="text-xs font-medium">Loop Range</Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-medium">Loop Range</Label>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-5 text-[10px] px-2"
+          disabled={analyzing || !duration}
+          onClick={findPerfectLoop}
+        >
+          {analyzing ? `Analyzing… ${analyzeProgress}%` : 'Perfect Loop'}
+        </Button>
+      </div>
 
       {/* Timeline track */}
       <div
         ref={trackRef}
         className="relative h-8 rounded bg-muted cursor-pointer select-none"
+        onPointerDown={handleTrackPointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeaveTrack}
@@ -287,6 +461,16 @@ function VideoTimeline({
             className="absolute top-0 bottom-0 w-px bg-foreground/30 pointer-events-none z-10"
             style={{ left: pxToOffset(hoverInfo.x) }}
           />
+        )}
+        {/* Playback scrubber head */}
+        {duration > 0 && (
+          <div
+            ref={scrubberRef}
+            className="absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none z-20"
+            style={{ left: '0%' }}
+          >
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-blue-300" />
+          </div>
         )}
         {/* Active range */}
         <div
@@ -407,6 +591,7 @@ interface AnimapPropertyPanelProps {
   brushMode: 'paint' | 'erase';
   setBrushMode: (mode: 'paint' | 'erase') => void;
   convertProgress: number | null;
+  activeVideoRef: MutableRefObject<HTMLVideoElement | null>;
 }
 
 export function AnimapPropertyPanel({
@@ -428,6 +613,7 @@ export function AnimapPropertyPanel({
   brushMode,
   setBrushMode,
   convertProgress,
+  activeVideoRef,
 }: AnimapPropertyPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -631,6 +817,7 @@ export function AnimapPropertyPanel({
                 updateLayerStateKey(selectedLayer.id, 'loop_start', start);
                 updateLayerStateKey(selectedLayer.id, 'loop_end', end);
               }}
+              activeVideoRef={activeVideoRef}
             />
           </>
         )}

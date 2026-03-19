@@ -14,7 +14,7 @@ static func load_animap(slug: String) -> Dictionary:
 		push_warning("Failed to open animap: %s" % path)
 		return {}
 
-	var parsed := JSON.parse_string(file.get_as_text())
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	if typeof(parsed) != TYPE_DICTIONARY:
 		push_warning("Invalid animap JSON: %s" % path)
 		return {}
@@ -48,7 +48,7 @@ static func get_effective_layers(animap_data: Dictionary, state_id: String) -> A
 	for raw_layer in layer_list:
 		if raw_layer is Dictionary:
 			var layer := (raw_layer as Dictionary).duplicate(true)
-			var layer_id := layer.get("id", "")
+			var layer_id: String = layer.get("id", "")
 			var overrides: Dictionary = target_state.get("layer_overrides", {}).get(layer_id, {})
 			for key in overrides.keys():
 				layer[key] = overrides[key]

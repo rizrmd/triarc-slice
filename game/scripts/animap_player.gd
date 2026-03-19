@@ -6,6 +6,7 @@ signal state_changed(state_id: String)
 
 const LAYER_SHADER := preload("res://shaders/animap_layer.gdshader")
 const MAX_MASK_TEXTURES := 4
+const LOOP_SWAP_MARGIN := 0.05
 
 @onready var layer_root: Control = $LayerRoot
 
@@ -26,30 +27,58 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	for layer_id in _video_layers.keys():
 		var video_state: Dictionary = _video_layers[layer_id]
-		var player: VideoStreamPlayer = video_state.get("player")
-		if player == null:
+		var active: VideoStreamPlayer = video_state.get("active")
+		if active == null:
 			continue
 
 		var layer: Dictionary = video_state.get("layer", {})
 		if layer.is_empty():
 			continue
 
-		var texture := player.get_video_texture()
-		var node: VideoStreamPlayer = _layer_nodes.get(layer_id)
+		var texture := active.get_video_texture()
+		var node: Control = _layer_nodes.get(layer_id)
 		if texture != null and node != null and texture.get_size().x > 0.0 and texture.get_size().y > 0.0:
 			node.size = texture.get_size()
+			active.size = texture.get_size()
+			var sb: VideoStreamPlayer = video_state.get("standby")
+			if sb != null:
+				sb.size = texture.get_size()
 
 		var loop_start := float(layer.get("loop_start", 0.0))
 		var loop_end := float(layer.get("loop_end", 0.0))
 		var loop_enabled := bool(layer.get("loop", true))
-		if loop_end > 0.0 and player.stream_position >= loop_end:
-			if loop_enabled:
-				player.stream_position = loop_start
-				if not player.is_playing():
-					player.play()
+
+		if not loop_enabled:
+			if loop_end > 0.0 and active.stream_position >= loop_end:
+				active.stream_position = loop_end
+				active.paused = true
+			continue
+
+		var loop_end_eff := loop_end
+		if loop_end_eff <= 0.0:
+			loop_end_eff = active.get_stream_length()
+		if loop_end_eff <= 0.0:
+			continue
+
+		var threshold := loop_end_eff - LOOP_SWAP_MARGIN
+		if threshold <= loop_start:
+			threshold = loop_end_eff
+
+		if active.stream_position >= threshold:
+			var standby: VideoStreamPlayer = video_state.get("standby")
+			if standby != null:
+				standby.visible = true
+				standby.play()
+				active.visible = false
+				active.paused = true
+				active.stream_position = loop_start
+				video_state["active"] = standby
+				video_state["standby"] = active
+				_video_layers[layer_id] = video_state
 			else:
-				player.stream_position = loop_end
-				player.paused = true
+				active.stream_position = loop_start
+				if not active.is_playing():
+					active.play()
 
 func load_animap(slug: String) -> void:
 	animap_slug = slug
@@ -121,7 +150,7 @@ func _build_layers() -> void:
 func _create_image_layer(layer: Dictionary) -> Control:
 	var node := TextureRect.new()
 	node.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	node.stretch_mode = TextureRect.STRETCH_KEEP_SIZE
+	node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	node.position = Vector2.ZERO
 
 	var texture_path := _resolve_media_path(String(layer.get("file", "")), false)
@@ -142,23 +171,41 @@ func _create_video_layer(layer: Dictionary) -> Control:
 		push_warning("Animap video missing or unsupported for '%s/%s'" % [animap_slug, String(layer.get("id", ""))])
 		return null
 
-	var node := VideoStreamPlayer.new()
-	node.expand = true
-	node.autoplay = false
-	node.loop = false
-	node.position = Vector2.ZERO
-	node.stream = load(stream_path)
-	if node.stream == null:
+	var stream: VideoStream = load(stream_path)
+	if stream == null:
 		push_warning("Animap video failed to load: %s" % stream_path)
 		return null
-	node.play()
 
-	_video_layers[String(layer.get("id", ""))] = {
-		"player": node,
+	var container := Control.new()
+	container.position = Vector2.ZERO
+
+	var player_a := _make_video_player(stream)
+	var player_b := _make_video_player(stream.duplicate())
+	player_b.visible = false
+
+	container.add_child(player_a)
+	container.add_child(player_b)
+
+	player_a.ready.connect(player_a.play, CONNECT_ONE_SHOT)
+
+	var layer_id := String(layer.get("id", ""))
+	_video_layers[layer_id] = {
+		"active": player_a,
+		"standby": player_b,
 		"layer": layer.duplicate(true),
 	}
 
-	return node
+	return container
+
+func _make_video_player(stream: VideoStream) -> VideoStreamPlayer:
+	var p := VideoStreamPlayer.new()
+	p.expand = true
+	p.autoplay = false
+	p.loop = false
+	p.position = Vector2.ZERO
+	p.stream = stream
+	p.use_parent_material = true
+	return p
 
 func _apply_state(state_id: String, animate: bool, transition: Dictionary = {}) -> void:
 	if _transition_tween and _transition_tween.is_valid():
@@ -188,7 +235,7 @@ func _apply_state(state_id: String, animate: bool, transition: Dictionary = {}) 
 		_apply_video_state(layer)
 
 		if animate and _transition_tween:
-			var duration := max(float(transition.get("duration_ms", 0)) / 1000.0, 0.0)
+			var duration: float = maxf(float(transition.get("duration_ms", 0)) / 1000.0, 0.0)
 			if duration <= 0.0:
 				_apply_layer_numeric(node, layer)
 			else:
@@ -221,22 +268,24 @@ func _apply_video_state(layer: Dictionary) -> void:
 	video_state["layer"] = layer.duplicate(true)
 	_video_layers[layer_id] = video_state
 
-	var player: VideoStreamPlayer = video_state.get("player")
-	if player == null:
+	var active: VideoStreamPlayer = video_state.get("active")
+	if active == null:
 		return
 
 	var loop_start := float(layer.get("loop_start", 0.0))
-	if loop_start > 0.0 and player.stream_position < loop_start:
-		player.stream_position = loop_start
+	if loop_start > 0.0 and active.stream_position < loop_start:
+		active.stream_position = loop_start
 
-	var loop_enabled := bool(layer.get("loop", true))
 	var visible := bool(layer.get("visible", true))
-	player.loop = loop_enabled and float(layer.get("loop_end", 0.0)) <= 0.0
-	player.paused = not visible
-	if visible:
-		player.paused = false
-	if visible and not player.is_playing():
-		player.play()
+	active.paused = not visible
+	if visible and not active.is_playing():
+		active.play()
+
+	var standby: VideoStreamPlayer = video_state.get("standby")
+	if standby != null:
+		standby.visible = false
+		standby.paused = true
+		standby.stream_position = loop_start
 
 func _apply_layer_shader(material: ShaderMaterial, layer: Dictionary, mask_textures: Array) -> void:
 	material.set_shader_parameter("animap_size", Vector2(float(animap_data.get("width", 0)), float(animap_data.get("height", 0))))

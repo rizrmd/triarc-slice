@@ -25,7 +25,7 @@ renderer/rendering_method="gl_compatibility"
 
 [autoload]
 
-GameState="res://scripts/game_state.gd"
+GameState="*res://scripts/game_state.gd"
 
 [editor_plugins]
 
