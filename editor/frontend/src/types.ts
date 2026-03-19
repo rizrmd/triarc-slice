@@ -200,11 +200,43 @@ export interface AnimapLayer {
   contrast?: number;
 }
 
+export type AnimapLayerStateOverride = Partial<Pick<
+  AnimapLayer,
+  | 'visible'
+  | 'opacity'
+  | 'x'
+  | 'y'
+  | 'scale'
+  | 'loop'
+  | 'loop_start'
+  | 'loop_end'
+  | 'targets'
+  | 'hue'
+  | 'saturation'
+  | 'lightness'
+  | 'brightness'
+  | 'contrast'
+>>;
+
+export interface AnimapTransition {
+  mode: 'instant' | 'timed';
+  duration_ms?: number;
+}
+
+export interface AnimapState {
+  id: string;
+  name: string;
+  layer_overrides?: Record<string, AnimapLayerStateOverride>;
+  transitions_to?: Record<string, AnimapTransition>;
+  transitions_from?: Record<string, AnimapTransition>;
+}
+
 export interface AnimapConfig {
   name: string;
   width: number;
   height: number;
   layers: AnimapLayer[];
+  states?: AnimapState[];
 }
 
 export const GAME_SCENES: { slug: GameSceneSlug; label: string; desc: string }[] = [

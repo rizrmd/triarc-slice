@@ -7,7 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import type { AnimapConfig, AnimapLayer } from '@/types';
+import type { AnimapConfig, AnimapLayer, AnimapLayerStateOverride, AnimapState, AnimapTransition } from '@/types';
+import {
+  clearStateLayerOverride,
+  DEFAULT_STATE_ID,
+  getAnimapTransition,
+  getStateOverrideValue,
+  normalizeAnimapConfig,
+  updateAnimapTransition,
+  updateStateLayerOverride,
+} from '@/lib/animap-state';
+import { toKebabCase } from '@/lib/utils';
 
 function PropertyRow({
   label,
@@ -19,6 +29,7 @@ function PropertyRow({
   min,
   max,
   displayValue,
+  highlighted = false,
 }: {
   label: string;
   value: number;
@@ -29,6 +40,7 @@ function PropertyRow({
   min?: number;
   max?: number;
   displayValue?: string;
+  highlighted?: boolean;
 }) {
   const startX = useRef(0);
   const startVal = useRef(0);
@@ -69,7 +81,7 @@ function PropertyRow({
     <div className="space-y-1">
       <div className="flex items-center gap-1">
         <Label
-          className="text-xs select-none flex-shrink-0"
+          className={`text-xs select-none flex-shrink-0 ${highlighted ? 'text-primary' : ''}`}
           style={{ cursor: 'ew-resize' }}
           onPointerDown={handlePointerDown}
         >
@@ -379,7 +391,10 @@ function VideoTimeline({
 interface AnimapPropertyPanelProps {
   slug: string;
   config: AnimapConfig;
+  selectedState: AnimapState;
+  selectedStateId: string;
   selectedLayer: AnimapLayer | null;
+  selectedLayerBase: AnimapLayer | null;
   commitConfig: (updater: (prev: AnimapConfig) => AnimapConfig) => void;
   onUpload: (layerId: string, file: File) => void;
   fileVersion: number;
@@ -391,12 +406,16 @@ interface AnimapPropertyPanelProps {
   setBrushHardness: (hardness: number) => void;
   brushMode: 'paint' | 'erase';
   setBrushMode: (mode: 'paint' | 'erase') => void;
+  convertProgress: number | null;
 }
 
 export function AnimapPropertyPanel({
   slug,
   config,
+  selectedState,
+  selectedStateId,
   selectedLayer,
+  selectedLayerBase,
   commitConfig,
   onUpload,
   fileVersion,
@@ -408,14 +427,30 @@ export function AnimapPropertyPanel({
   setBrushHardness,
   brushMode,
   setBrushMode,
+  convertProgress,
 }: AnimapPropertyPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const updateLayer = (id: string, updates: Partial<AnimapLayer>) => {
-    commitConfig((prev) => ({
-      ...prev,
-      layers: prev.layers.map((l) => (l.id === id ? { ...l, ...updates } : l)),
-    }));
+  const states = normalizeAnimapConfig(config).states ?? [];
+
+  const updateLayerStateKey = <K extends keyof AnimapLayerStateOverride>(id: string, key: K, value: AnimapLayerStateOverride[K]) => {
+    commitConfig((prev) => updateStateLayerOverride(prev, selectedStateId, id, key, value));
+  };
+
+  const resetLayerStateKey = (id: string, key: keyof AnimapLayerStateOverride, fallbackValue: AnimapLayer[keyof AnimapLayer]) => {
+    if (selectedStateId === DEFAULT_STATE_ID) {
+      commitConfig((prev) => ({
+        ...prev,
+        layers: prev.layers.map((layer) => (layer.id === id ? { ...layer, [key]: fallbackValue } : layer)),
+      }));
+      return;
+    }
+
+    commitConfig((prev) => clearStateLayerOverride(prev, selectedStateId, id, key));
+  };
+
+  const updateTransition = (direction: 'to' | 'from', otherStateId: string, transition: AnimapTransition | null) => {
+    commitConfig((prev) => updateAnimapTransition(prev, selectedStateId, direction, otherStateId, transition));
   };
 
   if (!selectedLayer) {
@@ -445,39 +480,62 @@ export function AnimapPropertyPanel({
           <Label className="text-xs">Name</Label>
           <Input
             value={selectedLayer.name}
-            onChange={(e) => updateLayer(selectedLayer.id, { name: e.target.value })}
+            onChange={(e) => {
+              const kebab = toKebabCase(e.target.value);
+              commitConfig((prev) => ({
+                ...prev,
+                layers: prev.layers.map((layer) => (layer.id === selectedLayer.id ? { ...layer, name: kebab } : layer)),
+              }));
+            }}
           />
         </div>
 
         {/* File upload */}
         <div className="space-y-1">
           <Label className="text-xs">File</Label>
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="flex-1"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-3 w-3" />
-              Upload
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              accept={
-                selectedLayer.type === 'video'
-                  ? 'video/*,.ogv,.mp4,.webm'
-                  : 'image/*'
-              }
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onUpload(selectedLayer.id, file);
-                e.target.value = '';
-              }}
-            />
-          </div>
+          {convertProgress !== null ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>Converting to OGV...</span>
+                <span>{convertProgress}%</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-300"
+                  style={{ width: `${convertProgress}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-3 w-3" />
+                  Upload
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept={
+                    selectedLayer.type === 'video'
+                      ? 'video/*,.ogv'
+                      : 'image/*'
+                  }
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onUpload(selectedLayer.id, file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </>
+          )}
           {selectedLayer.file && (
             <p className="text-xs text-muted-foreground truncate">{selectedLayer.file}</p>
           )}
@@ -498,59 +556,83 @@ export function AnimapPropertyPanel({
             <PropertyRow
               label="X"
               value={selectedLayer.x ?? 0}
-              onChange={(v) => updateLayer(selectedLayer.id, { x: v })}
-              onReset={() => updateLayer(selectedLayer.id, { x: 0 })}
-              resetValue={0}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'x', v)}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'x', selectedLayerBase?.x ?? 0)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 0 : (selectedLayerBase?.x ?? 0)}
               step={1}
               min={-config.width}
               max={config.width}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'x') !== undefined}
             />
             <PropertyRow
               label="Y"
               value={selectedLayer.y ?? 0}
-              onChange={(v) => updateLayer(selectedLayer.id, { y: v })}
-              onReset={() => updateLayer(selectedLayer.id, { y: 0 })}
-              resetValue={0}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'y', v)}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'y', selectedLayerBase?.y ?? 0)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 0 : (selectedLayerBase?.y ?? 0)}
               step={1}
               min={-config.height}
               max={config.height}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'y') !== undefined}
             />
             <PropertyRow
               label="Scale"
               value={selectedLayer.scale ?? 1}
-              onChange={(v) => updateLayer(selectedLayer.id, { scale: v })}
-              onReset={() => updateLayer(selectedLayer.id, { scale: 1 })}
-              resetValue={1}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'scale', v)}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'scale', selectedLayerBase?.scale ?? 1)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 1 : (selectedLayerBase?.scale ?? 1)}
               step={0.01}
               min={0.01}
               max={5}
               displayValue={((selectedLayer.scale ?? 1) * 100).toFixed(0) + '%'}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'scale') !== undefined}
             />
             <PropertyRow
               label="Opacity"
               value={selectedLayer.opacity ?? 1}
-              onChange={(v) => updateLayer(selectedLayer.id, { opacity: v })}
-              onReset={() => updateLayer(selectedLayer.id, { opacity: 1 })}
-              resetValue={1}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'opacity', v)}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'opacity', selectedLayerBase?.opacity ?? 1)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 1 : (selectedLayerBase?.opacity ?? 1)}
               step={0.01}
               min={0}
               max={1}
               displayValue={((selectedLayer.opacity ?? 1) * 100).toFixed(0) + '%'}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'opacity') !== undefined}
             />
           </>
         )}
 
         {/* Video-specific controls */}
         {selectedLayer.type === 'video' && (
-          <VideoTimeline
-            slug={slug}
-            layerId={selectedLayer.id}
-            file={selectedLayer.file}
-            fileVersion={fileVersion}
-            loopStart={selectedLayer.loop_start ?? 0}
-            loopEnd={selectedLayer.loop_end ?? 0}
-            onChange={(start, end) => updateLayer(selectedLayer.id, { loop_start: start, loop_end: end })}
-          />
+          <>
+            <div className="space-y-2 border-t pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-medium">Loop Playback</Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    When off, the video plays once and stops at the selected end time.
+                  </p>
+                </div>
+                <Switch
+                  checked={selectedLayer.loop ?? true}
+                  onCheckedChange={(checked) => updateLayerStateKey(selectedLayer.id, 'loop', checked)}
+                />
+              </div>
+            </div>
+
+            <VideoTimeline
+              slug={slug}
+              layerId={selectedLayer.id}
+              file={selectedLayer.file}
+              fileVersion={fileVersion}
+              loopStart={selectedLayer.loop_start ?? 0}
+              loopEnd={selectedLayer.loop_end ?? 0}
+              onChange={(start, end) => {
+                updateLayerStateKey(selectedLayer.id, 'loop_start', start);
+                updateLayerStateKey(selectedLayer.id, 'loop_end', end);
+              }}
+            />
+          </>
         )}
 
         {/* Mask-specific controls */}
@@ -566,11 +648,11 @@ export function AnimapPropertyPanel({
                       checked={(selectedLayer.targets ?? []).includes(l.id)}
                       onCheckedChange={(checked) => {
                         const targets = selectedLayer.targets ?? [];
-                        updateLayer(selectedLayer.id, {
-                          targets: checked
-                            ? [...targets, l.id]
-                            : targets.filter((t) => t !== l.id),
-                        });
+                        updateLayerStateKey(
+                          selectedLayer.id,
+                          'targets',
+                          checked ? [...targets, l.id] : targets.filter((t) => t !== l.id),
+                        );
                       }}
                       className="scale-75"
                     />
@@ -639,7 +721,17 @@ export function AnimapPropertyPanel({
         {(selectedLayer.type === 'image' || selectedLayer.type === 'video') && (
           <AdvancedFilters
             layer={selectedLayer}
-            updateLayer={updateLayer}
+            updateLayerStateKey={updateLayerStateKey}
+            resetLayerStateKey={resetLayerStateKey}
+          />
+        )}
+
+        {states.length > 1 && (
+          <TransitionsEditor
+            states={states}
+            selectedState={selectedState}
+            selectedStateId={selectedStateId}
+            updateTransition={updateTransition}
           />
         )}
       </CardContent>
@@ -649,10 +741,12 @@ export function AnimapPropertyPanel({
 
 function AdvancedFilters({
   layer,
-  updateLayer,
+  updateLayerStateKey,
+  resetLayerStateKey,
 }: {
   layer: AnimapLayer;
-  updateLayer: (id: string, updates: Partial<AnimapLayer>) => void;
+  updateLayerStateKey: <K extends keyof AnimapLayerStateOverride>(id: string, key: K, value: AnimapLayerStateOverride[K]) => void;
+  resetLayerStateKey: (id: string, key: keyof AnimapLayerStateOverride, fallbackValue: AnimapLayer[keyof AnimapLayer]) => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -689,7 +783,7 @@ function AdvancedFilters({
                   <button
                     className="text-muted-foreground hover:text-foreground disabled:opacity-30"
                     disabled={val === f.default_}
-                    onClick={() => updateLayer(layer.id, { [f.key]: f.default_ })}
+                    onClick={() => resetLayerStateKey(layer.id, f.key, f.default_)}
                     title={`Reset ${f.label}`}
                   >
                     <RotateCcw className="h-3 w-3" />
@@ -697,7 +791,7 @@ function AdvancedFilters({
                 </div>
                 <Slider
                   value={[val]}
-                  onValueChange={([v]) => updateLayer(layer.id, { [f.key]: v })}
+                  onValueChange={([v]) => updateLayerStateKey(layer.id, f.key, v)}
                   min={f.min}
                   max={f.max}
                   step={f.step}
@@ -708,15 +802,101 @@ function AdvancedFilters({
           <button
             className="text-xs text-muted-foreground hover:text-foreground"
             onClick={() => {
-              const resets: Partial<AnimapLayer> = {};
-              for (const f of filters) (resets as any)[f.key] = f.default_;
-              updateLayer(layer.id, resets);
+              for (const f of filters) {
+                resetLayerStateKey(layer.id, f.key, f.default_);
+              }
             }}
           >
             Reset all filters
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function TransitionsEditor({
+  states,
+  selectedState,
+  selectedStateId,
+  updateTransition,
+}: {
+  states: AnimapState[];
+  selectedState: AnimapState;
+  selectedStateId: string;
+  updateTransition: (direction: 'to' | 'from', otherStateId: string, transition: AnimapTransition | null) => void;
+}) {
+  const otherStates = states.filter((state) => state.id !== selectedStateId);
+
+  return (
+    <div className="border-t pt-3 space-y-3">
+      <div>
+        <Label className="text-xs font-medium">Transitions</Label>
+        <p className="text-[10px] text-muted-foreground">
+          Missing entries use the default instant transition.
+        </p>
+      </div>
+      {otherStates.map((state) => {
+        const transitionTo = getAnimapTransition(selectedState, 'to', state.id);
+        const transitionFrom = getAnimapTransition(selectedState, 'from', state.id);
+
+        return (
+          <div key={state.id} className="rounded-md border p-3 space-y-3">
+            <div className="text-xs font-medium">{state.name}</div>
+            <TransitionRow
+              label={`To ${state.name}`}
+              transition={transitionTo}
+              onChange={(transition) => updateTransition('to', state.id, transition)}
+            />
+            <TransitionRow
+              label={`From ${state.name}`}
+              transition={transitionFrom}
+              onChange={(transition) => updateTransition('from', state.id, transition)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TransitionRow({
+  label,
+  transition,
+  onChange,
+}: {
+  label: string;
+  transition: AnimapTransition;
+  onChange: (transition: AnimapTransition | null) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex gap-2">
+        <select
+          className="h-8 flex-1 rounded border border-input bg-background px-2 text-xs"
+          value={transition.mode}
+          onChange={(e) => {
+            const mode = e.target.value as AnimapTransition['mode'];
+            onChange(mode === 'instant' ? null : { mode, duration_ms: transition.duration_ms && transition.duration_ms > 0 ? transition.duration_ms : 300 });
+          }}
+        >
+          <option value="instant">Instant</option>
+          <option value="timed">Timed</option>
+        </select>
+        <Input
+          type="number"
+          min={0}
+          step={50}
+          className="h-8 w-24 text-xs"
+          disabled={transition.mode === 'instant'}
+          value={transition.mode === 'instant' ? 0 : (transition.duration_ms ?? 300)}
+          onChange={(e) => {
+            const duration = Math.max(0, parseInt(e.target.value || '0', 10));
+            onChange(duration <= 0 ? null : { mode: 'timed', duration_ms: duration });
+          }}
+        />
+      </div>
     </div>
   );
 }

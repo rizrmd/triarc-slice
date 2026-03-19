@@ -1,23 +1,25 @@
 package main
 
 import (
+	"archive/zip"
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
-	"github.com/chai2010/webp"
 )
 
 type HeroConfig struct {
@@ -128,6 +130,318 @@ type HeroActionOverride struct {
 	Targeting  *ActionTargeting `json:"targeting,omitempty"`
 }
 
+// getFFmpegPath returns the path to ffmpeg, downloading it if necessary.
+// If requiredCodec is non-empty, the returned ffmpeg must support that encoder.
+var cachedFFmpegPaths sync.Map // codec -> path
+
+func ffmpegHasCodec(ffmpegPath, codec string) bool {
+	out, err := exec.Command(ffmpegPath, "-encoders").Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), codec)
+}
+
+func getFFmpegPath(requiredCodecs ...string) (string, error) {
+	cacheKey := strings.Join(requiredCodecs, ",")
+	if v, ok := cachedFFmpegPaths.Load(cacheKey); ok {
+		return v.(string), nil
+	}
+
+	checkCodecs := func(p string) bool {
+		for _, codec := range requiredCodecs {
+			if !ffmpegHasCodec(p, codec) {
+				return false
+			}
+		}
+		return true
+	}
+
+	// Check system PATH
+	if p, err := exec.LookPath("ffmpeg"); err == nil {
+		if checkCodecs(p) {
+			cachedFFmpegPaths.Store(cacheKey, p)
+			return p, nil
+		}
+		if len(requiredCodecs) > 0 {
+			log.Printf("System ffmpeg at %s lacks required codecs %v, trying downloaded binary...", p, requiredCodecs)
+		}
+	}
+	// Check local bin directory
+	binName := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		binName = "ffmpeg.exe"
+	}
+	localPath := filepath.Join("bin", binName)
+	if _, err := os.Stat(localPath); err == nil {
+		if checkCodecs(localPath) {
+			cachedFFmpegPaths.Store(cacheKey, localPath)
+			return localPath, nil
+		}
+	}
+	// Download
+	log.Println("ffmpeg not found or missing required codecs, downloading...")
+	if err := downloadFFmpeg(localPath); err != nil {
+		if len(requiredCodecs) > 0 {
+			return "", fmt.Errorf("ffmpeg with codecs %v not available (system ffmpeg lacks them and download failed: %w)", requiredCodecs, err)
+		}
+		return "", fmt.Errorf("ffmpeg not found and download failed: %w", err)
+	}
+	if !checkCodecs(localPath) {
+		return "", fmt.Errorf("ffmpeg does not support required codecs %v; try: brew reinstall ffmpeg", requiredCodecs)
+	}
+	cachedFFmpegPaths.Store(cacheKey, localPath)
+	return localPath, nil
+}
+
+func downloadFFmpeg(targetPath string) error {
+	var platform string
+	switch runtime.GOOS {
+	case "darwin":
+		platform = "osx-64"
+	case "linux":
+		platform = "linux-64"
+	case "windows":
+		platform = "windows-64"
+	default:
+		return fmt.Errorf("unsupported OS: %s", runtime.GOOS)
+	}
+
+	resp, err := http.Get("https://ffbinaries.com/api/v1/version/latest")
+	if err != nil {
+		return fmt.Errorf("failed to fetch ffmpeg info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var versionInfo struct {
+		Bin map[string]struct {
+			FFmpeg string `json:"ffmpeg"`
+		} `json:"bin"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&versionInfo); err != nil {
+		return fmt.Errorf("failed to parse ffmpeg info: %w", err)
+	}
+
+	binInfo, ok := versionInfo.Bin[platform]
+	if !ok || binInfo.FFmpeg == "" {
+		return fmt.Errorf("no ffmpeg download for platform: %s", platform)
+	}
+
+	log.Printf("Downloading ffmpeg from %s...", binInfo.FFmpeg)
+	dlResp, err := http.Get(binInfo.FFmpeg)
+	if err != nil {
+		return fmt.Errorf("failed to download ffmpeg: %w", err)
+	}
+	defer dlResp.Body.Close()
+
+	zipData, err := io.ReadAll(dlResp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read ffmpeg download: %w", err)
+	}
+
+	zipReader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		return fmt.Errorf("failed to open zip: %w", err)
+	}
+
+	binName := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		binName = "ffmpeg.exe"
+	}
+
+	for _, f := range zipReader.File {
+		if filepath.Base(f.Name) == binName {
+			rc, err := f.Open()
+			if err != nil {
+				return fmt.Errorf("failed to extract ffmpeg: %w", err)
+			}
+			defer rc.Close()
+
+			os.MkdirAll(filepath.Dir(targetPath), 0755)
+			out, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+			if err != nil {
+				return fmt.Errorf("failed to create ffmpeg binary: %w", err)
+			}
+			defer out.Close()
+
+			if _, err := io.Copy(out, rc); err != nil {
+				return fmt.Errorf("failed to write ffmpeg binary: %w", err)
+			}
+
+			log.Printf("ffmpeg downloaded to %s", targetPath)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("ffmpeg binary not found in zip")
+}
+
+// Video conversion progress tracking
+type convertTask struct {
+	Progress int    `json:"progress"`
+	Done     bool   `json:"done"`
+	Error    string `json:"error,omitempty"`
+	File     string `json:"file,omitempty"`
+}
+
+var convertTasks sync.Map
+
+func getVideoDuration(ffmpegBin, filePath string) float64 {
+	cmd := exec.Command(ffmpegBin, "-i", filePath)
+	output, _ := cmd.CombinedOutput()
+	lines := string(output)
+	idx := strings.Index(lines, "Duration: ")
+	if idx < 0 {
+		return 0
+	}
+	durStr := lines[idx+10:]
+	if ci := strings.Index(durStr, ","); ci > 0 {
+		durStr = durStr[:ci]
+	}
+	parts := strings.Split(strings.TrimSpace(durStr), ":")
+	if len(parts) != 3 {
+		return 0
+	}
+	hours, _ := strconv.ParseFloat(parts[0], 64)
+	mins, _ := strconv.ParseFloat(parts[1], 64)
+	secs, _ := strconv.ParseFloat(parts[2], 64)
+	return hours*3600 + mins*60 + secs
+}
+
+func convertVideoToOGV(taskID, ffmpegBin, srcPath, dstPath string) {
+	defer os.Remove(srcPath)
+
+	duration := getVideoDuration(ffmpegBin, srcPath)
+
+	cmd := exec.Command(ffmpegBin, "-y", "-i", srcPath,
+		"-c:v", "libtheora", "-q:v", "7",
+		"-c:a", "libvorbis", "-q:a", "4",
+		"-progress", "pipe:1",
+		dstPath)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		convertTasks.Store(taskID, &convertTask{Done: true, Error: "Failed to start conversion"})
+		return
+	}
+
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
+	if err := cmd.Start(); err != nil {
+		convertTasks.Store(taskID, &convertTask{Done: true, Error: "Failed to start ffmpeg"})
+		return
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "out_time_us=") {
+			timeUs, _ := strconv.ParseFloat(strings.TrimPrefix(line, "out_time_us="), 64)
+			if duration > 0 {
+				pct := int(timeUs / (duration * 1_000_000) * 100)
+				if pct > 99 {
+					pct = 99
+				}
+				if pct < 0 {
+					pct = 0
+				}
+				convertTasks.Store(taskID, &convertTask{Progress: pct})
+			}
+		}
+	}
+
+	if err := cmd.Wait(); err != nil {
+		log.Printf("ffmpeg conversion failed: %s\nstderr: %s", err, stderrBuf.String())
+		convertTasks.Store(taskID, &convertTask{Done: true, Error: fmt.Sprintf("Video conversion failed: %s", stderrBuf.String())})
+		return
+	}
+
+	file := filepath.Base(dstPath)
+	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: file})
+}
+
+func convertStatusHandler(w http.ResponseWriter, r *http.Request) {
+	taskID := strings.TrimPrefix(r.URL.Path, "/api/animap-convert-status/")
+	if taskID == "" {
+		http.Error(w, "Missing task ID", http.StatusBadRequest)
+		return
+	}
+
+	val, ok := convertTasks.Load(taskID)
+	if !ok {
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	task := val.(*convertTask)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(task)
+
+	if task.Done {
+		convertTasks.Delete(taskID)
+	}
+}
+
+// animapPreviewHandler serves .ogv video files transcoded to .webm for browser preview.
+// Path: /api/animap-preview/{slug}/{file}
+// Caches the .webm alongside the .ogv on disk.
+func animapPreviewHandler(w http.ResponseWriter, r *http.Request) {
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/animap-preview/")
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	slug := filepath.Base(parts[0])
+	file := filepath.Base(parts[1])
+
+	animapDir := filepath.Join(resolvePath("./data"), "animap", slug)
+	srcPath := filepath.Join(animapDir, file)
+
+	// Only transcode .ogv files
+	if !strings.HasSuffix(strings.ToLower(file), ".ogv") {
+		http.ServeFile(w, r, srcPath)
+		return
+	}
+
+	// Check if source exists
+	srcInfo, err := os.Stat(srcPath)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+
+	// Cached .webm path
+	webmPath := srcPath[:len(srcPath)-4] + ".preview.webm"
+
+	// Serve cached version if it exists and is newer than source
+	if webmInfo, err := os.Stat(webmPath); err == nil && webmInfo.ModTime().After(srcInfo.ModTime()) {
+		http.ServeFile(w, r, webmPath)
+		return
+	}
+
+	// Transcode .ogv -> .webm
+	ffmpegBin, err := getFFmpegPath()
+	if err != nil {
+		http.Error(w, "ffmpeg not available", http.StatusInternalServerError)
+		return
+	}
+
+	cmd := exec.Command(ffmpegBin, "-y", "-i", srcPath,
+		"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+		"-an",
+		webmPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Preview transcode failed: %v\n%s", err, output)
+		http.Error(w, "Transcode failed", http.StatusInternalServerError)
+		return
+	}
+
+	http.ServeFile(w, r, webmPath)
+}
+
 func resolvePath(path string) string {
 	if _, err := os.Stat(path); err == nil {
 		return path
@@ -153,7 +467,13 @@ func main() {
 	}
 
 	fs := http.FileServer(http.Dir(frontendDist))
-	http.Handle("/", fs)
+	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Prevent caching index.html so rebuilds are picked up without hard refresh
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		fs.ServeHTTP(w, r)
+	}))
 
 	// Serve card assets
 	// Since the binary is in root, we can serve directly from data/
@@ -174,8 +494,11 @@ func main() {
 	http.HandleFunc("/api/action-bg-select/", actionBgSelectHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
 	http.HandleFunc("/api/animaps", listAnimapsHandler)
+	http.HandleFunc("/api/animap-categories", animapCategoriesHandler)
 	http.HandleFunc("/api/animap/", animapHandler)
 	http.HandleFunc("/api/animap-layer/", animapLayerHandler)
+	http.HandleFunc("/api/animap-convert-status/", convertStatusHandler)
+	http.HandleFunc("/api/animap-preview/", animapPreviewHandler)
 	http.HandleFunc("/api/game-layout", gameLayoutHandler)
 	http.HandleFunc("/api/assets/", assetsListHandler)
 	assetsDir := resolvePath("./assets")
@@ -244,6 +567,59 @@ func listAnimapsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(animaps)
+}
+
+func animapCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	categoriesPath := filepath.Join(resolvePath("./data"), "animap", "categories.json")
+
+	switch r.Method {
+	case http.MethodGet:
+		data, err := os.ReadFile(categoriesPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte("{}"))
+				return
+			}
+			http.Error(w, "Failed to read categories", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+
+	case http.MethodPost:
+		var categories map[string][]string
+		if err := json.NewDecoder(r.Body).Decode(&categories); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		dir := filepath.Dir(categoriesPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
+			return
+		}
+
+		file, err := os.Create(categoriesPath)
+		if err != nil {
+			http.Error(w, "Failed to open file for writing", http.StatusInternalServerError)
+			return
+		}
+		defer file.Close()
+
+		encoder := json.NewEncoder(file)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(categories); err != nil {
+			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func animapHandler(w http.ResponseWriter, r *http.Request) {
@@ -391,41 +767,71 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Use layer name as filename base if provided, otherwise fall back to layerId
+		baseName := layerId
+		if name := r.FormValue("name"); name != "" {
+			baseName = name
+		}
+
 		// Detect if video by content type or file extension
 		ext := strings.ToLower(filepath.Ext(header.Filename))
-		isVideo := ext == ".ogv" || ext == ".mp4" || ext == ".webm"
+		isVideo := ext == ".ogv" || ext == ".mp4" || ext == ".webm" || ext == ".mov" || ext == ".avi" || ext == ".mkv"
 		contentType := http.DetectContentType(data)
 		if strings.HasPrefix(contentType, "video/") {
 			isVideo = true
 		}
 
-		// Remove old files with this layerId
-		oldFiles, _ := filepath.Glob(filepath.Join(animapDir, layerId+".*"))
+		// Remove old file if specified
+		if oldFile := r.FormValue("old_file"); oldFile != "" {
+			oldFile = filepath.Base(oldFile)
+			os.Remove(filepath.Join(animapDir, oldFile))
+		}
+		// Remove old files with this baseName
+		oldFiles, _ := filepath.Glob(filepath.Join(animapDir, baseName+".*"))
 		for _, f := range oldFiles {
 			os.Remove(f)
 		}
 
 		if isVideo {
-			// Save video as-is with original extension
 			if ext == "" {
 				ext = ".ogv"
 			}
-			target := filepath.Join(animapDir, layerId+ext)
-			if err := os.WriteFile(target, data, 0644); err != nil {
-				http.Error(w, "Failed to save video", http.StatusInternalServerError)
-				return
+			if ext != ".ogv" {
+				// Convert non-OGV videos to OGV via ffmpeg (async with progress)
+				ffmpegBin, err := getFFmpegPath("libtheora", "libvorbis")
+				if err != nil {
+					http.Error(w, "ffmpeg not available: "+err.Error(), http.StatusInternalServerError)
+					return
+				}
+				tmpSrc := filepath.Join(animapDir, baseName+"_tmp"+ext)
+				if err := os.WriteFile(tmpSrc, data, 0644); err != nil {
+					http.Error(w, "Failed to save temp video", http.StatusInternalServerError)
+					return
+				}
+				target := filepath.Join(animapDir, baseName+".ogv")
+				taskID := fmt.Sprintf("%d", time.Now().UnixNano())
+				convertTasks.Store(taskID, &convertTask{Progress: 0})
+				go convertVideoToOGV(taskID, ffmpegBin, tmpSrc, target)
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"status": "converting", "task": taskID})
+			} else {
+				target := filepath.Join(animapDir, baseName+".ogv")
+				if err := os.WriteFile(target, data, 0644); err != nil {
+					http.Error(w, "Failed to save video", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".ogv"})
 			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": layerId + ext})
 		} else {
 			// Image/mask — convert to webp
-			target := filepath.Join(animapDir, layerId+".webp")
+			target := filepath.Join(animapDir, baseName+".webp")
 			if err := saveAsWebP(data, target); err != nil {
 				http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": layerId + ".webp"})
+			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".webp"})
 		}
 
 	case http.MethodDelete:
@@ -689,23 +1095,21 @@ func saveAsWebP(data []byte, targetPath string) error {
 		return os.WriteFile(targetPath, data, 0644)
 	}
 
-	// Decode the image
-	img, _, err := image.Decode(bytes.NewReader(data))
+	ffmpegBin, err := getFFmpegPath()
 	if err != nil {
-		return fmt.Errorf("failed to decode image: %v", err)
+		return fmt.Errorf("ffmpeg not available: %v", err)
 	}
 
-	// Create output file
-	out, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("failed to create output file: %v", err)
+	// Write input to temp file
+	tmpFile := targetPath + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0644); err != nil {
+		return fmt.Errorf("failed to write temp file: %v", err)
 	}
-	defer out.Close()
+	defer os.Remove(tmpFile)
 
-	// Encode as WebP
-	// Lossless: false, Quality: 90 is a good default
-	if err := webp.Encode(out, img, &webp.Options{Lossless: false, Quality: 90}); err != nil {
-		return fmt.Errorf("failed to encode webp: %v", err)
+	cmd := exec.Command(ffmpegBin, "-y", "-i", tmpFile, "-quality", "90", targetPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("ffmpeg webp conversion failed: %v\n%s", err, output)
 	}
 
 	return nil
