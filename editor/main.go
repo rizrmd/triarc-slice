@@ -501,6 +501,15 @@ func main() {
 	assetsDir := resolvePath("./assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
 
+	// Pre-check ffmpeg availability at startup (downloads if needed)
+	go func() {
+		if p, err := getFFmpegPath(); err != nil {
+			log.Printf("WARNING: ffmpeg not available: %v", err)
+		} else {
+			log.Printf("ffmpeg ready: %s", p)
+		}
+	}()
+
 	port := "8080"
 	fmt.Printf("Server starting on http://localhost:%s\n", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
