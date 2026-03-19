@@ -1,22 +1,15 @@
 extends Control
-## res://scripts/main.gd: Main screen with panning video background and three UI states
+## res://scripts/main.gd: Main screen with animap background and three UI states
 
 signal view_changed(view_name: String)
 
 # Node references
-@onready var video_bg: VideoStreamPlayer = $VideoClip/VideoBackground
+@onready var animap_player: AnimapPlayer = $AnimapClip/AnimapPlayer
 @onready var login_ui: Control = $LoginUI
 @onready var home_ui: Control = $HomeUI
 @onready var find_match_ui: Control = $FindMatchUI
 
-# Pan positions computed dynamically based on viewport
-var _pan_login: float = 0.0
-var _pan_home: float = 0.0
-var _pan_find_match: float = 0.0
-const PAN_DURATION: float = 0.5
-
 var _current_view: String = "login"
-var _tween: Tween = null
 
 # Google Sign-In
 const WEB_CLIENT_ID = "12643923522-2oi6nt6clhbiav3r7kqgj27v00rm1nk6.apps.googleusercontent.com"
@@ -29,25 +22,21 @@ var _player_id: String = ""
 var _display_name: String = ""
 var _id_token: String = ""
 
+const MAIN_ANIMAP_SLUG := "main"
+const VIEW_TO_ANIMAP_STATE := {
+	"login": "login",
+	"home": "home",
+	"find_match": "find-match",
+}
+
 func _ready() -> void:
-	# Size video to fill viewport height (video is 1:1 square)
-	var vp_size = get_viewport().get_visible_rect().size
-	var video_size = vp_size.y  # full height, square so width = height
-	video_bg.expand = true
-	video_bg.size = Vector2(video_size, video_size)
-	video_bg.position = Vector2(0, 0)
-
-	# Compute pan offsets: extra width beyond viewport
-	var extra = video_size - vp_size.x
-	_pan_login = 0.0
-	_pan_home = -extra * 0.2
-	_pan_find_match = -extra
-
 	# Connect button signals
 	login_ui.get_node("LoginButton").pressed.connect(_on_login_pressed)
 	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
 	home_ui.get_node("LogoutButton").pressed.connect(_on_logout_pressed)
 	find_match_ui.get_node("BackButton").pressed.connect(_on_back_pressed)
+
+	animap_player.load_animap(MAIN_ANIMAP_SLUG)
 
 	# Initialize Google Sign-In plugin (Android only)
 	if Engine.has_singleton("GodotGoogleSignIn"):
@@ -181,32 +170,14 @@ func _on_ws_message(msg: String) -> void:
 
 # --- View management ---
 
-func _show_view(view_name: String, animate: bool = true) -> void:
+func _show_view(view_name: String, _animate: bool = true) -> void:
 	_current_view = view_name
-
-	var target_x: float = _pan_login
-	match view_name:
-		"login":
-			target_x = _pan_login
-		"home":
-			target_x = _pan_home
-		"find_match":
-			target_x = _pan_find_match
-
-	if _tween and _tween.is_valid():
-		_tween.kill()
-
-	if animate:
-		_tween = create_tween()
-		_tween.set_ease(Tween.EASE_IN_OUT)
-		_tween.set_trans(Tween.TRANS_CUBIC)
-		_tween.tween_property(video_bg, ^"position:x", target_x, PAN_DURATION)
-		_tween.tween_callback(_update_ui_visibility.bind(view_name))
-		_update_ui_visibility(view_name)
-	else:
-		video_bg.position.x = target_x
-		_update_ui_visibility(view_name)
-
+	_update_ui_visibility(view_name)
+	var state_id: String = VIEW_TO_ANIMAP_STATE.get(view_name, AnimapLoader.DEFAULT_STATE_ID)
+	if animap_player.has_state(state_id):
+		animap_player.set_state(state_id)
+	elif animap_player.has_state(AnimapLoader.DEFAULT_STATE_ID):
+		animap_player.set_state(AnimapLoader.DEFAULT_STATE_ID)
 	view_changed.emit(view_name)
 
 func _update_ui_visibility(view_name: String) -> void:
