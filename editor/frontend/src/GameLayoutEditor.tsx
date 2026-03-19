@@ -44,20 +44,43 @@ import { Slider } from '@/components/ui/slider';
 import { CardPreview } from '@/components/CardPreview';
 import { HeroPosePreview } from '@/components/HeroPosePreview';
 import { ASPECT_PRESETS, getViewportForAspect } from '@/lib/godot';
-import type { Box, GameLayout, GameLayoutFile } from '@/types';
+import type { Box, GameLayout, GameLayoutFile, AnimapConfig } from '@/types';
 import { GAME_SCENES } from '@/types';
+
+function AnimapBoxPreview({ slug }: { slug: string }) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/animap/${slug}`)
+      .then(res => res.json())
+      .then((config: AnimapConfig) => {
+        const firstImage = config.layers?.find(l => l.type === 'image' && l.visible);
+        if (firstImage) {
+          setPreviewUrl(`/api/animap-preview/${slug}/${firstImage.file}`);
+        }
+      })
+      .catch(() => {});
+  }, [slug]);
+
+  if (!previewUrl) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+        {slug}
+      </div>
+    );
+  }
+
+  return <img src={previewUrl} className="w-full h-full object-contain" alt={slug} />;
+}
 
 const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
   startup: [
     { id: 'logo', label: 'Logo' },
   ],
   login: [
-    { id: 'title', label: 'Title' },
-    { id: 'username_input', label: 'Username Input' },
-    { id: 'password_input', label: 'Password Input' },
-    { id: 'login_button', label: 'Login Button' },
-    { id: 'register_button', label: 'Register Button' },
-    { id: 'guest_button', label: 'Guest Button' },
+    { id: 'logo', label: 'Logo' },
+    { id: 'sign_in_button', label: 'Sign In Button' },
+    { id: 'status_label', label: 'Status Label' },
   ],
   home: [
     { id: 'player_avatar', label: 'Player Avatar' },
@@ -282,6 +305,7 @@ export default function GameLayoutEditor() {
   const [charAssets, setCharAssets] = useState<{ name: string; url: string }[]>([]);
   const [cards, setCards] = useState<string[]>([]);
   const [actions, setActions] = useState<string[]>([]);
+  const [animaps, setAnimaps] = useState<string[]>([]);
   const [selectedBoxes, setSelectedBoxes] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -1013,6 +1037,11 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(setActions)
       .catch(err => console.error("Failed to fetch actions", err));
+
+    fetch('/api/animaps')
+      .then(res => res.json())
+      .then(setAnimaps)
+      .catch(err => console.error("Failed to fetch animaps", err));
   }, [aspectSlug, sceneSlug]);
 
   // Auto-save effect
@@ -1061,6 +1090,9 @@ export default function GameLayoutEditor() {
     return () => clearTimeout(timer);
   }, [layout]);
 
+  // Properties that should be shared across all aspect ratios
+  const SHARED_BOX_PROPS: (keyof Box)[] = ['animapSlug', 'cardSlug', 'actionSlug', 'poseSlug', 'asset', 'fill'];
+
   const updateBox = (id: string, updates: Partial<Box>) => {
     updateLayout(prev => {
       const boxes = getBoxes(prev);
@@ -1083,7 +1115,31 @@ export default function GameLayoutEditor() {
         }
       }
 
-      return setBoxesForAspect(prev, { ...boxes, [id]: newBox });
+      let result = setBoxesForAspect(prev, { ...boxes, [id]: newBox });
+
+      // Sync shared properties to all other aspect ratios
+      const sharedUpdates: Record<string, unknown> = {};
+      for (const key of SHARED_BOX_PROPS) {
+        if (key in updates) {
+          sharedUpdates[key] = (updates as Record<string, unknown>)[key];
+        }
+      }
+      if (Object.keys(sharedUpdates).length > 0) {
+        const allBoxes = { ...result.boxes };
+        for (const otherAspect of Object.keys(allBoxes)) {
+          if (otherAspect === aspectSlug) continue;
+          const otherBoxes = allBoxes[otherAspect];
+          if (otherBoxes?.[id]) {
+            allBoxes[otherAspect] = {
+              ...otherBoxes,
+              [id]: { ...otherBoxes[id], ...sharedUpdates },
+            };
+          }
+        }
+        result = { ...result, boxes: allBoxes };
+      }
+
+      return result;
     });
   };
 
@@ -1313,7 +1369,7 @@ export default function GameLayoutEditor() {
 
               {Object.values(currentBoxes).map(box => (
                 (() => {
-                  const hasPreview = !!(box.cardSlug || box.actionSlug || box.poseSlug);
+                  const hasPreview = !!(box.cardSlug || box.actionSlug || box.poseSlug || box.animapSlug);
                   return (
                     <Rnd
                       key={box.id}
@@ -1431,7 +1487,7 @@ export default function GameLayoutEditor() {
                           }}
                         />
                       )}
-                      {!box.cardSlug && !box.actionSlug && !box.asset && !box.poseSlug && (
+                      {!box.cardSlug && !box.actionSlug && !box.asset && !box.poseSlug && !box.animapSlug && (
                         <div className="text-center font-bold text-xs pointer-events-none select-none p-1 break-words z-10 relative">
                           {box.label}
                         </div>
@@ -1522,6 +1578,12 @@ export default function GameLayoutEditor() {
                       {box.poseSlug && (
                         <div className="absolute inset-0 pointer-events-none select-none">
                           <HeroPosePreview slug={box.poseSlug} />
+                        </div>
+                      )}
+
+                      {box.animapSlug && (
+                        <div className="absolute inset-0 pointer-events-none select-none">
+                          <AnimapBoxPreview slug={box.animapSlug} />
                         </div>
                       )}
 
@@ -1693,6 +1755,7 @@ export default function GameLayoutEditor() {
                 onClose={() => setSelectedBoxes(new Set())}
                 cards={cards}
                 actions={actions}
+                animaps={animaps}
                 uiAssets={uiAssets}
                 charAssets={charAssets}
                 placeAssets={places}

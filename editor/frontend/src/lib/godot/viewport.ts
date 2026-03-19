@@ -1,14 +1,9 @@
 import type { ViewportConfig } from "./types";
 
 export const ASPECT_PRESETS: readonly ViewportConfig[] = [
-  { slug: "9-16", label: "9:16", desc: "Standard", width: 1080, height: 1920 },
-  { slug: "9-19.5", label: "9:19.5", desc: "iPhone X/11/12/13/14", width: 1080, height: 2340 },
-  { slug: "9-20", label: "9:20", desc: "Galaxy S21/S22/S23", width: 1080, height: 2400 },
-  { slug: "9-21", label: "9:21", desc: "Pixel 7/8", width: 1080, height: 2520 },
-  { slug: "9-22", label: "9:22", desc: "Galaxy S24", width: 1080, height: 2640 },
-  { slug: "3-4", label: "3:4", desc: "iPad", width: 1536, height: 2048 },
-  { slug: "10-16", label: "10:16", desc: "Android Tablet", width: 1200, height: 1920 },
-  { slug: "2-3", label: "2:3", desc: "iPad Mini / Surface", width: 1440, height: 2160 },
+  { slug: "9-16", label: "9:16", desc: "Standard Phone", width: 1080, height: 1920 },
+  { slug: "9-20", label: "9:20", desc: "Tall Phone", width: 1080, height: 2400 },
+  { slug: "3-4", label: "3:4", desc: "Tablet", width: 1536, height: 2048 },
 ] as const;
 
 export function getViewportForAspect(slug: string): ViewportConfig | undefined {

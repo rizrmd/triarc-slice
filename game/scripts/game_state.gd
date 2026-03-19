@@ -22,9 +22,105 @@ var ws: WebSocketPeer = null
 var hero_defs: Dictionary = {}
 var action_defs: Dictionary = {}
 
+# Layout cache
+var _layout_data: Dictionary = {}
+
 func _ready():
+	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()
+
+# --- Layout utilities ---
+
+func _load_game_layout() -> void:
+	var file = FileAccess.open("res://data/game-layout.json", FileAccess.READ)
+	if not file:
+		push_warning("game-layout.json not found")
+		return
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		push_warning("Failed to parse game-layout.json")
+		return
+	_layout_data = json.data
+
+## Find the aspect-ratio key in `boxes` closest to the device's current aspect.
+func find_best_aspect(boxes: Dictionary) -> String:
+	var viewport_size = get_viewport().get_visible_rect().size
+	var aspect = viewport_size.x / viewport_size.y
+	var best_key = ""
+	var best_diff = INF
+	for key in boxes.keys():
+		var parts = key.split("-")
+		if parts.size() == 2:
+			var bp_aspect = float(parts[0]) / float(parts[1])
+			var diff = abs(aspect - bp_aspect)
+			if diff < best_diff:
+				best_diff = diff
+				best_key = key
+	return best_key
+
+## Return the box dictionary for `scene_name` using the best aspect match.
+func get_scene_boxes(scene_name: String) -> Dictionary:
+	var scenes: Dictionary = _layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get(scene_name, {})
+	var boxes: Dictionary = scene.get("boxes", {})
+	if boxes.is_empty():
+		return {}
+	var best = find_best_aspect(boxes)
+	if best.is_empty():
+		return {}
+	return boxes[best]
+
+## Resolve a box to a pixel position & size, honouring screen_relative + pivot.
+func resolve_box(box: Dictionary, viewport_size: Vector2) -> Dictionary:
+	var w: float = box.get("width", 0)
+	var h: float = box.get("height", 0)
+	var px: float
+	var py: float
+	if box.get("screen_relative", false) and box.has("nx") and box.has("ny"):
+		px = box["nx"] * viewport_size.x
+		py = box["ny"] * viewport_size.y
+	else:
+		px = float(box.get("x", 0))
+		py = float(box.get("y", 0))
+	# Apply pivot (default center)
+	var pivot: String = box.get("pivot", "center")
+	match pivot:
+		"center":
+			px -= w / 2.0
+			py -= h / 2.0
+		"top-left":
+			pass
+		"top-center":
+			px -= w / 2.0
+		"top-right":
+			px -= w
+		"center-left":
+			py -= h / 2.0
+		"center-right":
+			px -= w
+			py -= h / 2.0
+		"bottom-left":
+			py -= h
+		"bottom-center":
+			px -= w / 2.0
+			py -= h
+		"bottom-right":
+			px -= w
+			py -= h
+	return {"x": px, "y": py, "width": w, "height": h}
+
+## Get background slug for a scene using best aspect match.
+func get_scene_background(scene_name: String) -> String:
+	var scenes: Dictionary = _layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get(scene_name, {})
+	var bgs: Dictionary = scene.get("backgrounds", {})
+	if bgs.is_empty():
+		return ""
+	var best = find_best_aspect(bgs)
+	if best.is_empty():
+		return ""
+	return bgs.get(best, "")
 
 func _load_hero_definitions():
 	# Hero stats from vg-server content.gleam

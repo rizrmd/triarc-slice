@@ -282,7 +282,7 @@ export default function AnimapEditor() {
     if (layer?.name) fd.append('name', layer.name);
     if (layer?.file) fd.append('old_file', layer.file);
     try {
-      setConvertProgress(null);
+      setConvertProgress(-1);
       const res = await fetch(`/api/animap-layer/${slug}/${layerId}`, {
         method: 'POST',
         body: fd,

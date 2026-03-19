@@ -20,14 +20,15 @@ var hand_cards: Array = []
 var current_energy: int = 10
 var max_energy: int = 10
 var _last_state: Dictionary = {}
+var _layout_boxes: Dictionary = {}
 
 func _ready():
 	add_to_group("gameplay")
-	
+
 	reroll_button.pressed.connect(_on_reroll_pressed)
 	back_button.pressed.connect(_on_back_pressed)
-	
-	# Start polling for state updates
+
+	_layout_boxes = GameState.get_scene_boxes("gameplay")
 	_set_initial_positions()
 
 func _process(_delta):
@@ -109,24 +110,11 @@ func _get_or_create_hero(slot: int, is_enemy: bool) -> Node:
 	return hero
 
 func _get_hero_position(slot: int, is_enemy: bool) -> Vector2:
-	# Use positions from game-layout.json (9-16 portrait)
-	# Hero positions (bottom for player, top for enemy)
-	
-	var viewport_size = get_viewport().get_visible_rect().size
-	
-	if is_enemy:
-		# Enemy positions (top)
-		match slot:
-			1: return Vector2(viewport_size.x * 0.294, viewport_size.y * 0.356)
-			2: return Vector2(viewport_size.x * 0.492, viewport_size.y * 0.382)
-			3: return Vector2(viewport_size.x * 0.683, viewport_size.y * 0.407)
-	else:
-		# Player positions (bottom)
-		match slot:
-			1: return Vector2(viewport_size.x * 0.181, viewport_size.y * 0.895)
-			2: return Vector2(viewport_size.x * 0.483, viewport_size.y * 0.885)
-			3: return Vector2(viewport_size.x * 0.782, viewport_size.y * 0.892)
-	
+	var vp_size = get_viewport().get_visible_rect().size
+	var key = "enemy%d" % slot if is_enemy else "hero%d" % slot
+	if _layout_boxes.has(key):
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size)
+		return Vector2(r["x"], r["y"])
 	return Vector2.ZERO
 
 func _update_hand(hand_data: Array):
@@ -151,16 +139,11 @@ func _update_hand(hand_data: Array):
 		hand_cards.append(card)
 
 func _get_card_position(slot: int) -> Vector2:
-	var viewport_size = get_viewport().get_visible_rect().size
-	
-	# Card positions from game-layout.json (action1-action5)
-	match slot:
-		1: return Vector2(viewport_size.x * 0.546, viewport_size.y * 0.792)
-		2: return Vector2(viewport_size.x * 0.345, viewport_size.y * 0.797)
-		3: return Vector2(viewport_size.x * 0.148, viewport_size.y * 0.823)
-		4: return Vector2(viewport_size.x * 0.916, viewport_size.y * 0.799)
-		5: return Vector2(viewport_size.x * 0.781, viewport_size.y * 0.813)
-	
+	var vp_size = get_viewport().get_visible_rect().size
+	var key = "action%d" % slot
+	if _layout_boxes.has(key):
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size)
+		return Vector2(r["x"], r["y"])
 	return Vector2.ZERO
 
 func _tween_energy(new_energy: int):
@@ -279,10 +262,11 @@ func _on_match_end(winner: int):
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _set_initial_positions():
-	# Energy bar position from game-layout.json
-	var viewport_size = get_viewport().get_visible_rect().size
-	energy_bar.position = Vector2(viewport_size.x * 0.511, viewport_size.y * 0.957)
-	energy_bar.size = Vector2(295, 100)
+	var vp_size = get_viewport().get_visible_rect().size
+	if _layout_boxes.has("mana"):
+		var r = GameState.resolve_box(_layout_boxes["mana"], vp_size)
+		energy_bar.position = Vector2(r["x"], r["y"])
+		energy_bar.size = Vector2(r["width"], r["height"])
 
 # Public API for action cards
 func get_heroes() -> Array:

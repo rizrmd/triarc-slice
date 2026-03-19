@@ -43,6 +43,8 @@ func _ready() -> void:
 	logo_animap.load_animap("vg-logo")
 	sign_in_animap.load_animap("google-sign-in")
 
+	_apply_login_layout()
+
 	# Initialize Google Sign-In: native plugin on Android, OAuth loopback on desktop
 	if Engine.has_singleton("GodotGoogleSignIn"):
 		_google_sign_in = Engine.get_singleton("GodotGoogleSignIn")
@@ -225,3 +227,34 @@ func _on_logout_pressed() -> void:
 
 func _on_back_pressed() -> void:
 	_show_view("home")
+
+func _apply_login_layout() -> void:
+	var boxes = GameState.get_scene_boxes("login")
+	if boxes.is_empty():
+		return
+	var vp_size = get_viewport().get_visible_rect().size
+	var scale_factor = vp_size.x / 1080.0
+
+	if boxes.has("logo"):
+		var r = GameState.resolve_box(boxes["logo"], vp_size)
+		var logo_container: Control = login_ui.get_node("LogoContainer")
+		var sw = r["width"] * scale_factor
+		var sh = r["height"] * scale_factor
+		logo_container.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
+		logo_container.size = Vector2(sw, sh)
+
+	if boxes.has("sign_in_button"):
+		var r = GameState.resolve_box(boxes["sign_in_button"], vp_size)
+		var sign_in_container: Control = login_ui.get_node("SignInContainer")
+		var sw = r["width"] * scale_factor
+		var sh = r["height"] * scale_factor
+		sign_in_container.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
+		sign_in_container.size = Vector2(sw, sh)
+
+	if boxes.has("status_label"):
+		var r = GameState.resolve_box(boxes["status_label"], vp_size)
+		var status_label: Label = login_ui.get_node("StatusLabel")
+		var sw = r["width"] * scale_factor
+		var sh = r["height"] * scale_factor
+		status_label.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
+		status_label.size = Vector2(sw, sh)
