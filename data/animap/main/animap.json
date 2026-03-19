@@ -34,9 +34,30 @@
       "name": "flag-mask",
       "type": "mask",
       "file": "layer-1773850359217.webp",
+      "visible": true
+    },
+    {
+      "id": "layer-1773851417394",
+      "name": "Water",
+      "type": "video",
+      "file": "layer-1773851417394.mp4",
+      "visible": true,
+      "opacity": 0.77,
+      "x": 506,
+      "y": 869,
+      "scale": 0.65,
+      "loop": true,
+      "loop_start": 0,
+      "loop_end": 5.7
+    },
+    {
+      "id": "layer-1773851567415",
+      "name": "water-mask",
+      "type": "mask",
+      "file": "layer-1773851567415.webp",
       "visible": true,
       "targets": [
-        "layer-1773846729733"
+        "layer-1773851417394"
       ]
     }
   ]
