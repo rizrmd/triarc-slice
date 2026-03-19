@@ -20,12 +20,12 @@
             "label": "Action 1",
             "locked": false,
             "nx": 0.4925,
-            "ny": 0.8161458333333333,
+            "ny": 0.790625,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 491,
-            "y": 1417
+            "y": 1368
           },
           "action2": {
             "actionSlug": "blizzard",
@@ -34,12 +34,12 @@
             "label": "Action 2",
             "locked": false,
             "nx": 0.32,
-            "ny": 0.8161458333333333,
+            "ny": 0.790625,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 284,
-            "y": 1417
+            "y": 1368
           },
           "action3": {
             "actionSlug": "shadowstep",
@@ -48,12 +48,12 @@
             "label": "Action 3",
             "locked": false,
             "nx": 0.1475,
-            "ny": 0.8161458333333333,
+            "ny": 0.790625,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 77,
-            "y": 1417
+            "y": 1368
           },
           "action4": {
             "actionSlug": "smoke-bomb",
@@ -62,12 +62,12 @@
             "label": "Action 4",
             "locked": false,
             "nx": 0.8375,
-            "ny": 0.8161458333333333,
+            "ny": 0.790625,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 905,
-            "y": 1417
+            "y": 1368
           },
           "action5": {
             "actionSlug": "ice-nova",
@@ -76,12 +76,12 @@
             "label": "Action 5",
             "locked": false,
             "nx": 0.665,
-            "ny": 0.8161458333333333,
+            "ny": 0.790625,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 698,
-            "y": 1417
+            "y": 1368
           },
           "battery": {
             "height": 59,
@@ -897,7 +897,7 @@
             "id": "action2",
             "label": "Action 2",
             "locked": false,
-            "nx": 0.4980769230769231,
+            "nx": 0.49722222222222223,
             "ny": 0.7799145299145299,
             "pivot": "center",
             "screen_relative": true,
@@ -911,7 +911,7 @@
             "id": "action3",
             "label": "Action 3",
             "locked": false,
-            "nx": 0.23205128205128206,
+            "nx": 0.11296296296296296,
             "ny": 0.7799145299145299,
             "pivot": "center",
             "screen_relative": true,
@@ -925,7 +925,7 @@
             "id": "action4",
             "label": "Action 4",
             "locked": false,
-            "nx": 0.3647435897435897,
+            "nx": 0.30462962962962964,
             "ny": 0.7799145299145299,
             "pivot": "center",
             "screen_relative": true,
@@ -939,13 +939,13 @@
             "id": "action5",
             "label": "Action 5",
             "locked": false,
-            "nx": 0.7673076923076924,
-            "ny": 0.7799145299145299,
+            "nx": 0.8768518518518519,
+            "ny": 0.7786324786324786,
             "pivot": "center",
             "screen_relative": true,
-            "width": 252,
-            "x": 831,
-            "y": 1675
+            "width": 200,
+            "x": 847,
+            "y": 1672
           },
           "battery": {
             "height": 59,
@@ -1099,13 +1099,13 @@
             "id": "action1",
             "label": "Action 1",
             "locked": false,
-            "nx": 0.14074074074074075,
-            "ny": 0.7739583333333333,
+            "nx": 0.13796296296296295,
+            "ny": 0.7610416666666666,
             "pivot": "center",
             "screen_relative": true,
             "width": 190,
-            "x": 57,
-            "y": 1715
+            "x": 54,
+            "y": 1684
           },
           "action2": {
             "actionSlug": "blizzard",
@@ -1113,13 +1113,13 @@
             "id": "action2",
             "label": "Action 2",
             "locked": false,
-            "nx": 0.32407407407407407,
-            "ny": 0.7739583333333333,
+            "nx": 0.3212962962962963,
+            "ny": 0.7610416666666666,
             "pivot": "center",
             "screen_relative": true,
             "width": 190,
-            "x": 255,
-            "y": 1715
+            "x": 252,
+            "y": 1684
           },
           "action3": {
             "actionSlug": "shadowstep",
@@ -1127,13 +1127,13 @@
             "id": "action3",
             "label": "Action 3",
             "locked": false,
-            "nx": 0.5074074074074074,
-            "ny": 0.7739583333333333,
+            "nx": 0.5046296296296297,
+            "ny": 0.7610416666666666,
             "pivot": "center",
             "screen_relative": true,
             "width": 190,
-            "x": 453,
-            "y": 1715
+            "x": 450,
+            "y": 1684
           },
           "action4": {
             "actionSlug": "smoke-bomb",
@@ -1141,13 +1141,13 @@
             "id": "action4",
             "label": "Action 4",
             "locked": false,
-            "nx": 0.6907407407407408,
-            "ny": 0.7739583333333333,
+            "nx": 0.6851851851851852,
+            "ny": 0.7610416666666666,
             "pivot": "center",
             "screen_relative": true,
             "width": 190,
-            "x": 651,
-            "y": 1715
+            "x": 645,
+            "y": 1684
           },
           "action5": {
             "actionSlug": "ice-nova",
@@ -1155,13 +1155,13 @@
             "id": "action5",
             "label": "Action 5",
             "locked": false,
-            "nx": 0.8740740740740741,
-            "ny": 0.7739583333333333,
+            "nx": 0.8712962962962963,
+            "ny": 0.7610416666666666,
             "pivot": "center",
             "screen_relative": true,
             "width": 190,
-            "x": 849,
-            "y": 1715
+            "x": 846,
+            "y": 1684
           },
           "battery": {
             "height": 59,
@@ -1316,12 +1316,12 @@
             "label": "Action 1",
             "locked": false,
             "nx": 0.13425925925925927,
-            "ny": 0.8162698412698413,
+            "ny": 0.7805555555555556,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 45,
-            "y": 1907
+            "y": 1817
           },
           "action2": {
             "actionSlug": "blizzard",
@@ -1330,12 +1330,12 @@
             "label": "Action 2",
             "locked": false,
             "nx": 0.3194444444444444,
-            "ny": 0.8162698412698413,
+            "ny": 0.7805555555555556,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 245,
-            "y": 1907
+            "y": 1817
           },
           "action3": {
             "actionSlug": "shadowstep",
@@ -1344,12 +1344,12 @@
             "label": "Action 3",
             "locked": false,
             "nx": 0.6898148148148148,
-            "ny": 0.8162698412698413,
+            "ny": 0.7805555555555556,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 645,
-            "y": 1907
+            "y": 1817
           },
           "action4": {
             "actionSlug": "smoke-bomb",
@@ -1358,12 +1358,12 @@
             "label": "Action 4",
             "locked": false,
             "nx": 0.5046296296296297,
-            "ny": 0.8162698412698413,
+            "ny": 0.7805555555555556,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 445,
-            "y": 1907
+            "y": 1817
           },
           "action5": {
             "actionSlug": "ice-nova",
@@ -1372,12 +1372,12 @@
             "label": "Action 5",
             "locked": false,
             "nx": 0.875,
-            "ny": 0.8162698412698413,
+            "ny": 0.7805555555555556,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 845,
-            "y": 1907
+            "y": 1817
           },
           "battery": {
             "height": 59,
@@ -1454,7 +1454,7 @@
             "id": "hero1",
             "label": "Hero 1",
             "locked": false,
-            "nx": 0.305952380952381,
+            "nx": 0.19814814814814816,
             "ny": 0.6128968253968254,
             "pivot": "top-center",
             "screen_relative": true,
@@ -1468,7 +1468,7 @@
             "id": "hero2",
             "label": "Hero 2",
             "locked": false,
-            "nx": 0.5023809523809524,
+            "nx": 0.5037037037037037,
             "ny": 0.6128968253968254,
             "pivot": "top-center",
             "screen_relative": true,
@@ -1482,7 +1482,7 @@
             "id": "hero3",
             "label": "Hero 3",
             "locked": false,
-            "nx": 0.6988095238095238,
+            "nx": 0.8092592592592592,
             "ny": 0.6128968253968254,
             "pivot": "top-center",
             "screen_relative": true,
@@ -1531,13 +1531,13 @@
             "id": "action1",
             "label": "Action 1",
             "locked": false,
-            "nx": 0.31203703703703706,
-            "ny": 0.8253787878787879,
+            "nx": 0.30185185185185187,
+            "ny": 0.7856060606060606,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
-            "x": 237,
-            "y": 2029
+            "x": 226,
+            "y": 1924
           },
           "action2": {
             "actionSlug": "blizzard",
@@ -1545,13 +1545,13 @@
             "id": "action2",
             "label": "Action 2",
             "locked": false,
-            "nx": 0.4981481481481482,
-            "ny": 0.8253787878787879,
+            "nx": 0.49074074074074076,
+            "ny": 0.7856060606060606,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
-            "x": 438,
-            "y": 2029
+            "x": 430,
+            "y": 1924
           },
           "action3": {
             "actionSlug": "shadowstep",
@@ -1559,13 +1559,13 @@
             "id": "action3",
             "label": "Action 3",
             "locked": false,
-            "nx": 0.12685185185185185,
-            "ny": 0.8253787878787879,
+            "nx": 0.11296296296296296,
+            "ny": 0.7856060606060606,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
-            "x": 37,
-            "y": 2029
+            "x": 22,
+            "y": 1924
           },
           "action4": {
             "actionSlug": "smoke-bomb",
@@ -1573,13 +1573,13 @@
             "id": "action4",
             "label": "Action 4",
             "locked": false,
-            "nx": 0.6833333333333333,
-            "ny": 0.8253787878787879,
+            "nx": 0.6796296296296296,
+            "ny": 0.7856060606060606,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
-            "x": 638,
-            "y": 2029
+            "x": 634,
+            "y": 1924
           },
           "action5": {
             "actionSlug": "ice-nova",
@@ -1588,12 +1588,12 @@
             "label": "Action 5",
             "locked": false,
             "nx": 0.8685185185185185,
-            "ny": 0.8253787878787879,
+            "ny": 0.7856060606060606,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
             "x": 838,
-            "y": 2029
+            "y": 1924
           },
           "battery": {
             "height": 59,
