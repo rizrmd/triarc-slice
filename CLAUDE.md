@@ -18,3 +18,13 @@ test/
 ```
 
 The working directory is the project root. NEVER `cd` — use relative paths for all commands.
+
+# Editor Frontend
+
+After modifying any files under `editor/frontend/src/`, rebuild the frontend:
+
+```
+npm --prefix editor/frontend run build
+```
+
+The build output goes to `editor/frontend/dist/` which is served by the editor binary.

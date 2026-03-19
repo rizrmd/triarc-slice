@@ -8,11 +8,14 @@ signal view_changed(view_name: String)
 @onready var login_ui: Control = $LoginUI
 @onready var home_ui: Control = $HomeUI
 @onready var find_match_ui: Control = $FindMatchUI
+@onready var logo_animap: AnimapPlayer = $LoginUI/LogoContainer/LogoAnimap
+@onready var sign_in_animap: AnimapPlayer = $LoginUI/SignInContainer/SignInAnimap
 
 var _current_view: String = "login"
 
 # Google Sign-In
 const WEB_CLIENT_ID = "12643923522-2oi6nt6clhbiav3r7kqgj27v00rm1nk6.apps.googleusercontent.com"
+const SIGN_IN_URL = "https://sg.vangambit.com/sign-in/desktop"
 var _google_sign_in: Object = null
 
 # WebSocket
@@ -31,23 +34,32 @@ const VIEW_TO_ANIMAP_STATE := {
 
 func _ready() -> void:
 	# Connect button signals
-	login_ui.get_node("LoginButton").pressed.connect(_on_login_pressed)
 	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
 	home_ui.get_node("LogoutButton").pressed.connect(_on_logout_pressed)
 	find_match_ui.get_node("BackButton").pressed.connect(_on_back_pressed)
+	sign_in_animap.gui_input.connect(_on_sign_in_gui_input)
 
 	animap_player.load_animap(MAIN_ANIMAP_SLUG)
+	logo_animap.load_animap("vg-logo")
+	sign_in_animap.load_animap("google-sign-in")
 
-	# Initialize Google Sign-In plugin (Android only)
+	# Initialize Google Sign-In: native plugin on Android, OAuth loopback on desktop
 	if Engine.has_singleton("GodotGoogleSignIn"):
 		_google_sign_in = Engine.get_singleton("GodotGoogleSignIn")
 		_google_sign_in.connect("sign_in_success", _on_sign_in_success)
 		_google_sign_in.connect("sign_in_failed", _on_sign_in_failed)
 		_google_sign_in.connect("sign_out_complete", _on_sign_out_complete)
 		_google_sign_in.initialize(WEB_CLIENT_ID)
-		print("[AUTH] Google Sign-In initialized")
+		print("[AUTH] Google Sign-In initialized (Android)")
 	else:
-		print("[AUTH] Google Sign-In not available (not on Android)")
+		var desktop_auth = preload("res://scripts/desktop_google_auth.gd").new()
+		add_child(desktop_auth)
+		desktop_auth.sign_in_success.connect(_on_sign_in_success)
+		desktop_auth.sign_in_failed.connect(_on_sign_in_failed)
+		desktop_auth.sign_out_complete.connect(_on_sign_out_complete)
+		desktop_auth.initialize(SIGN_IN_URL)
+		_google_sign_in = desktop_auth
+		print("[AUTH] Google Sign-In initialized (Desktop OAuth)")
 
 	# Start on Login view
 	_show_view("login", false)
@@ -185,13 +197,18 @@ func _update_ui_visibility(view_name: String) -> void:
 	home_ui.visible = (view_name == "home")
 	find_match_ui.visible = (view_name == "find_match")
 
+func _on_sign_in_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			sign_in_animap.set_state("clicked")
+		else:
+			sign_in_animap.set_state("default")
+			_on_login_pressed()
+		sign_in_animap.accept_event()
+
 func _on_login_pressed() -> void:
-	if _google_sign_in:
-		login_ui.get_node("StatusLabel").text = "Signing in..."
-		_google_sign_in.signIn()
-	else:
-		# Desktop fallback: skip auth, go directly to home
-		_show_view("home")
+	login_ui.get_node("StatusLabel").text = "Signing in..."
+	_google_sign_in.signIn()
 
 func _on_find_match_pressed() -> void:
 	# Go to hero selection screen instead of directly queuing

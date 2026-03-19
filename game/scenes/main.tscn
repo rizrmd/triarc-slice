@@ -21,24 +21,34 @@ layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
+[node name="Overlay" type="ColorRect" parent="."]
+anchors_preset = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.3)
+mouse_filter = 2
+
 [node name="LoginUI" type="Control" parent="." unique_id=363965321]
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="TitleLabel" type="Label" parent="LoginUI" unique_id=1392094584]
+[node name="LogoContainer" type="Control" parent="LoginUI"]
 layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -100.0
-offset_top = 400.0
-offset_right = 100.0
-offset_bottom = 460.0
-theme_override_font_sizes/font_size = 48
-text = "VanGambit"
-horizontal_alignment = 1
+offset_left = -200.0
+offset_top = 300.0
+offset_right = 200.0
+offset_bottom = 500.0
+mouse_filter = 2
 
-[node name="LoginButton" type="Button" parent="LoginUI" unique_id=1972887505]
+[node name="LogoAnimap" parent="LoginUI/LogoContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="SignInContainer" type="Control" parent="LoginUI"]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -48,8 +58,13 @@ offset_left = -150.0
 offset_top = 100.0
 offset_right = 150.0
 offset_bottom = 160.0
-theme_override_font_sizes/font_size = 28
-text = "Sign in with Google"
+mouse_filter = 2
+
+[node name="SignInAnimap" parent="LoginUI/SignInContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 0
 
 [node name="StatusLabel" type="Label" parent="LoginUI" unique_id=303598879]
 layout_mode = 0
