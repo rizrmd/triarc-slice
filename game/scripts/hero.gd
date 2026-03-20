@@ -5,7 +5,7 @@ extends Control
 @onready var bg_sprite: Sprite2D = $BGSprite
 @onready var shadow_sprite: Sprite2D = $ShadowSprite
 @onready var char_sprite: Sprite2D = $CharSprite
-@onready var hp_bar: ProgressBar = $HPBar
+@onready var hp_bar: Control = $HPBar
 @onready var _cast_bar: ProgressBar = $CastBar
 @onready var status_container: HBoxContainer = $StatusContainer
 @onready var floating_text_origin: Marker2D = $FloatingTextOrigin
@@ -21,13 +21,23 @@ var is_alive: bool = true
 var is_enemy: bool = false
 
 var _tween_hp: Tween = null
+var _tween_cast: Tween = null
 var _hero_config: Dictionary = {}
 var _mask_shader: Shader
 var _card_shader: Shader
 var _empty_mask: ImageTexture
+var _bar_fill_shader: Shader
+var _bar_bg: TextureRect
+var _bar_fg: TextureRect
+var _bar_frame: TextureRect
+var _bar_label: Label
+var _hp_bar_hue: float = 0.0
+var _hp_bar_font_size: float = 31.0
+var _name_label: Label
 
 func _ready():
 	_cast_bar.visible = false
+	_build_hp_bar()
 	_update_hp_display()
 	_mask_shader = Shader.new()
 	_mask_shader.code = """shader_type canvas_item;
@@ -69,6 +79,7 @@ func setup(data: Dictionary, is_enemy_team: bool = false):
 	
 	# Load config and sprites
 	_load_hero_config()
+	_apply_bar_config()
 	_load_sprites()
 
 	# Clip sprites to box bounds (editor clips pose char layer + card content)
@@ -99,19 +110,60 @@ func apply_layout_size(layout_size: Vector2):
 	# Reposition UI elements
 	var ui_sx = layout_size.x / POSE_REF_SIZE.x
 	var ui_sy = layout_size.y / POSE_REF_SIZE.y
-	hp_bar.size = Vector2(layout_size.x - 24 * ui_sx, 27 * ui_sy)
-	_cast_bar.size = Vector2(layout_size.x - 24 * ui_sx, 20 * ui_sy)
-	status_container.size = Vector2(layout_size.x - 24 * ui_sx, 30 * ui_sy)
+	var bar_ar = _get_bar_aspect_ratio()
 	if is_enemy:
 		# Enemy: HP bar on top, then cast bar, then statuses below
-		hp_bar.position = Vector2(12 * ui_sx, 8 * ui_sy)
-		_cast_bar.position = Vector2(12 * ui_sx, hp_bar.position.y + hp_bar.size.y + 5 * ui_sy)
-		status_container.position = Vector2(12 * ui_sx, _cast_bar.position.y + _cast_bar.size.y + 5 * ui_sy)
+		var bar_w = layout_size.x * 1.0
+		var bar_h = bar_w / bar_ar
+		hp_bar.position = Vector2((layout_size.x - bar_w) / 2.0, 8 * ui_sy)
+		hp_bar.size = Vector2(bar_w, bar_h)
+		_cast_bar.size = Vector2(bar_w, 20 * ui_sy)
+		_cast_bar.position = Vector2(hp_bar.position.x, hp_bar.position.y + bar_h + 5 * ui_sy)
+		status_container.size = Vector2(bar_w, 30 * ui_sy)
+		status_container.position = Vector2(hp_bar.position.x, _cast_bar.position.y + _cast_bar.size.y + 5 * ui_sy)
 	else:
-		# Ally: HP bar at bottom, cast bar and statuses above
-		hp_bar.position = Vector2(12 * ui_sx, layout_size.y - 35 * ui_sy)
-		_cast_bar.position = Vector2(12 * ui_sx, hp_bar.position.y - 25 * ui_sy)
-		status_container.position = Vector2(12 * ui_sx, _cast_bar.position.y - 35 * ui_sy)
+		# Ally: use card config values matching editor preview
+		var hp_scale_pct = float(_hero_config.get("hp_bar_scale", 250)) / 100.0
+		var hp_pos_cfg = _hero_config.get("hp_bar_pos", {"x": 0, "y": 152})
+		var ref_sx = layout_size.x / CARD_REF_SIZE.x
+		var ref_sy = layout_size.y / CARD_REF_SIZE.y
+		var bar_w = layout_size.x * 0.33 * hp_scale_pct
+		var bar_h = bar_w / bar_ar
+		var bar_x = center.x + float(hp_pos_cfg.get("x", 0)) * ref_sx - bar_w / 2.0
+		var bar_y = center.y + float(hp_pos_cfg.get("y", 0)) * ref_sy - bar_h / 2.0
+		hp_bar.position = Vector2(bar_x, bar_y)
+		hp_bar.size = Vector2(bar_w, bar_h)
+		_cast_bar.size = Vector2(bar_w, 20 * ref_sy)
+		_cast_bar.position = Vector2(bar_x, bar_y - 25 * ref_sy)
+		status_container.size = Vector2(bar_w, 30 * ref_sy)
+		status_container.position = Vector2(bar_x, _cast_bar.position.y - 35 * ref_sy)
+	_resize_bar_children()
+	if _bar_label:
+		var font_size: int
+		if is_enemy:
+			font_size = max(8, int(hp_bar.size.y * 0.78))
+		else:
+			font_size = max(8, int(layout_size.x * (_hp_bar_font_size / CARD_REF_SIZE.x)))
+		_bar_label.add_theme_font_size_override("font_size", font_size)
+	# Position hero name label
+	if _name_label and is_enemy:
+		var name_font_size = max(8, int(hp_bar.size.y * 0.9625))
+		_name_label.add_theme_font_size_override("font_size", name_font_size)
+		_name_label.size = Vector2(layout_size.x, name_font_size * 1.5)
+		_name_label.position = Vector2(0, hp_bar.position.y - _name_label.size.y)
+	elif _name_label and not is_enemy:
+		var name_pos_cfg = _hero_config.get("name_pos", {"x": 0, "y": 0})
+		var name_scale = float(_hero_config.get("name_scale", 40))
+		var ref_sx = layout_size.x / CARD_REF_SIZE.x
+		var ref_sy = layout_size.y / CARD_REF_SIZE.y
+		var name_font_size = max(8, int(name_scale * ref_sy))
+		_name_label.add_theme_font_size_override("font_size", name_font_size)
+		# Size label to full card width so horizontal centering works
+		_name_label.size = Vector2(layout_size.x, name_font_size * 1.5)
+		_name_label.position = Vector2(
+			0 + float(name_pos_cfg.get("x", 0)) * ref_sx,
+			center.y + float(name_pos_cfg.get("y", 0)) * ref_sy - _name_label.size.y / 2.0
+		)
 
 func _apply_pose_layout(layout_size: Vector2, center: Vector2):
 	if _hero_config == null:
@@ -158,43 +210,169 @@ func _apply_card_layout(layout_size: Vector2, center: Vector2):
 	var ref_sx = layout_size.x / CARD_REF_SIZE.x
 	var ref_sy = layout_size.y / CARD_REF_SIZE.y
 
-	# BG layer
+	# BG layer — sized to card bounds, UV shader maps the correct portion
 	bg_sprite.visible = true
-	var bg_pos = _hero_config.get("char_bg_pos", {"x": 0, "y": 0})
-	var bg_scale_pct = float(_hero_config.get("char_bg_scale", 100)) / 100.0
 	if bg_sprite.texture:
 		var tex_size = bg_sprite.texture.get_size()
-		bg_sprite.scale = Vector2(
-			layout_size.x * bg_scale_pct / tex_size.x,
-			layout_size.y * bg_scale_pct / tex_size.y
-		)
-	bg_sprite.position = center + Vector2(
-		float(bg_pos.get("x", 0)) * ref_sx,
-		float(bg_pos.get("y", 0)) * ref_sy
-	)
+		bg_sprite.scale = Vector2(layout_size.x / tex_size.x, layout_size.y / tex_size.y)
+	bg_sprite.position = center
+	_apply_card_uv(bg_sprite, "bg", layout_size, ref_sx, ref_sy)
 
 	# Frame (reuses shadow_sprite, fills the whole card)
 	if shadow_sprite.texture:
 		var tex_size = shadow_sprite.texture.get_size()
-		shadow_sprite.scale = Vector2(
-			layout_size.x / tex_size.x,
-			layout_size.y / tex_size.y
-		)
+		shadow_sprite.scale = Vector2(layout_size.x / tex_size.x, layout_size.y / tex_size.y)
 	shadow_sprite.position = center
 
-	# FG layer
-	var fg_pos = _hero_config.get("char_fg_pos", {"x": 0, "y": 0})
-	var fg_scale_pct = float(_hero_config.get("char_fg_scale", 100)) / 100.0
+	# FG layer — sized to card bounds, UV shader maps the correct portion
 	if char_sprite.texture:
 		var tex_size = char_sprite.texture.get_size()
-		char_sprite.scale = Vector2(
-			layout_size.x * fg_scale_pct / tex_size.x,
-			layout_size.y * fg_scale_pct / tex_size.y
-		)
-	char_sprite.position = center + Vector2(
-		float(fg_pos.get("x", 0)) * ref_sx,
-		float(fg_pos.get("y", 0)) * ref_sy
-	)
+		char_sprite.scale = Vector2(layout_size.x / tex_size.x, layout_size.y / tex_size.y)
+	char_sprite.position = center
+	_apply_card_uv(char_sprite, "fg", layout_size, ref_sx, ref_sy)
+
+func _apply_card_uv(sprite: Sprite2D, layer: String, layout_size: Vector2, ref_sx: float, ref_sy: float):
+	var pos_key = "char_%s_pos" % layer
+	var scale_key = "char_%s_scale" % layer
+	var pos = _hero_config.get(pos_key, {"x": 0, "y": 0})
+	var scale_pct = float(_hero_config.get(scale_key, 100)) / 100.0
+
+	# Layer size and position in card space (may extend beyond card)
+	var lw = layout_size.x * scale_pct
+	var lh = layout_size.y * scale_pct
+	var lx = layout_size.x / 2.0 + float(pos.get("x", 0)) * ref_sx - lw / 2.0
+	var ly = layout_size.y / 2.0 + float(pos.get("y", 0)) * ref_sy - lh / 2.0
+
+	# UV mapping: card space -> layer space
+	var mat = ShaderMaterial.new()
+	mat.shader = _card_shader
+	mat.set_shader_parameter("char_uv_offset", Vector2(-lx / lw, -ly / lh))
+	mat.set_shader_parameter("char_uv_scale", Vector2(layout_size.x / lw, layout_size.y / lh))
+
+	var mask_path = "res://data/hero/%s/img/mask-%s.webp" % [hero_slug, layer]
+	mat.set_shader_parameter("mask_tex", load(mask_path) if ResourceLoader.exists(mask_path) else _empty_mask)
+	sprite.material = mat
+
+func _build_hp_bar():
+	_bar_fill_shader = Shader.new()
+	_bar_fill_shader.code = """shader_type canvas_item;
+uniform float fill : hint_range(0.0, 1.0) = 1.0;
+uniform float hue_shift : hint_range(0.0, 1.0) = 0.0;
+
+vec3 rgb2hsv(vec3 c) {
+	vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+	vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+	vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+	float d = q.x - min(q.w, q.y);
+	float e = 1.0e-10;
+	return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c) {
+	vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+	vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+	return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
+void fragment() {
+	vec4 col = texture(TEXTURE, UV);
+	if (UV.x > fill) {
+		col.a = 0.0;
+	} else {
+		vec3 hsv = rgb2hsv(col.rgb);
+		hsv.x = fract(hsv.x + hue_shift);
+		col.rgb = hsv2rgb(hsv);
+	}
+	COLOR = col;
+}
+"""
+	var bar_bg_tex = load("res://assets/ui/bar/bar-bg.webp")
+	var bar_fg_tex = load("res://assets/ui/bar/bar-fg.webp")
+	var bar_frame_tex = load("res://assets/ui/bar/bar-frame.webp")
+
+	_bar_bg = TextureRect.new()
+	_bar_bg.texture = bar_bg_tex
+	_bar_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_bar_bg.stretch_mode = TextureRect.STRETCH_SCALE
+	hp_bar.add_child(_bar_bg)
+
+	_bar_fg = TextureRect.new()
+	_bar_fg.texture = bar_fg_tex
+	_bar_fg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_bar_fg.stretch_mode = TextureRect.STRETCH_SCALE
+	var fg_mat = ShaderMaterial.new()
+	fg_mat.shader = _bar_fill_shader
+	fg_mat.set_shader_parameter("fill", 1.0)
+	fg_mat.set_shader_parameter("hue_shift", 0.0)
+	_bar_fg.material = fg_mat
+	hp_bar.add_child(_bar_fg)
+
+	_bar_frame = TextureRect.new()
+	_bar_frame.texture = bar_frame_tex
+	_bar_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_bar_frame.stretch_mode = TextureRect.STRETCH_SCALE
+	hp_bar.add_child(_bar_frame)
+
+	_bar_label = Label.new()
+	_bar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_bar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_bar_label.add_theme_color_override("font_color", Color.WHITE)
+	_bar_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	_bar_label.add_theme_constant_override("shadow_offset_y", 1)
+	hp_bar.add_child(_bar_label)
+
+	# Hero name label (rendered on card, above frame)
+	_name_label = Label.new()
+	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_name_label.add_theme_color_override("font_color", Color.WHITE)
+	_name_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	_name_label.add_theme_constant_override("shadow_offset_x", 3)
+	_name_label.add_theme_constant_override("shadow_offset_y", 3)
+	_name_label.visible = false
+	add_child(_name_label)
+
+func _resize_bar_children():
+	var s = hp_bar.size
+	for child in [_bar_bg, _bar_fg, _bar_frame, _bar_label]:
+		if child:
+			child.position = Vector2.ZERO
+			child.size = s
+
+func _apply_bar_config():
+	_hp_bar_hue = float(_hero_config.get("hp_bar_hue", 0)) / 360.0
+	_hp_bar_font_size = float(_hero_config.get("hp_bar_font_size", 31))
+	if _bar_fg and _bar_fg.material is ShaderMaterial:
+		(_bar_fg.material as ShaderMaterial).set_shader_parameter("hue_shift", _hp_bar_hue)
+	# Hero name label config
+	if _name_label:
+		var full_name = _hero_config.get("full_name", "")
+		var display_name = full_name if full_name != "" else hero_name
+		_name_label.text = display_name
+		_name_label.visible = display_name != ""
+		var shadow_size = int(_hero_config.get("text_shadow_size", 3))
+		_name_label.add_theme_constant_override("shadow_offset_x", shadow_size)
+		_name_label.add_theme_constant_override("shadow_offset_y", shadow_size)
+		var shadow_color_str = _hero_config.get("text_shadow_color", "")
+		if shadow_color_str is String and shadow_color_str.begins_with("rgba"):
+			# Parse "rgba(r, g, b, a)" to Color
+			var inner = shadow_color_str.trim_prefix("rgba(").trim_suffix(")")
+			var parts = inner.split(",")
+			if parts.size() == 4:
+				var sc = Color(
+					float(parts[0].strip_edges()) / 255.0,
+					float(parts[1].strip_edges()) / 255.0,
+					float(parts[2].strip_edges()) / 255.0,
+					float(parts[3].strip_edges())
+				)
+				_name_label.add_theme_color_override("font_shadow_color", sc)
+
+func _get_bar_aspect_ratio() -> float:
+	if _bar_bg and _bar_bg.texture:
+		var tex_size = _bar_bg.texture.get_size()
+		if tex_size.y > 0:
+			return tex_size.x / tex_size.y
+	return 4.0
 
 func _load_hero_config():
 	var path = "res://data/hero/%s/hero.json" % hero_slug
@@ -236,12 +414,6 @@ func _load_card_sprites():
 	var bg_path = base_path + "char-bg.webp"
 	if ResourceLoader.exists(bg_path):
 		bg_sprite.texture = load(bg_path)
-	var bg_mask_path = base_path + "mask-bg.webp"
-	if ResourceLoader.exists(bg_mask_path):
-		var mat = ShaderMaterial.new()
-		mat.shader = _mask_shader
-		mat.set_shader_parameter("mask_tex", load(bg_mask_path))
-		bg_sprite.material = mat
 
 	# Frame (reuse shadow_sprite, tinted)
 	var frame_tex = load("res://assets/ui/hero-frame.webp")
@@ -255,12 +427,6 @@ func _load_card_sprites():
 	var fg_path = base_path + "char-fg.webp"
 	if ResourceLoader.exists(fg_path):
 		char_sprite.texture = load(fg_path)
-	var fg_mask_path = base_path + "mask-fg.webp"
-	if ResourceLoader.exists(fg_mask_path):
-		var mat = ShaderMaterial.new()
-		mat.shader = _mask_shader
-		mat.set_shader_parameter("mask_tex", load(fg_mask_path))
-		char_sprite.material = mat
 
 func update_state(data: Dictionary):
 	var new_hp = data.get("hp_current", current_hp)
@@ -278,10 +444,10 @@ func update_state(data: Dictionary):
 	is_alive = new_alive
 	
 	# Update busy state (casting)
-	var busy_until = data.get("busy_until", 0)
-	var now = Time.get_ticks_msec()
-	if busy_until > now:
-		_show_casting(busy_until - now)
+	var busy_until = int(data.get("busy_until", 0))
+	var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
+	if busy_until > now_ms:
+		_show_casting(busy_until - now_ms)
 
 func _tween_hp_change(new_hp: int):
 	if _tween_hp and _tween_hp.is_valid():
@@ -298,17 +464,12 @@ func _set_hp_value(value: int):
 	_update_hp_display()
 
 func _update_hp_display():
-	hp_bar.max_value = max_hp
-	hp_bar.value = current_hp
-	
-	# Color based on HP percentage
-	var pct = float(current_hp) / max_hp
-	if pct > 0.6:
-		hp_bar.modulate = Color.GREEN
-	elif pct > 0.3:
-		hp_bar.modulate = Color.YELLOW
-	else:
-		hp_bar.modulate = Color.RED
+	var pct = float(current_hp) / max(max_hp, 1)
+	pct = clampf(pct, 0.0, 1.0)
+	if _bar_fg and _bar_fg.material is ShaderMaterial:
+		(_bar_fg.material as ShaderMaterial).set_shader_parameter("fill", pct)
+	if _bar_label:
+		_bar_label.text = "%d / %d" % [current_hp, max_hp]
 
 func _set_dead_visuals():
 	char_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
@@ -326,13 +487,14 @@ func _show_floating_text(amount: int):
 		text.show_damage(abs(amount))
 
 func _show_casting(duration_ms: int):
+	if _tween_cast and _tween_cast.is_valid():
+		_tween_cast.kill()
 	_cast_bar.visible = true
 	_cast_bar.max_value = duration_ms
 	_cast_bar.value = duration_ms
-	
-	var tween = create_tween()
-	tween.tween_property(_cast_bar, "value", 0, duration_ms / 1000.0)
-	tween.tween_callback(func(): _cast_bar.visible = false)
+	_tween_cast = create_tween()
+	_tween_cast.tween_property(_cast_bar, "value", 0, duration_ms / 1000.0)
+	_tween_cast.tween_callback(func(): _cast_bar.visible = false)
 
 func show_cast_indicator(progress: float):
 	"""Show casting progress from 0 to 1"""

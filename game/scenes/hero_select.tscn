@@ -46,7 +46,7 @@ theme_override_font_sizes/font_size = 24
 text = "Choose exactly 3 heroes"
 horizontal_alignment = 1
 
-[node name="HeroGrid" type="GridContainer" parent="."]
+[node name="HeroScroll" type="ScrollContainer" parent="."]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -59,6 +59,11 @@ offset_right = 500.0
 offset_bottom = 200.0
 grow_horizontal = 2
 grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="HeroGrid" type="GridContainer" parent="HeroScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 columns = 5
 theme_override_constants/h_separation = 20
 theme_override_constants/v_separation = 20

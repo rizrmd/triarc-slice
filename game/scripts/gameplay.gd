@@ -14,6 +14,7 @@ const ACTION_CARD_SCENE = preload("res://scenes/action_card.tscn")
 var my_heroes: Dictionary = {}  # slot_index -> Hero node
 var enemy_heroes: Dictionary = {}  # slot_index -> Hero node
 var hand_cards: Array = []
+var _used_hand_slots: Array = []  # slot indices of cards used this hand
 
 # State
 var current_energy: int = 10
@@ -144,37 +145,43 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 	return hero
 
 func _update_hand(hand_data: Array):
+	# Skip update if a card is being dragged
+	for card in hand_cards:
+		if card.is_dragging:
+			return
 	# Clear existing hand cards
 	for card in hand_cards:
 		card.queue_free()
 	hand_cards.clear()
-	
-	# Create new cards (only for slots that have a layout position)
-	for i in range(hand_data.size()):
+
+	# Filter out used slots (cards already cast this hand)
+	var filtered_hand: Array = []
+	for card_data in hand_data:
+		var slot_idx = card_data.get("slot_index", 0)
+		if slot_idx not in _used_hand_slots:
+			filtered_hand.append(card_data)
+
+	var vp_size = get_viewport().get_visible_rect().size
+
+	# Create new cards positioned in sequential layout slots
+	for i in range(filtered_hand.size()):
 		var key = "action%d" % (i + 1)
 		if not _layout_boxes.has(key):
 			continue
 
-		var card_data = hand_data[i]
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+		var card_data = filtered_hand[i]
 		var card = ACTION_CARD_SCENE.instantiate()
 		hand_container.add_child(card)
 
+		# Set size from layout before building visuals
+		card.size = Vector2(r["width"], r["height"])
+		card.position = Vector2(r["x"], r["y"])
 		card.setup(card_data)
 		card.card_drag_started.connect(_on_card_drag_started)
 		card.card_drag_ended.connect(_on_card_drag_ended)
 
-		# Position based on game-layout.json
-		card.position = _get_card_position(i + 1)
-
 		hand_cards.append(card)
-
-func _get_card_position(slot: int) -> Vector2:
-	var vp_size = get_viewport().get_visible_rect().size
-	var key = "action%d" % slot
-	if _layout_boxes.has(key):
-		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-		return Vector2(r["x"], r["y"])
-	return Vector2.ZERO
 
 func _tween_energy(new_energy: int):
 	if current_energy == new_energy:
@@ -195,28 +202,22 @@ func _set_energy(value: int):
 		card.set_enabled(card.can_afford(int(value)))
 
 func _update_casting_indicators(casts: Array):
-	# Show casting progress on heroes
-	var now = Time.get_ticks_msec()
-	
+	var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
+
 	for cast in casts:
 		if cast.get("resolved", false):
 			continue
-		
+
 		var caster_id = cast.get("caster_hero_instance_id", "")
-		var started_at = cast.get("started_at", 0)
-		var resolves_at = cast.get("resolves_at", 0)
-		
-		if resolves_at <= now:
+		var resolves_at = int(cast.get("resolves_at", 0))
+
+		if resolves_at <= now_ms:
 			continue
-		
-		var total_time = resolves_at - started_at
-		var elapsed = now - started_at
-		var progress = float(elapsed) / total_time
-		
-		# Find the hero and show casting
+
+		var remaining_ms = resolves_at - now_ms
 		var hero = _find_hero_by_instance_id(caster_id)
 		if hero:
-			hero.show_cast_indicator(progress)
+			hero._show_casting(remaining_ms)
 
 func _find_hero_by_instance_id(instance_id: String) -> Node:
 	for hero in my_heroes.values():
@@ -231,27 +232,35 @@ func _on_card_drag_started(_card):
 	# Highlight valid targets
 	_highlight_valid_targets(_card.target_rule)
 
-func _on_card_drag_ended(_card, dropped_on_target):
-	# Remove highlights
+func _on_card_drag_ended(card, dropped_on_target):
 	_clear_highlights()
+	if dropped_on_target:
+		# Track the used slot so state_update won't recreate it
+		_used_hand_slots.append(card.slot_index)
+		# Remove the used card from hand
+		hand_cards.erase(card)
+		card.queue_free()
+		# Auto-reroll when all cards are used (server grants free reroll)
+		if hand_cards.is_empty():
+			_used_hand_slots.clear()
+			GameState.send_json({
+				"type": "reroll_hand",
+				"match_id": GameState.current_match_id
+			})
 
-func _highlight_valid_targets(target_rule: String):
+func _highlight_valid_targets(_target_rule: String):
 	var all_heroes = []
 	all_heroes.append_array(my_heroes.values())
 	all_heroes.append_array(enemy_heroes.values())
-	
+
+	# Cards are always dropped on YOUR hero (the caster).
+	# Server auto-resolves the actual target from the action's target_rule.
 	for hero in all_heroes:
-		var is_valid = false
-		match target_rule:
-			"enemy": is_valid = hero.is_enemy and not hero.is_dead()
-			"ally": is_valid = not hero.is_enemy and not hero.is_dead()
-			"self": is_valid = not hero.is_enemy and not hero.is_dead()
-			"any": is_valid = not hero.is_dead()
-		
+		var is_valid = not hero.is_enemy and not hero.is_dead()
 		if is_valid:
 			hero.modulate = Color(1.2, 1.2, 1.2, 1.0)  # Highlight
-		else:
-			hero.modulate = Color(0.5, 0.5, 0.5, 0.5)  # Dim
+		elif not hero.is_enemy:
+			hero.modulate = Color(0.5, 0.5, 0.5, 0.5)  # Dim dead allies
 
 func _clear_highlights():
 	var all_heroes = []
@@ -262,6 +271,7 @@ func _clear_highlights():
 		hero.modulate = Color.WHITE
 
 func _on_reroll_pressed():
+	_used_hand_slots.clear()
 	GameState.send_json({
 		"type": "reroll_hand",
 		"match_id": GameState.current_match_id
@@ -320,12 +330,6 @@ func get_heroes() -> Array:
 	all.append_array(my_heroes.values())
 	all.append_array(enemy_heroes.values())
 	return all
-
-func get_first_alive_hero_slot() -> int:
-	for slot in my_heroes:
-		if not my_heroes[slot].is_dead():
-			return slot
-	return 1
 
 # --- Dev Panel (desktop only, toggle with F3) ---
 

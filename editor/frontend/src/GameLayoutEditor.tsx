@@ -105,8 +105,7 @@ const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
     { id: 'action4', label: 'Action 4' },
     { id: 'action5', label: 'Action 5' },
     { id: 'reroll', label: 'RE-ROLL' },
-    { id: 'mana', label: 'Mana Bar' },
-    { id: 'health', label: 'Health Bar' },
+    { id: 'energy', label: 'Energy Bar' },
     { id: 'settings', label: 'Settings' },
     { id: 'clock', label: 'Clock' },
     { id: 'battery', label: 'Battery' },
@@ -166,8 +165,17 @@ function makeDefaultBoxes(sceneSlug: string): Record<string, Box> {
 }
 
 function mergeWithDefaults(boxes: Record<string, Box>, sceneSlug: string): Record<string, Box> {
-  const merged = { ...boxes };
-  getDefaultBoxDefs(sceneSlug).forEach((box, i) => {
+  const defaults = getDefaultBoxDefs(sceneSlug);
+  const defaultIds = new Set(defaults.map(b => b.id));
+  const merged: Record<string, Box> = {};
+  // Only keep boxes that are in the current defaults
+  for (const [id, box] of Object.entries(boxes)) {
+    if (defaultIds.has(id)) {
+      merged[id] = { ...box, pivot: box.pivot || 'top-left' };
+    }
+  }
+  // Add any missing defaults
+  defaults.forEach((box, i) => {
     if (!merged[box.id]) {
       merged[box.id] = {
         id: box.id,
@@ -178,11 +186,6 @@ function mergeWithDefaults(boxes: Record<string, Box>, sceneSlug: string): Recor
         label: box.label,
         pivot: 'top-left'
       };
-    } else {
-      merged[box.id] = {
-        ...merged[box.id],
-        pivot: merged[box.id].pivot || 'top-left'
-      };
     }
   });
   return merged;
@@ -191,11 +194,8 @@ function mergeWithDefaults(boxes: Record<string, Box>, sceneSlug: string): Recor
 // Old numeric index → new slug mapping (for background migration)
 const OLD_INDEX_TO_SLUG: Record<number, string> = {
   0: '9-16',
-  1: '9-19.5',
   2: '9-20',
-  3: '9-22',    // Old index 3 was Galaxy S24 (9:22)
-  4: '3-4',     // Old index 4 was iPad (3:4)
-  // 5-7 were Square/4:3/Landscape — no longer supported, skip
+  4: '3-4',
 };
 
 function migrateBackgrounds(backgrounds: Record<string, string>): Record<string, string> {

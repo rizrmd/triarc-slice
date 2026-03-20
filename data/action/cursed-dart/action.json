@@ -1,0 +1,36 @@
+{
+  "full_name": "Cursed Dart",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 166,
+    "y": -14
+  },
+  "char_bg_scale": 136,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#eb90ff",
+  "description": "Pierce the target with a cursed projectile that carries dark, lingering malice.",
+  "cost": 2,
+  "element": [
+    "shadow"
+  ],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3
+}

@@ -17,6 +17,7 @@
   },
   "name_scale": 57,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
   "tint": "#db530a",
   "hp_bar_pos": {
     "x": 0,
