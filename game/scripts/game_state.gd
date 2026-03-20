@@ -10,6 +10,7 @@ var id_token: String = ""
 var current_match_id: String = ""
 var current_team: int = 0
 var match_state: Dictionary = {}
+var match_mode: String = "matchmaking" # "matchmaking" or "training"
 
 # Hero selection
 var selected_heroes: Array[String] = []
@@ -29,6 +30,7 @@ func _ready():
 	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()
+	_load_selected_heroes()
 
 # --- Layout utilities ---
 
@@ -71,43 +73,33 @@ func get_scene_boxes(scene_name: String) -> Dictionary:
 		return {}
 	return boxes[best]
 
-## Resolve a box to a pixel position & size, honouring screen_relative + pivot.
-func resolve_box(box: Dictionary, viewport_size: Vector2) -> Dictionary:
+## Reference viewports for each aspect preset (must match editor/frontend/src/lib/godot/viewport.ts)
+const ASPECT_VIEWPORTS = {
+	"9-16": Vector2(1080, 1920),
+	"9-20": Vector2(1080, 2400),
+	"3-4": Vector2(1536, 2048),
+}
+
+## Resolve a box to pixel top-left position & size.
+## Editor stores x,y as top-left coords for the reference viewport.
+## screen_relative boxes scale with the current viewport; others use fixed pixel coords.
+func resolve_box(box: Dictionary, viewport_size: Vector2, aspect_key: String = "") -> Dictionary:
 	var w: float = box.get("width", 0)
 	var h: float = box.get("height", 0)
 	var px: float
 	var py: float
-	if box.get("screen_relative", false) and box.has("nx") and box.has("ny"):
-		px = box["nx"] * viewport_size.x
-		py = box["ny"] * viewport_size.y
+	if box.get("screen_relative", false):
+		# x,y are top-left in the reference viewport — compute normalized center,
+		# then convert to current viewport top-left
+		var ref_vp: Vector2 = ASPECT_VIEWPORTS.get(aspect_key, Vector2(1080, 1920))
+		var cx_norm = (float(box.get("x", 0)) + w / 2.0) / ref_vp.x
+		var cy_norm = (float(box.get("y", 0)) + h / 2.0) / ref_vp.y
+		px = cx_norm * viewport_size.x - w / 2.0
+		py = cy_norm * viewport_size.y - h / 2.0
 	else:
+		# x,y are already top-left pixel coords
 		px = float(box.get("x", 0))
 		py = float(box.get("y", 0))
-	# Apply pivot (default center)
-	var pivot: String = box.get("pivot", "center")
-	match pivot:
-		"center":
-			px -= w / 2.0
-			py -= h / 2.0
-		"top-left":
-			pass
-		"top-center":
-			px -= w / 2.0
-		"top-right":
-			px -= w
-		"center-left":
-			py -= h / 2.0
-		"center-right":
-			px -= w
-			py -= h / 2.0
-		"bottom-left":
-			py -= h
-		"bottom-center":
-			px -= w / 2.0
-			py -= h
-		"bottom-right":
-			px -= w
-			py -= h
 	return {"x": px, "y": py, "width": w, "height": h}
 
 ## Get background slug for a scene using best aspect match.
@@ -194,10 +186,12 @@ func get_all_hero_slugs() -> Array:
 func select_hero(slug: String) -> bool:
 	if selected_heroes.has(slug):
 		selected_heroes.erase(slug)
+		_save_selected_heroes()
 		return false
 	if selected_heroes.size() >= MAX_HEROES:
 		return false
 	selected_heroes.append(slug)
+	_save_selected_heroes()
 	return true
 
 func is_hero_selected(slug: String) -> bool:
@@ -205,6 +199,7 @@ func is_hero_selected(slug: String) -> bool:
 
 func clear_selected_heroes():
 	selected_heroes.clear()
+	_save_selected_heroes()
 
 func can_queue() -> bool:
 	return selected_heroes.size() == MAX_HEROES
@@ -212,3 +207,28 @@ func can_queue() -> bool:
 func send_json(data: Dictionary) -> void:
 	if ws and ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		ws.send_text(JSON.stringify(data))
+
+# --- Hero selection persistence ---
+
+const _HEROES_PATH = "user://selected_heroes.json"
+
+func _save_selected_heroes() -> void:
+	var file = FileAccess.open(_HEROES_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify({"heroes": selected_heroes}))
+
+func _load_selected_heroes() -> void:
+	if not FileAccess.file_exists(_HEROES_PATH):
+		return
+	var file = FileAccess.open(_HEROES_PATH, FileAccess.READ)
+	if not file:
+		return
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		return
+	var data: Dictionary = json.data
+	var heroes: Array = data.get("heroes", [])
+	selected_heroes.clear()
+	for slug in heroes:
+		if hero_defs.has(slug):
+			selected_heroes.append(slug)

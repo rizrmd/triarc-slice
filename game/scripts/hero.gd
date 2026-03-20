@@ -1,3 +1,4 @@
+class_name Hero
 extends Control
 ## Hero - Displays a hero with layered sprites, HP bar, and status effects
 
@@ -5,7 +6,7 @@ extends Control
 @onready var shadow_sprite: Sprite2D = $ShadowSprite
 @onready var char_sprite: Sprite2D = $CharSprite
 @onready var hp_bar: ProgressBar = $HPBar
-@onready var cast_bar: ProgressBar = $CastBar
+@onready var _cast_bar: ProgressBar = $CastBar
 @onready var status_container: HBoxContainer = $StatusContainer
 @onready var floating_text_origin: Marker2D = $FloatingTextOrigin
 
@@ -20,10 +21,40 @@ var is_alive: bool = true
 var is_enemy: bool = false
 
 var _tween_hp: Tween = null
+var _hero_config: Dictionary = {}
+var _mask_shader: Shader
+var _card_shader: Shader
+var _empty_mask: ImageTexture
 
 func _ready():
 	_cast_bar.visible = false
 	_update_hp_display()
+	_mask_shader = Shader.new()
+	_mask_shader.code = """shader_type canvas_item;
+uniform sampler2D mask_tex;
+void fragment() {
+	vec4 col = texture(TEXTURE, UV);
+	vec4 mask = texture(mask_tex, UV);
+	col.a *= (1.0 - mask.a);
+	COLOR = col;
+}
+"""
+	_card_shader = Shader.new()
+	_card_shader.code = """shader_type canvas_item;
+uniform sampler2D mask_tex;
+uniform vec2 char_uv_offset;
+uniform vec2 char_uv_scale;
+void fragment() {
+	vec2 luv = char_uv_offset + UV * char_uv_scale;
+	vec4 col = texture(TEXTURE, luv);
+	vec4 mask = texture(mask_tex, luv);
+	col.a *= (1.0 - mask.a);
+	COLOR = col;
+}
+"""
+	var img = Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	_empty_mask = ImageTexture.create_from_image(img)
 
 func setup(data: Dictionary, is_enemy_team: bool = false):
 	hero_instance_id = data.get("hero_instance_id", "")
@@ -36,13 +67,13 @@ func setup(data: Dictionary, is_enemy_team: bool = false):
 	hero_name = hero_def.get("name", hero_slug)
 	max_hp = hero_def.get("max_hp", 1000)
 	
-	# Load sprites
+	# Load config and sprites
+	_load_hero_config()
 	_load_sprites()
-	
-	# Set tint
-	var tint = hero_def.get("tint", Color.WHITE)
-	char_sprite.modulate = tint
-	
+
+	# Clip sprites to box bounds (editor clips pose char layer + card content)
+	clip_children = Control.CLIP_CHILDREN_ONLY
+
 	# Initial HP
 	current_hp = data.get("hp_current", max_hp)
 	max_hp = data.get("hp_max", max_hp)
@@ -52,24 +83,184 @@ func setup(data: Dictionary, is_enemy_team: bool = false):
 	if not is_alive:
 		_set_dead_visuals()
 
+# Editor authoring reference sizes
+const POSE_REF_SIZE := Vector2(320, 517)  # 9-16 enemy2 box
+const CARD_REF_SIZE := Vector2(471, 720)  # hero-frame.webp dimensions
+
+func apply_layout_size(layout_size: Vector2):
+	var center = layout_size / 2.0
+
+	if is_enemy:
+		_apply_pose_layout(layout_size, center)
+	else:
+		_apply_card_layout(layout_size, center)
+
+	floating_text_origin.position = Vector2(center.x, layout_size.y * 0.3)
+	# Reposition UI elements
+	var ui_sx = layout_size.x / POSE_REF_SIZE.x
+	var ui_sy = layout_size.y / POSE_REF_SIZE.y
+	hp_bar.size = Vector2(layout_size.x - 24 * ui_sx, 27 * ui_sy)
+	_cast_bar.size = Vector2(layout_size.x - 24 * ui_sx, 20 * ui_sy)
+	status_container.size = Vector2(layout_size.x - 24 * ui_sx, 30 * ui_sy)
+	if is_enemy:
+		# Enemy: HP bar on top, then cast bar, then statuses below
+		hp_bar.position = Vector2(12 * ui_sx, 8 * ui_sy)
+		_cast_bar.position = Vector2(12 * ui_sx, hp_bar.position.y + hp_bar.size.y + 5 * ui_sy)
+		status_container.position = Vector2(12 * ui_sx, _cast_bar.position.y + _cast_bar.size.y + 5 * ui_sy)
+	else:
+		# Ally: HP bar at bottom, cast bar and statuses above
+		hp_bar.position = Vector2(12 * ui_sx, layout_size.y - 35 * ui_sy)
+		_cast_bar.position = Vector2(12 * ui_sx, hp_bar.position.y - 25 * ui_sy)
+		status_container.position = Vector2(12 * ui_sx, _cast_bar.position.y - 35 * ui_sy)
+
+func _apply_pose_layout(layout_size: Vector2, center: Vector2):
+	if _hero_config == null:
+		return
+	var ref_sx = layout_size.x / POSE_REF_SIZE.x
+	var ref_sy = layout_size.y / POSE_REF_SIZE.y
+	var pose = _hero_config.get("pose", {})
+	if pose == null:
+		pose = {}
+
+	bg_sprite.visible = false
+
+	# Shadow
+	var shadow_pos = pose.get("shadow_pos", {"x": 0, "y": 0})
+	var shadow_scale_pct = float(pose.get("shadow_scale", 100)) / 100.0
+	if shadow_sprite.texture:
+		var tex_size = shadow_sprite.texture.get_size()
+		shadow_sprite.scale = Vector2(
+			layout_size.x * shadow_scale_pct / tex_size.x,
+			layout_size.y * shadow_scale_pct / tex_size.y
+		)
+	shadow_sprite.position = center + Vector2(
+		float(shadow_pos.get("x", 0)) * ref_sx,
+		float(shadow_pos.get("y", 0)) * ref_sy
+	)
+
+	# Character
+	var char_pos = pose.get("char_fg_pos", {"x": 0, "y": 0})
+	var char_scale_pct = float(pose.get("char_fg_scale", 100)) / 100.0
+	if char_sprite.texture:
+		var tex_size = char_sprite.texture.get_size()
+		char_sprite.scale = Vector2(
+			layout_size.x * char_scale_pct / tex_size.x,
+			layout_size.y * char_scale_pct / tex_size.y
+		)
+	char_sprite.position = center + Vector2(
+		float(char_pos.get("x", 0)) * ref_sx,
+		float(char_pos.get("y", 0)) * ref_sy
+	)
+
+func _apply_card_layout(layout_size: Vector2, center: Vector2):
+	if _hero_config == null:
+		return
+	var ref_sx = layout_size.x / CARD_REF_SIZE.x
+	var ref_sy = layout_size.y / CARD_REF_SIZE.y
+
+	# BG layer
+	bg_sprite.visible = true
+	var bg_pos = _hero_config.get("char_bg_pos", {"x": 0, "y": 0})
+	var bg_scale_pct = float(_hero_config.get("char_bg_scale", 100)) / 100.0
+	if bg_sprite.texture:
+		var tex_size = bg_sprite.texture.get_size()
+		bg_sprite.scale = Vector2(
+			layout_size.x * bg_scale_pct / tex_size.x,
+			layout_size.y * bg_scale_pct / tex_size.y
+		)
+	bg_sprite.position = center + Vector2(
+		float(bg_pos.get("x", 0)) * ref_sx,
+		float(bg_pos.get("y", 0)) * ref_sy
+	)
+
+	# Frame (reuses shadow_sprite, fills the whole card)
+	if shadow_sprite.texture:
+		var tex_size = shadow_sprite.texture.get_size()
+		shadow_sprite.scale = Vector2(
+			layout_size.x / tex_size.x,
+			layout_size.y / tex_size.y
+		)
+	shadow_sprite.position = center
+
+	# FG layer
+	var fg_pos = _hero_config.get("char_fg_pos", {"x": 0, "y": 0})
+	var fg_scale_pct = float(_hero_config.get("char_fg_scale", 100)) / 100.0
+	if char_sprite.texture:
+		var tex_size = char_sprite.texture.get_size()
+		char_sprite.scale = Vector2(
+			layout_size.x * fg_scale_pct / tex_size.x,
+			layout_size.y * fg_scale_pct / tex_size.y
+		)
+	char_sprite.position = center + Vector2(
+		float(fg_pos.get("x", 0)) * ref_sx,
+		float(fg_pos.get("y", 0)) * ref_sy
+	)
+
+func _load_hero_config():
+	var path = "res://data/hero/%s/hero.json" % hero_slug
+	var file = FileAccess.open(path, FileAccess.READ)
+	if not file:
+		return
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+		_hero_config = json.data
+
 func _load_sprites():
-	# Load hero images from data folder
+	if is_enemy:
+		_load_pose_sprites()
+	else:
+		_load_card_sprites()
+
+func _load_pose_sprites():
 	var base_path = "res://data/hero/%s/img/" % hero_slug
-	
-	# Background
-	var bg_path = base_path + "char-bg.webp"
-	if ResourceLoader.exists(bg_path):
-		bg_sprite.texture = load(bg_path)
-	
-	# Shadow (pose)
+
 	var shadow_path = base_path + "pose-shadow.webp"
 	if ResourceLoader.exists(shadow_path):
 		shadow_sprite.texture = load(shadow_path)
-	
-	# Character (pose)
+
 	var char_path = base_path + "pose-char-fg.webp"
 	if ResourceLoader.exists(char_path):
 		char_sprite.texture = load(char_path)
+
+	var mask_path = base_path + "pose-mask-fg.webp"
+	if ResourceLoader.exists(mask_path):
+		var mat = ShaderMaterial.new()
+		mat.shader = _mask_shader
+		mat.set_shader_parameter("mask_tex", load(mask_path))
+		char_sprite.material = mat
+
+func _load_card_sprites():
+	var base_path = "res://data/hero/%s/img/" % hero_slug
+
+	# Background layer
+	var bg_path = base_path + "char-bg.webp"
+	if ResourceLoader.exists(bg_path):
+		bg_sprite.texture = load(bg_path)
+	var bg_mask_path = base_path + "mask-bg.webp"
+	if ResourceLoader.exists(bg_mask_path):
+		var mat = ShaderMaterial.new()
+		mat.shader = _mask_shader
+		mat.set_shader_parameter("mask_tex", load(bg_mask_path))
+		bg_sprite.material = mat
+
+	# Frame (reuse shadow_sprite, tinted)
+	var frame_tex = load("res://assets/ui/hero-frame.webp")
+	if frame_tex:
+		shadow_sprite.texture = frame_tex
+		var tint_str = _hero_config.get("tint", "#ffffff")
+		if typeof(tint_str) == TYPE_STRING:
+			shadow_sprite.modulate = Color(tint_str)
+
+	# Foreground layer
+	var fg_path = base_path + "char-fg.webp"
+	if ResourceLoader.exists(fg_path):
+		char_sprite.texture = load(fg_path)
+	var fg_mask_path = base_path + "mask-fg.webp"
+	if ResourceLoader.exists(fg_mask_path):
+		var mat = ShaderMaterial.new()
+		mat.shader = _mask_shader
+		mat.set_shader_parameter("mask_tex", load(fg_mask_path))
+		char_sprite.material = mat
 
 func update_state(data: Dictionary):
 	var new_hp = data.get("hp_current", current_hp)
