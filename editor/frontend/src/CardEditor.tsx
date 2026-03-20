@@ -254,6 +254,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
     if (l.target_rule !== r.target_rule) return false;
     if (JSON.stringify(l.targeting ?? {}) !== JSON.stringify(r.targeting ?? {})) return false;
     if (l.description !== r.description) return false;
+    if (JSON.stringify(l.gameplay ?? {}) !== JSON.stringify(r.gameplay ?? {})) return false;
     
     return JSON.stringify(left) === JSON.stringify(right);
   };

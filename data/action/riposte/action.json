@@ -16,7 +16,7 @@
   "description": "Punish an opening with a precise counterattack after absorbing or avoiding pressure.",
   "cost": 2,
   "element": [],
-  "target_rule": "enemy_single",
+  "target_rule": "self",
   "visible_layers": {
     "card": true,
     "char-bg": true,
@@ -24,11 +24,19 @@
     "mask-bg": true
   },
   "targeting": {
-    "side": "enemy",
+    "side": "ally",
     "scope": "single",
     "selection": "manual",
-    "allow_self": false,
+    "allow_self": true,
     "allow_dead": false
   },
-  "text_shadow_size": 3
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 600,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "shield",
+    "status_duration_ms": 3000,
+    "status_value": 12
+  }
 }

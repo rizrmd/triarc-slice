@@ -36,6 +36,18 @@ export interface HeroConfig {
   visible_layers?: Partial<VisibleLayers>;
 }
 
+export type EffectKind = 'damage' | 'heal' | 'shield' | 'status' | 'damage_and_status' | 'cleanse';
+export type StatusKind = 'stun' | 'shield' | 'attack_buff' | 'defense_buff' | 'dot' | 'hot';
+
+export interface ActionGameplay {
+  casting_time_ms: number;
+  effect_kind: EffectKind;
+  base_power: number;
+  status_kind: StatusKind | null;
+  status_duration_ms: number;
+  status_value: number;
+}
+
 export interface ActionConfig {
   full_name: string;
   frame_image?: string;
@@ -57,6 +69,7 @@ export interface ActionConfig {
   element?: string[];
   target_rule?: TargetRule;
   targeting?: ActionTargeting;
+  gameplay?: ActionGameplay;
   visible_layers?: Partial<VisibleLayers>;
 }
 

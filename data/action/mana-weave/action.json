@@ -18,7 +18,7 @@
   "element": [
     "light"
   ],
-  "target_rule": "enemy_single",
+  "target_rule": "ally_single",
   "visible_layers": {
     "card": true,
     "char-bg": true,
@@ -26,11 +26,19 @@
     "mask-bg": true
   },
   "targeting": {
-    "side": "enemy",
+    "side": "ally",
     "scope": "single",
     "selection": "manual",
-    "allow_self": false,
+    "allow_self": true,
     "allow_dead": false
   },
-  "text_shadow_size": 3
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1000,
+    "effect_kind": "heal",
+    "base_power": 20,
+    "status_kind": null,
+    "status_duration_ms": 0,
+    "status_value": 0
+  }
 }

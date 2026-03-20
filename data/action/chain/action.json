@@ -21,7 +21,9 @@
   "targeting": {
     "side": "enemy",
     "scope": "single",
-    "selection": "manual"
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
   },
   "visible_layers": {
     "card": true,
@@ -35,5 +37,13 @@
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
+  },
+  "gameplay": {
+    "casting_time_ms": 1000,
+    "effect_kind": "damage_and_status",
+    "base_power": 14,
+    "status_kind": "attack_buff",
+    "status_duration_ms": 3000,
+    "status_value": -8
   }
 }
