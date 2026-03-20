@@ -18,14 +18,12 @@ position = Vector2(162, 247)
 [node name="CharSprite" type="Sprite2D" parent="."]
 position = Vector2(162, 247)
 
-[node name="HPBar" type="ProgressBar" parent="."]
+[node name="HPBar" type="Control" parent="."]
 layout_mode = 0
 offset_left = 12.0
 offset_top = 460.0
 offset_right = 312.0
 offset_bottom = 487.0
-max_value = 100.0
-value = 100.0
 
 [node name="CastBar" type="ProgressBar" parent="."]
 layout_mode = 0

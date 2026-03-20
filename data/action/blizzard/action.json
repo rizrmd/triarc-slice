@@ -12,6 +12,7 @@
   },
   "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
   "tint": "#4da9ff",
   "description": "Unleash a freezing storm that batters the enemy line with cold, sweeping force.",
   "cost": 4,
@@ -28,7 +29,14 @@
   "visible_layers": {
     "card": true,
     "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
     "name": true,
-    "mask-bg": true
+    "pose-char-fg": false,
+    "pose-frame": false,
+    "pose-mask-fg": false,
+    "pose-shadow": false
   }
 }

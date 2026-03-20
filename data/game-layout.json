@@ -10,73 +10,73 @@
         "3-4": {
           "action1": {
             "actionSlug": "arcane-blast",
-            "height": 350,
+            "height": 339,
             "id": "action1",
             "label": "Action 1",
             "locked": false,
-            "nx": 0.14973958333333334,
-            "ny": 0.78759765625,
+            "nx": 0.2373046875,
+            "ny": 0.288818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
             "x": 117,
-            "y": 1438
+            "y": 1446
           },
           "action2": {
             "actionSlug": "blizzard",
-            "height": 350,
+            "height": 339,
             "id": "action2",
             "label": "Action 2",
             "locked": false,
-            "nx": 0.3248697916666667,
-            "ny": 0.78759765625,
+            "nx": 0.36865234375,
+            "ny": 0.288818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
             "x": 386,
-            "y": 1438
+            "y": 1446
           },
           "action3": {
             "actionSlug": "shadowstep",
-            "height": 350,
+            "height": 339,
             "id": "action3",
             "label": "Action 3",
             "locked": false,
             "nx": 0.5,
-            "ny": 0.78759765625,
+            "ny": 0.787841796875,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
             "x": 655,
-            "y": 1438
+            "y": 1444
           },
           "action4": {
             "actionSlug": "smoke-bomb",
-            "height": 350,
+            "height": 339,
             "id": "action4",
             "label": "Action 4",
             "locked": false,
-            "nx": 0.6744791666666666,
-            "ny": 0.78759765625,
+            "nx": 0.630859375,
+            "ny": 0.288818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
             "x": 923,
-            "y": 1438
+            "y": 1446
           },
           "action5": {
             "actionSlug": "ice-nova",
-            "height": 350,
+            "height": 339,
             "id": "action5",
             "label": "Action 5",
             "locked": false,
-            "nx": 0.849609375,
-            "ny": 0.78759765625,
+            "nx": 0.76220703125,
+            "ny": 0.288818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
             "x": 1192,
-            "y": 1438
+            "y": 1446
           },
           "battery": {
             "height": 59,
@@ -105,12 +105,12 @@
             "id": "enemy1",
             "label": "Enemy 1",
             "nx": 0.2666015625,
-            "ny": -0.221435546875,
+            "ny": -0.194091796875,
             "pivot": "bottom-center",
             "poseSlug": "arcane-paladin",
             "width": 390,
             "x": 95,
-            "y": 259
+            "y": 315
           },
           "enemy2": {
             "height": 598,
@@ -136,16 +136,16 @@
             "x": 1085,
             "y": 259
           },
-          "health": {
-            "height": 100,
-            "id": "health",
-            "label": "Health Bar",
-            "nx": 0.2216796875,
-            "ny": 0.9521484375,
-            "pivot": "bottom-left",
-            "width": 166,
-            "x": 115,
-            "y": 1900
+          "energy": {
+            "height": 165,
+            "id": "energy",
+            "label": "Energy Bar",
+            "nx": 0.4443359375,
+            "ny": 0.932373046875,
+            "pivot": "top-left",
+            "width": 1054,
+            "x": 127,
+            "y": 1827
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -153,13 +153,13 @@
             "id": "hero1",
             "label": "Hero 1",
             "locked": false,
-            "nx": 0.806640625,
-            "ny": 0.561279296875,
+            "nx": 0.72998046875,
+            "ny": 0.062255859375,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 1077,
-            "y": 902
+            "y": 904
           },
           "hero2": {
             "cardSlug": "arcane-paladin",
@@ -167,13 +167,13 @@
             "id": "hero2",
             "label": "Hero 2",
             "locked": false,
-            "nx": 0.5052083333333334,
-            "ny": 0.558837890625,
+            "nx": 0.50390625,
+            "ny": 0.059814453125,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 614,
-            "y": 897
+            "y": 899
           },
           "hero3": {
             "cardSlug": "dawn-priest",
@@ -181,35 +181,24 @@
             "id": "hero3",
             "label": "Hero 3",
             "locked": false,
-            "nx": 0.19270833333333334,
-            "ny": 0.556396484375,
+            "nx": 0.26953125,
+            "ny": 0.057373046875,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 134,
-            "y": 892
-          },
-          "mana": {
-            "height": 100,
-            "id": "mana",
-            "label": "Mana Bar",
-            "nx": 0.518798828125,
-            "ny": 0.9521484375,
-            "pivot": "bottom-center",
-            "width": 295,
-            "x": 659,
-            "y": 1900
+            "y": 894
           },
           "reroll": {
-            "height": 100,
+            "height": 165,
             "id": "reroll",
             "label": "RE-ROLL",
-            "nx": 0.7998046875,
-            "ny": 0.9521484375,
+            "nx": 0.766357421875,
+            "ny": 0.933349609375,
             "pivot": "bottom-right",
-            "width": 100,
-            "x": 1332,
-            "y": 1900
+            "width": 197,
+            "x": 1215,
+            "y": 1829
           },
           "settings": {
             "height": 71,
@@ -230,8 +219,8 @@
             "id": "action1",
             "label": "Action 1",
             "locked": false,
-            "nx": 0.165625,
-            "ny": 0.28489583333333335,
+            "nx": 0.1037037037037037,
+            "ny": 0.7848958333333333,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
@@ -272,8 +261,8 @@
             "id": "action4",
             "label": "Action 4",
             "locked": false,
-            "nx": 0.6640625,
-            "ny": 0.28489583333333335,
+            "nx": 0.6944444444444444,
+            "ny": 0.7848958333333333,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
@@ -286,8 +275,8 @@
             "id": "action5",
             "label": "Action 5",
             "locked": false,
-            "nx": 0.83046875,
-            "ny": 0.28489583333333335,
+            "nx": 0.8916666666666667,
+            "ny": 0.7848958333333333,
             "pivot": "center",
             "screen_relative": true,
             "width": 200,
@@ -320,48 +309,48 @@
             "height": 517,
             "id": "enemy1",
             "label": "Enemy 1",
-            "nx": 0.77578125,
-            "ny": -0.22942708333333334,
+            "nx": 0.778125,
+            "ny": -0.20651041666666667,
             "pivot": "bottom-center",
             "poseSlug": "arcane-paladin",
             "width": 320,
-            "x": 733,
-            "y": 261
+            "x": 736,
+            "y": 305
           },
           "enemy2": {
             "height": 517,
             "id": "enemy2",
             "label": "Enemy 2",
-            "nx": 0.503125,
-            "ny": -0.22942708333333334,
+            "nx": 0.50546875,
+            "ny": 0.29348958333333336,
             "pivot": "bottom-center",
             "poseSlug": "arc-strider",
             "width": 320,
-            "x": 384,
-            "y": 261
+            "x": 387,
+            "y": 305
           },
           "enemy3": {
             "height": 517,
             "id": "enemy3",
             "label": "Enemy 3",
-            "nx": 0.23046875,
-            "ny": -0.22786458333333334,
+            "nx": 0.2328125,
+            "ny": 0.29348958333333336,
             "pivot": "bottom-center",
             "poseSlug": "blood-alchemist",
             "width": 320,
-            "x": 35,
-            "y": 264
+            "x": 38,
+            "y": 305
           },
-          "health": {
-            "height": 100,
-            "id": "health",
-            "label": "Health Bar",
-            "nx": 0.26197916666666665,
-            "ny": 0.9536458333333333,
-            "pivot": "bottom-left",
-            "width": 166,
-            "x": 152,
-            "y": 1781
+          "energy": {
+            "height": 195,
+            "id": "energy",
+            "label": "Energy Bar",
+            "nx": 0.410546875,
+            "ny": 0.9278645833333333,
+            "pivot": "top-left",
+            "width": 813,
+            "x": 19,
+            "y": 1684
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -370,12 +359,12 @@
             "label": "Hero 1",
             "locked": false,
             "nx": 0.17222222222222222,
-            "ny": 0.5669270833333333,
+            "ny": 0.5674479166666667,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 24,
-            "y": 841
+            "y": 842
           },
           "hero2": {
             "cardSlug": "arcane-paladin",
@@ -384,12 +373,12 @@
             "label": "Hero 2",
             "locked": false,
             "nx": 0.4981481481481482,
-            "ny": 0.5684895833333333,
+            "ny": 0.5690104166666666,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 376,
-            "y": 844
+            "y": 845
           },
           "hero3": {
             "cardSlug": "dawn-priest",
@@ -397,35 +386,24 @@
             "id": "hero3",
             "label": "Hero 3",
             "locked": false,
-            "nx": 0.77265625,
-            "ny": 0.06692708333333333,
+            "nx": 0.8231481481481482,
+            "ny": 0.5674479166666667,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 727,
-            "y": 841
-          },
-          "mana": {
-            "height": 100,
-            "id": "mana",
-            "label": "Mana Bar",
-            "nx": 0.511328125,
-            "ny": 0.9572916666666667,
-            "pivot": "bottom-center",
-            "width": 295,
-            "x": 407,
-            "y": 1788
+            "y": 842
           },
           "reroll": {
-            "height": 100,
+            "height": 201,
             "id": "reroll",
             "label": "RE-ROLL",
-            "nx": 0.7552083333333334,
-            "ny": 0.9578125,
+            "nx": 0.825,
+            "ny": 0.9283854166666666,
             "pivot": "bottom-right",
-            "width": 100,
-            "x": 817,
-            "y": 1789
+            "width": 196,
+            "x": 858,
+            "y": 1682
           },
           "settings": {
             "height": 49,
@@ -568,6 +546,17 @@
             "x": 726,
             "y": 476
           },
+          "energy": {
+            "height": 159,
+            "id": "energy",
+            "label": "Energy Bar",
+            "nx": 0.440625,
+            "ny": 0.8785416666666667,
+            "pivot": "top-left",
+            "width": 804,
+            "x": 43,
+            "y": 2029
+          },
           "health": {
             "height": 100,
             "id": "health",
@@ -633,15 +622,15 @@
             "y": 2259
           },
           "reroll": {
-            "height": 100,
+            "height": 151,
             "id": "reroll",
             "label": "RE-ROLL",
-            "nx": 0.775625,
-            "ny": 0.9620833333333333,
+            "nx": 0.7565625,
+            "ny": 0.8772916666666667,
             "pivot": "bottom-right",
-            "width": 100,
-            "x": 931,
-            "y": 2259
+            "width": 155,
+            "x": 873,
+            "y": 2030
           },
           "settings": {
             "height": 71,

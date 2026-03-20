@@ -28,6 +28,8 @@ var _player_id: String = ""
 var _display_name: String = ""
 var _id_token: String = ""
 
+var _reauth_attempted: bool = false
+
 const MAIN_ANIMAP_SLUG := "main"
 const VIEW_TO_ANIMAP_STATE := {
 	"login": "login",
@@ -44,6 +46,7 @@ const VIEW_PAN_X := {
 func _ready() -> void:
 	# Connect button signals
 	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
+	home_ui.get_node("TrainingButton").pressed.connect(_on_training_pressed)
 	home_ui.get_node("LogoutButton").pressed.connect(_on_logout_pressed)
 	hero_select_ui.back_requested.connect(func(): _show_view("home"))
 	hero_select_ui.find_match_requested.connect(func(): _show_view("find_match"))
@@ -76,21 +79,37 @@ func _ready() -> void:
 		_google_sign_in = desktop_auth
 		print("[AUTH] Google Sign-In initialized (Desktop OAuth)")
 
-	# Try auto-login with saved credentials (desktop only)
-	if not Engine.has_singleton("GodotGoogleSignIn"):
-		var saved = _load_saved_credentials()
-		if not saved.is_empty():
-			print("[AUTH] Found saved credentials, attempting auto-login...")
-			_id_token = saved["id_token"]
-			_display_name = saved["display_name"]
-			login_ui.get_node("StatusLabel").text = "Signing in..."
-			_show_view("login", false)
-			# Fade in, then auto-connect
-			var tween = create_tween()
-			tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
-			tween.tween_callback(func(): fade_rect.visible = false)
+	# If already authenticated (returning from gameplay), go straight to home
+	if not GameState.player_id.is_empty():
+		_player_id = GameState.player_id
+		_display_name = GameState.display_name
+		_id_token = GameState.id_token
+		home_ui.get_node("TitleLabel").text = "Welcome, " + _display_name
+		if GameState.ws and GameState.ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
+			_ws = GameState.ws
+		else:
+			# Was authenticated but lost connection — reconnect silently
+			home_ui.get_node("TitleLabel").text = "Reconnecting..."
 			_connect_to_server()
-			return
+		_show_view("home", false)
+		var tween = create_tween()
+		tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+		tween.tween_callback(func(): fade_rect.visible = false)
+		return
+
+	# If saved credentials exist, show login screen while connecting
+	var saved = _load_saved_credentials()
+	if not saved.is_empty():
+		_id_token = saved["id_token"]
+		_display_name = saved["display_name"]
+		login_ui.get_node("StatusLabel").text = "Connecting..."
+		sign_in_animap.visible = false
+		_show_view("login", false)
+		var tween = create_tween()
+		tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+		tween.tween_callback(func(): fade_rect.visible = false)
+		_connect_to_server()
+		return
 
 	# Start on Login view
 	_show_view("login", false)
@@ -109,8 +128,28 @@ func _process(_delta: float) -> void:
 				var msg = _ws.get_packet().get_string_from_utf8()
 				_on_ws_message(msg)
 		elif state == WebSocketPeer.STATE_CLOSED:
-			print("[WS] Connection closed: ", _ws.get_close_code(), " ", _ws.get_close_reason())
+			var code = _ws.get_close_code()
+			var reason = _ws.get_close_reason()
+			print("[WS] Connection closed: ", code, " ", reason)
 			_ws = null
+			GameState.ws = null
+			_on_ws_disconnected()
+
+func _on_ws_disconnected() -> void:
+	match _current_view:
+		"find_match":
+			find_match_ui.get_node("SearchingLabel").text = "Connection lost."
+			await get_tree().create_timer(1.5).timeout
+			_show_view("home")
+	# Try to reconnect if we have a session token
+	if not _id_token.is_empty():
+		home_ui.get_node("TitleLabel").text = "Reconnecting..."
+		if _current_view != "home":
+			_show_view("home")
+		_connect_to_server()
+	else:
+		_show_view("login")
+		login_ui.get_node("StatusLabel").text = "Connection lost. Please sign in."
 
 # --- Google Sign-In callbacks ---
 
@@ -118,8 +157,7 @@ func _on_sign_in_success(id_token: String, email: String, display_name: String) 
 	print("[AUTH] Sign-in success: ", email)
 	_id_token = id_token
 	_display_name = display_name
-	if not Engine.has_singleton("GodotGoogleSignIn"):
-		_save_credentials(id_token, email, display_name)
+	_save_credentials(id_token, email, display_name)
 	_connect_to_server()
 
 func _on_sign_in_failed(error: String) -> void:
@@ -195,6 +233,7 @@ func _on_ws_message(msg: String) -> void:
 		"authenticated":
 			_player_id = data.get("player_id", "")
 			_display_name = data.get("display_name", _display_name)
+			_reauth_attempted = false
 			print("[WS] Authenticated: ", _player_id, " (", _display_name, ")")
 			home_ui.get_node("TitleLabel").text = "Welcome, " + _display_name
 			
@@ -207,22 +246,34 @@ func _on_ws_message(msg: String) -> void:
 			_show_view("home")
 		"auth_error":
 			print("[WS] Auth error: ", data.get("message", ""))
-			_clear_saved_credentials()
-			_id_token = ""
-			sign_in_animap.visible = true
-			login_ui.get_node("StatusLabel").text = "Session expired. Please sign in again."
-			_show_view("login")
+			if _ws:
+				_ws.close()
+				_ws = null
+			if not _reauth_attempted and _google_sign_in:
+				# Try silent re-auth to get a fresh token
+				_reauth_attempted = true
+				print("[AUTH] Token rejected, attempting silent re-auth...")
+				login_ui.get_node("StatusLabel").text = "Refreshing session..."
+				_google_sign_in.signIn()
+			else:
+				_reauth_attempted = false
+				_clear_saved_credentials()
+				_id_token = ""
+				sign_in_animap.visible = true
+				login_ui.get_node("StatusLabel").text = "Session expired. Please sign in again."
+				_show_view("login")
 		"matchmaking_queued":
 			find_match_ui.get_node("SearchingLabel").text = "Searching..."
 		"match_found":
 			print("[WS] Match found: ", data.get("match_id", ""))
-			find_match_ui.get_node("SearchingLabel").text = "Match found!"
-			
+
 			# Store match info and transition to gameplay
 			GameState.current_match_id = data.get("match_id", "")
 			GameState.current_team = data.get("team", 1)
-			
-			await get_tree().create_timer(1.0).timeout
+
+			if _current_view == "find_match":
+				find_match_ui.get_node("SearchingLabel").text = "Match found!"
+				await get_tree().create_timer(1.0).timeout
 			get_tree().change_scene_to_file("res://scenes/gameplay.tscn")
 		_:
 			print("[WS] ", msg_type, ": ", msg.left(200))
@@ -282,9 +333,21 @@ func _on_sign_in_gui_input(event: InputEvent) -> void:
 func _on_login_pressed() -> void:
 	login_ui.get_node("StatusLabel").text = "Signing in..."
 	sign_in_animap.visible = false
-	_google_sign_in.signIn()
+	# Use saved credentials if available, skip Google entirely
+	var saved = _load_saved_credentials()
+	if not saved.is_empty():
+		_id_token = saved["id_token"]
+		_display_name = saved["display_name"]
+		_connect_to_server()
+	else:
+		_google_sign_in.signIn()
 
 func _on_find_match_pressed() -> void:
+	GameState.match_mode = "matchmaking"
+	_show_view("hero_select")
+
+func _on_training_pressed() -> void:
+	GameState.match_mode = "training"
 	_show_view("hero_select")
 
 func _on_logout_pressed() -> void:
