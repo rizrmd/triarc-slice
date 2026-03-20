@@ -33,5 +33,13 @@
     "allow_self": false,
     "allow_dead": false
   },
-  "text_shadow_size": 3
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1200,
+    "effect_kind": "damage",
+    "base_power": 22,
+    "status_kind": null,
+    "status_duration_ms": 0,
+    "status_value": 0
+  }
 }

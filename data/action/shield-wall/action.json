@@ -19,11 +19,13 @@
   "element": [
     "earth"
   ],
-  "target_rule": "enemy_single",
+  "target_rule": "ally_single",
   "targeting": {
-    "side": "enemy",
+    "side": "ally",
     "scope": "single",
-    "selection": "manual"
+    "selection": "manual",
+    "allow_self": true,
+    "allow_dead": false
   },
   "visible_layers": {
     "card": true,
@@ -37,5 +39,13 @@
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
+  },
+  "gameplay": {
+    "casting_time_ms": 1200,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "shield",
+    "status_duration_ms": 6000,
+    "status_value": 20
   }
 }

@@ -286,6 +286,7 @@ func _input(event):
 func _end_drag():
 	is_dragging = false
 	scale = Vector2(1.0, 1.0)
+	modulate.a = 1.0
 	z_index = 1
 
 	var dropped_on = _get_drop_target()
@@ -349,5 +350,7 @@ func can_afford(current_energy: int) -> bool:
 	return current_energy >= energy_cost
 
 func set_enabled(enabled: bool):
+	if is_dragging:
+		return
 	modulate = Color.WHITE if enabled else Color(0.5, 0.5, 0.5, 0.5)
 	disabled = not enabled

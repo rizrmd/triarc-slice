@@ -6,7 +6,7 @@ extends Control
 @onready var shadow_sprite: Sprite2D = $ShadowSprite
 @onready var char_sprite: Sprite2D = $CharSprite
 @onready var hp_bar: Control = $HPBar
-@onready var _cast_bar: ProgressBar = $CastBar
+@onready var _cast_indicator: Control = $CastIndicator
 @onready var status_container: HBoxContainer = $StatusContainer
 @onready var floating_text_origin: Marker2D = $FloatingTextOrigin
 
@@ -22,6 +22,10 @@ var is_enemy: bool = false
 
 var _tween_hp: Tween = null
 var _tween_cast: Tween = null
+var _tween_brightness: Tween = null
+var _current_brightness: float = 1.0
+var _cast_pie: CastPie = null
+var _cast_action_label: Label = null
 var _hero_config: Dictionary = {}
 var _mask_shader: Shader
 var _card_shader: Shader
@@ -36,7 +40,8 @@ var _hp_bar_font_size: float = 31.0
 var _name_label: Label
 
 func _ready():
-	_cast_bar.visible = false
+	_cast_indicator.visible = false
+	_build_cast_indicator()
 	_build_hp_bar()
 	_update_hp_display()
 	_mask_shader = Shader.new()
@@ -54,11 +59,13 @@ void fragment() {
 uniform sampler2D mask_tex;
 uniform vec2 char_uv_offset;
 uniform vec2 char_uv_scale;
+uniform float brightness : hint_range(0.0, 1.0) = 1.0;
 void fragment() {
 	vec2 luv = char_uv_offset + UV * char_uv_scale;
 	vec4 col = texture(TEXTURE, luv);
 	vec4 mask = texture(mask_tex, luv);
 	col.a *= (1.0 - mask.a);
+	col.rgb *= brightness;
 	COLOR = col;
 }
 """
@@ -112,15 +119,17 @@ func apply_layout_size(layout_size: Vector2):
 	var ui_sy = layout_size.y / POSE_REF_SIZE.y
 	var bar_ar = _get_bar_aspect_ratio()
 	if is_enemy:
-		# Enemy: HP bar on top, then cast bar, then statuses below
+		# Enemy: HP bar on top, then cast indicator, then statuses below
 		var bar_w = layout_size.x * 1.0
 		var bar_h = bar_w / bar_ar
 		hp_bar.position = Vector2((layout_size.x - bar_w) / 2.0, 8 * ui_sy)
 		hp_bar.size = Vector2(bar_w, bar_h)
-		_cast_bar.size = Vector2(bar_w, 20 * ui_sy)
-		_cast_bar.position = Vector2(hp_bar.position.x, hp_bar.position.y + bar_h + 5 * ui_sy)
+		var pie_size = bar_h * 1.8
+		_cast_indicator.position = Vector2(hp_bar.position.x, hp_bar.position.y + bar_h + 20 + 5 * ui_sy)
+		_cast_indicator.size = Vector2(bar_w, pie_size)
+		_resize_cast_indicator(pie_size)
 		status_container.size = Vector2(bar_w, 30 * ui_sy)
-		status_container.position = Vector2(hp_bar.position.x, _cast_bar.position.y + _cast_bar.size.y + 5 * ui_sy)
+		status_container.position = Vector2(hp_bar.position.x, _cast_indicator.position.y + pie_size + 5 * ui_sy)
 	else:
 		# Ally: use card config values matching editor preview
 		var hp_scale_pct = float(_hero_config.get("hp_bar_scale", 250)) / 100.0
@@ -133,10 +142,12 @@ func apply_layout_size(layout_size: Vector2):
 		var bar_y = center.y + float(hp_pos_cfg.get("y", 0)) * ref_sy - bar_h / 2.0
 		hp_bar.position = Vector2(bar_x, bar_y)
 		hp_bar.size = Vector2(bar_w, bar_h)
-		_cast_bar.size = Vector2(bar_w, 20 * ref_sy)
-		_cast_bar.position = Vector2(bar_x, bar_y - 25 * ref_sy)
+		var pie_size = bar_h * 1.8
+		_cast_indicator.position = Vector2(bar_x, bar_y + bar_h + 20 + 5 * ref_sy)
+		_cast_indicator.size = Vector2(bar_w, pie_size)
+		_resize_cast_indicator(pie_size)
 		status_container.size = Vector2(bar_w, 30 * ref_sy)
-		status_container.position = Vector2(bar_x, _cast_bar.position.y - 35 * ref_sy)
+		status_container.position = Vector2(bar_x, _cast_indicator.position.y + pie_size + 5 * ref_sy)
 	_resize_bar_children()
 	if _bar_label:
 		var font_size: int
@@ -486,24 +497,64 @@ func _show_floating_text(amount: int):
 	else:
 		text.show_damage(abs(amount))
 
-func _show_casting(duration_ms: int):
+func _build_cast_indicator():
+	# Pie chart with action image background
+	_cast_pie = CastPie.new()
+	_cast_indicator.add_child(_cast_pie)
+
+	# Action name label
+	_cast_action_label = Label.new()
+	_cast_action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_cast_action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_cast_action_label.add_theme_color_override("font_color", Color.WHITE)
+	_cast_action_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_cast_action_label.add_theme_constant_override("outline_size", 2)
+	_cast_action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cast_indicator.add_child(_cast_action_label)
+
+func _resize_cast_indicator(pie_size: float):
+	if _cast_pie:
+		_cast_pie.position = Vector2.ZERO
+		_cast_pie.size = Vector2(pie_size, pie_size)
+	if _cast_action_label:
+		var label_x = pie_size + 6
+		_cast_action_label.position = Vector2(label_x, 0)
+		_cast_action_label.size = Vector2(_cast_indicator.size.x - label_x, pie_size)
+		_cast_action_label.add_theme_font_size_override("font_size", max(8, int(pie_size * 0.5)))
+
+func _show_casting(duration_ms: int, action_slug: String = ""):
 	if _tween_cast and _tween_cast.is_valid():
 		_tween_cast.kill()
-	_cast_bar.visible = true
-	_cast_bar.max_value = duration_ms
-	_cast_bar.value = duration_ms
+	_cast_indicator.visible = true
+	if _cast_pie:
+		_cast_pie.progress = 1.0
+	if not action_slug.is_empty():
+		var normalized = action_slug.replace("_", "-")
+		# Set action image as pie background
+		var icon_path = "res://data/action/%s/img/char-bg.webp" % normalized
+		if _cast_pie:
+			_cast_pie.action_texture = load(icon_path) if ResourceLoader.exists(icon_path) else null
+		# Load action name from config
+		var cfg_path = "res://data/action/%s/action.json" % normalized
+		var file = FileAccess.open(cfg_path, FileAccess.READ)
+		if file:
+			var json = JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				_cast_action_label.text = json.data.get("full_name", normalized.capitalize())
+			else:
+				_cast_action_label.text = normalized.replace("-", " ").capitalize()
+		else:
+			_cast_action_label.text = normalized.replace("-", " ").capitalize()
 	_tween_cast = create_tween()
-	_tween_cast.tween_property(_cast_bar, "value", 0, duration_ms / 1000.0)
-	_tween_cast.tween_callback(func(): _cast_bar.visible = false)
+	_tween_cast.tween_method(_set_cast_progress, 1.0, 0.0, duration_ms / 1000.0)
+	_tween_cast.tween_callback(_hide_cast_indicator)
 
-func show_cast_indicator(progress: float):
-	"""Show casting progress from 0 to 1"""
-	_cast_bar.visible = true
-	_cast_bar.max_value = 1.0
-	_cast_bar.value = progress
+func _set_cast_progress(value: float):
+	if _cast_pie:
+		_cast_pie.progress = value
 
-func hide_cast_indicator():
-	_cast_bar.visible = false
+func _hide_cast_indicator():
+	_cast_indicator.visible = false
 
 func add_status_icon(status_kind: String):
 	# TODO: Add status effect icons (stun, shield, buff, etc.)
@@ -526,11 +577,68 @@ func _get_status_color(kind: String) -> Color:
 		"hot": return Color.CYAN
 		_: return Color.WHITE
 
+func set_char_brightness(value: float, duration: float = 0.2):
+	if _tween_brightness and _tween_brightness.is_valid():
+		_tween_brightness.kill()
+	_tween_brightness = create_tween()
+	_tween_brightness.set_ease(Tween.EASE_OUT)
+	_tween_brightness.set_trans(Tween.TRANS_CUBIC)
+	_tween_brightness.tween_method(_apply_brightness, _current_brightness, value, duration)
+
+func _apply_brightness(value: float):
+	_current_brightness = value
+	for sprite in [bg_sprite, char_sprite]:
+		if sprite.material is ShaderMaterial:
+			(sprite.material as ShaderMaterial).set_shader_parameter("brightness", value)
+
 func get_slot_index() -> int:
 	return slot_index
 
 func is_dead() -> bool:
 	return not is_alive
+
+class CastPie:
+	extends Control
+
+	var progress: float = 1.0:
+		set(v):
+			progress = v
+			queue_redraw()
+
+	var action_texture: Texture2D = null:
+		set(v):
+			action_texture = v
+			queue_redraw()
+
+	func _draw():
+		var radius = min(size.x, size.y) / 2.0
+		var center = Vector2(radius, radius)
+		if progress < 0.001:
+			return
+		# Build pie wedge points (clockwise from top)
+		var pie_points: PackedVector2Array = [center]
+		var start_angle = -PI / 2.0
+		var end_angle = start_angle + TAU * progress
+		var segments = max(4, int(64 * progress))
+		for i in range(segments + 1):
+			var angle = start_angle + (end_angle - start_angle) * float(i) / float(segments)
+			pie_points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+		# Draw action texture clipped to pie, or solid color fallback
+		if action_texture:
+			var tex_size = action_texture.get_size()
+			# Map pie points to UV (square texture -> circle area)
+			var uvs: PackedVector2Array = []
+			for pt in pie_points:
+				uvs.append(Vector2(pt.x / (radius * 2.0), pt.y / (radius * 2.0)))
+			draw_colored_polygon(pie_points, Color.WHITE, uvs, action_texture)
+		else:
+			draw_colored_polygon(pie_points, Color(0.3, 0.8, 1.0, 0.85))
+		# Border ring
+		var ring_points: PackedVector2Array = []
+		for i in range(65):
+			var angle = TAU * float(i) / 64.0
+			ring_points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+		draw_polyline(ring_points, Color(1, 1, 1, 0.6), 1.5, true)
 
 class FloatingText:
 	extends Label

@@ -23,6 +23,10 @@ var _last_state: Dictionary = {}
 var _layout_boxes: Dictionary = {}
 var _layout_aspect_key: String = ""
 
+# Drag state
+var _dragging_card = null
+var _hovered_hero: Node = null
+
 # Dev panel
 var _dev_panel: PanelContainer = null
 var _dev_label: RichTextLabel = null
@@ -47,6 +51,9 @@ func _ready():
 		})
 
 func _process(_delta):
+	if _dragging_card:
+		_update_drag_hover()
+
 	# Poll and process WebSocket messages
 	if GameState.ws:
 		GameState.ws.poll()
@@ -215,9 +222,10 @@ func _update_casting_indicators(casts: Array):
 			continue
 
 		var remaining_ms = resolves_at - now_ms
+		var action_slug = cast.get("action_slug", "")
 		var hero = _find_hero_by_instance_id(caster_id)
 		if hero:
-			hero._show_casting(remaining_ms)
+			hero._show_casting(remaining_ms, action_slug)
 
 func _find_hero_by_instance_id(instance_id: String) -> Node:
 	for hero in my_heroes.values():
@@ -229,10 +237,13 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 	return null
 
 func _on_card_drag_started(_card):
-	# Highlight valid targets
+	_dragging_card = _card
+	_hovered_hero = null
 	_highlight_valid_targets(_card.target_rule)
 
 func _on_card_drag_ended(card, dropped_on_target):
+	_dragging_card = null
+	_hovered_hero = null
 	_clear_highlights()
 	if dropped_on_target:
 		# Track the used slot so state_update won't recreate it
@@ -249,26 +260,44 @@ func _on_card_drag_ended(card, dropped_on_target):
 			})
 
 func _highlight_valid_targets(_target_rule: String):
+	for hero in my_heroes.values():
+		hero.set_char_brightness(0.4)
+
+func _update_drag_hover():
+	var mouse_pos = get_global_mouse_position()
+	var new_hover: Node = null
+
 	var all_heroes = []
 	all_heroes.append_array(my_heroes.values())
 	all_heroes.append_array(enemy_heroes.values())
 
-	# Cards are always dropped on YOUR hero (the caster).
-	# Server auto-resolves the actual target from the action's target_rule.
 	for hero in all_heroes:
-		var is_valid = not hero.is_enemy and not hero.is_dead()
-		if is_valid:
-			hero.modulate = Color(1.2, 1.2, 1.2, 1.0)  # Highlight
-		elif not hero.is_enemy:
-			hero.modulate = Color(0.5, 0.5, 0.5, 0.5)  # Dim dead allies
+		if hero.get_global_rect().has_point(mouse_pos):
+			new_hover = hero
+			break
+
+	if new_hover == _hovered_hero:
+		return
+
+	# Restore previous hover
+	if _hovered_hero and is_instance_valid(_hovered_hero) and not _hovered_hero.is_enemy:
+		_hovered_hero.set_char_brightness(0.4)
+	if _hovered_hero and _dragging_card:
+		var tween = create_tween()
+		tween.tween_property(_dragging_card, "modulate:a", 1.0, 0.15)
+
+	_hovered_hero = new_hover
+
+	# Hovered ally: restore brightness, reduce card opacity
+	if _hovered_hero and not _hovered_hero.is_enemy:
+		_hovered_hero.set_char_brightness(1.0)
+	if _hovered_hero and _dragging_card:
+		var tween = create_tween()
+		tween.tween_property(_dragging_card, "modulate:a", 0.6, 0.15)
 
 func _clear_highlights():
-	var all_heroes = []
-	all_heroes.append_array(my_heroes.values())
-	all_heroes.append_array(enemy_heroes.values())
-	
-	for hero in all_heroes:
-		hero.modulate = Color.WHITE
+	for hero in my_heroes.values():
+		hero.set_char_brightness(1.0)
 
 func _on_reroll_pressed():
 	_used_hand_slots.clear()
