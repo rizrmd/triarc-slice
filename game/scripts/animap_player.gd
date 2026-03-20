@@ -19,6 +19,15 @@ var _layer_materials: Dictionary = {}
 var _video_layers: Dictionary = {}
 var _transition_tween: Tween = null
 
+## "cover" scales by height (may overflow width), "contain" fits within bounds
+var fit_mode: String = "cover"
+
+## Horizontal pan position: 0.0 = left edge, 0.5 = centered, 1.0 = right edge
+var pan_x: float = 0.5:
+	set(value):
+		pan_x = value
+		_layout_layers()
+
 func _ready() -> void:
 	anchors_preset = PRESET_FULL_RECT
 	layer_root.anchors_preset = PRESET_TOP_LEFT
@@ -49,8 +58,12 @@ func _process(_delta: float) -> void:
 		var loop_enabled := bool(layer.get("loop", true))
 
 		if not loop_enabled:
-			if loop_end > 0.0 and active.stream_position >= loop_end:
-				active.stream_position = loop_end
+			active.loop = false
+			var stop_at := loop_end
+			if stop_at <= 0.0:
+				stop_at = active.get_stream_length()
+			if stop_at > 0.0 and active.stream_position >= stop_at - 0.01:
+				active.stream_position = stop_at
 				active.paused = true
 			continue
 
@@ -68,6 +81,7 @@ func _process(_delta: float) -> void:
 			var standby: VideoStreamPlayer = video_state.get("standby")
 			if standby != null:
 				standby.visible = true
+				standby.paused = false
 				standby.play()
 				active.visible = false
 				active.paused = true
@@ -182,11 +196,10 @@ func _create_video_layer(layer: Dictionary) -> Control:
 	var player_a := _make_video_player(stream)
 	var player_b := _make_video_player(stream.duplicate())
 	player_b.visible = false
+	player_b.autoplay = false
 
 	container.add_child(player_a)
 	container.add_child(player_b)
-
-	player_a.ready.connect(player_a.play, CONNECT_ONE_SHOT)
 
 	var layer_id := String(layer.get("id", ""))
 	_video_layers[layer_id] = {
@@ -200,8 +213,8 @@ func _create_video_layer(layer: Dictionary) -> Control:
 func _make_video_player(stream: VideoStream) -> VideoStreamPlayer:
 	var p := VideoStreamPlayer.new()
 	p.expand = true
-	p.autoplay = false
-	p.loop = false
+	p.autoplay = true
+	p.loop = true
 	p.position = Vector2.ZERO
 	p.stream = stream
 	p.use_parent_material = true
@@ -369,8 +382,13 @@ func _layout_layers() -> void:
 	if viewport_size.y <= 0.0:
 		return
 
-	var scale_factor := viewport_size.y / animap_height
-	layer_root.position = Vector2((viewport_size.x - animap_width * scale_factor) * 0.5, 0.0)
+	var scale_factor: float
+	if fit_mode == "contain":
+		scale_factor = minf(viewport_size.x / animap_width, viewport_size.y / animap_height)
+	else:
+		scale_factor = viewport_size.y / animap_height
+	var excess_x := animap_width * scale_factor - viewport_size.x
+	layer_root.position = Vector2(-pan_x * excess_x, (viewport_size.y - animap_height * scale_factor) * 0.5)
 	layer_root.size = Vector2(animap_width, animap_height)
 	layer_root.scale = Vector2.ONE * scale_factor
 

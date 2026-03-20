@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, useEffect, type MutableRefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, Brush, Eraser, RotateCcw } from 'lucide-react';
+import { Upload, Brush, Eraser, RotateCcw, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -1017,17 +1017,25 @@ function TransitionsEditor({
   selectedStateId: string;
   updateTransition: (direction: 'to' | 'from', otherStateId: string, transition: AnimapTransition | null) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const otherStates = states.filter((state) => state.id !== selectedStateId);
 
   return (
     <div className="border-t pt-3 space-y-3">
-      <div>
-        <Label className="text-xs font-medium">Transitions</Label>
+      <button
+        type="button"
+        className="flex items-center gap-1 w-full text-left"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <ChevronRight className={`h-3 w-3 transition-transform ${expanded ? 'rotate-90' : ''}`} />
+        <Label className="text-xs font-medium cursor-pointer">Transitions</Label>
+      </button>
+      {!expanded && (
         <p className="text-[10px] text-muted-foreground">
           Missing entries use the default instant transition.
         </p>
-      </div>
-      {otherStates.map((state) => {
+      )}
+      {expanded && otherStates.map((state) => {
         const transitionTo = getAnimapTransition(selectedState, 'to', state.id);
         const transitionFrom = getAnimapTransition(selectedState, 'from', state.id);
 
@@ -1047,6 +1055,11 @@ function TransitionsEditor({
           </div>
         );
       })}
+      {expanded && (
+        <p className="text-[10px] text-muted-foreground">
+          Missing entries use the default instant transition.
+        </p>
+      )}
     </div>
   );
 }

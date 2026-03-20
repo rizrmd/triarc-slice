@@ -521,7 +521,7 @@ func main() {
 		if p, err := getFFmpegPath(); err != nil {
 			log.Printf("WARNING: ffmpeg not available: %v", err)
 		} else {
-			log.Printf("ffmpeg ready: %s", p)
+			_ = p
 		}
 	}()
 
@@ -554,11 +554,25 @@ type AnimapLayer struct {
 	Contrast   *float64 `json:"contrast,omitempty"`
 }
 
+type AnimapTransition struct {
+	Mode       string `json:"mode"`
+	DurationMs int    `json:"duration_ms,omitempty"`
+}
+
+type AnimapState struct {
+	ID              string                                    `json:"id"`
+	Name            string                                    `json:"name"`
+	LayerOverrides  map[string]map[string]interface{}          `json:"layer_overrides,omitempty"`
+	TransitionsTo   map[string]AnimapTransition               `json:"transitions_to,omitempty"`
+	TransitionsFrom map[string]AnimapTransition               `json:"transitions_from,omitempty"`
+}
+
 type AnimapConfig struct {
 	Name   string        `json:"name"`
 	Width  int           `json:"width"`
 	Height int           `json:"height"`
 	Layers []AnimapLayer `json:"layers"`
+	States []AnimapState `json:"states,omitempty"`
 }
 
 func listAnimapsHandler(w http.ResponseWriter, r *http.Request) {

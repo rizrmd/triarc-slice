@@ -7,10 +7,13 @@ signal view_changed(view_name: String)
 @onready var animap_player: AnimapPlayer = $AnimapClip/AnimapPlayer
 @onready var login_ui: Control = $LoginUI
 @onready var home_ui: Control = $HomeUI
+@onready var hero_select_ui: Control = $HeroSelectUI
 @onready var find_match_ui: Control = $FindMatchUI
 @onready var logo_animap: AnimapPlayer = $LoginUI/LogoContainer/LogoAnimap
 @onready var sign_in_animap: AnimapPlayer = $LoginUI/SignInContainer/SignInAnimap
+@onready var overlay: ColorRect = $Overlay
 
+@onready var fade_rect: ColorRect = $FadeRect
 var _current_view: String = "login"
 
 # Google Sign-In
@@ -31,16 +34,26 @@ const VIEW_TO_ANIMAP_STATE := {
 	"home": "home",
 	"find_match": "find-match",
 }
+const VIEW_PAN_X := {
+	"login": 0.0,
+	"home": 0.35,
+	"hero_select": 0.6,
+	"find_match": 0.6,
+}
 
 func _ready() -> void:
 	# Connect button signals
 	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
 	home_ui.get_node("LogoutButton").pressed.connect(_on_logout_pressed)
+	hero_select_ui.back_requested.connect(func(): _show_view("home"))
+	hero_select_ui.find_match_requested.connect(func(): _show_view("find_match"))
 	find_match_ui.get_node("BackButton").pressed.connect(_on_back_pressed)
 	sign_in_animap.gui_input.connect(_on_sign_in_gui_input)
 
 	animap_player.load_animap(MAIN_ANIMAP_SLUG)
+	logo_animap.fit_mode = "contain"
 	logo_animap.load_animap("vg-logo")
+	sign_in_animap.fit_mode = "contain"
 	sign_in_animap.load_animap("google-sign-in")
 
 	_apply_login_layout()
@@ -63,8 +76,29 @@ func _ready() -> void:
 		_google_sign_in = desktop_auth
 		print("[AUTH] Google Sign-In initialized (Desktop OAuth)")
 
+	# Try auto-login with saved credentials (desktop only)
+	if not Engine.has_singleton("GodotGoogleSignIn"):
+		var saved = _load_saved_credentials()
+		if not saved.is_empty():
+			print("[AUTH] Found saved credentials, attempting auto-login...")
+			_id_token = saved["id_token"]
+			_display_name = saved["display_name"]
+			login_ui.get_node("StatusLabel").text = "Signing in..."
+			_show_view("login", false)
+			# Fade in, then auto-connect
+			var tween = create_tween()
+			tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+			tween.tween_callback(func(): fade_rect.visible = false)
+			_connect_to_server()
+			return
+
 	# Start on Login view
 	_show_view("login", false)
+
+	# Fade in from black
+	var tween = create_tween()
+	tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+	tween.tween_callback(func(): fade_rect.visible = false)
 
 func _process(_delta: float) -> void:
 	if _ws:
@@ -84,10 +118,13 @@ func _on_sign_in_success(id_token: String, email: String, display_name: String) 
 	print("[AUTH] Sign-in success: ", email)
 	_id_token = id_token
 	_display_name = display_name
+	if not Engine.has_singleton("GodotGoogleSignIn"):
+		_save_credentials(id_token, email, display_name)
 	_connect_to_server()
 
 func _on_sign_in_failed(error: String) -> void:
 	print("[AUTH] Sign-in failed: ", error)
+	sign_in_animap.visible = true
 	if "No credentials" in error or "NoCredential" in error:
 		# No Google account on device — prompt user to add one
 		login_ui.get_node("StatusLabel").text = "No Google account found.\nPlease add one in Settings."
@@ -101,6 +138,7 @@ func _on_sign_out_complete() -> void:
 	_player_id = ""
 	_id_token = ""
 	_display_name = ""
+	_clear_saved_credentials()
 	if _ws:
 		_ws.close()
 		_ws = null
@@ -109,11 +147,13 @@ func _on_sign_out_complete() -> void:
 
 func _connect_to_server() -> void:
 	login_ui.get_node("StatusLabel").text = "Connecting..."
+	sign_in_animap.visible = false
 	_ws = WebSocketPeer.new()
 	var err = _ws.connect_to_url(SERVER_URL)
 	if err != OK:
 		print("[WS] Failed to connect: ", err)
 		login_ui.get_node("StatusLabel").text = "Connection failed."
+		sign_in_animap.visible = true
 		return
 	# Wait for connection in _process, then authenticate
 	_wait_for_connection()
@@ -136,6 +176,7 @@ func _check_connection() -> void:
 	else:
 		print("[WS] Connection failed")
 		login_ui.get_node("StatusLabel").text = "Connection failed."
+		sign_in_animap.visible = true
 
 func _send_json(data: Dictionary) -> void:
 	if _ws and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
@@ -166,7 +207,11 @@ func _on_ws_message(msg: String) -> void:
 			_show_view("home")
 		"auth_error":
 			print("[WS] Auth error: ", data.get("message", ""))
-			login_ui.get_node("StatusLabel").text = "Auth failed: " + data.get("message", "")
+			_clear_saved_credentials()
+			_id_token = ""
+			sign_in_animap.visible = true
+			login_ui.get_node("StatusLabel").text = "Session expired. Please sign in again."
+			_show_view("login")
 		"matchmaking_queued":
 			find_match_ui.get_node("SearchingLabel").text = "Searching..."
 		"match_found":
@@ -192,11 +237,37 @@ func _show_view(view_name: String, _animate: bool = true) -> void:
 		animap_player.set_state(state_id)
 	elif animap_player.has_state(AnimapLoader.DEFAULT_STATE_ID):
 		animap_player.set_state(AnimapLoader.DEFAULT_STATE_ID)
+	# Pan background
+	var target_pan = VIEW_PAN_X.get(view_name, 0.0)
+	if _animate:
+		var pan_tw = create_tween()
+		pan_tw.set_ease(Tween.EASE_IN_OUT)
+		pan_tw.set_trans(Tween.TRANS_CUBIC)
+		pan_tw.tween_property(animap_player, "pan_x", target_pan, 0.5)
+	else:
+		animap_player.pan_x = target_pan
+	# Overlay only visible on login
+	if view_name == "login":
+		overlay.visible = true
+		if _animate:
+			overlay.color.a = 0.0
+			var tw = create_tween()
+			tw.tween_property(overlay, "color:a", 0.3, 0.3)
+		else:
+			overlay.color.a = 0.3
+	else:
+		if _animate:
+			var tw = create_tween()
+			tw.tween_property(overlay, "color:a", 0.0, 0.3)
+			tw.tween_callback(func(): overlay.visible = false)
+		else:
+			overlay.visible = false
 	view_changed.emit(view_name)
 
 func _update_ui_visibility(view_name: String) -> void:
 	login_ui.visible = (view_name == "login")
 	home_ui.visible = (view_name == "home")
+	hero_select_ui.visible = (view_name == "hero_select")
 	find_match_ui.visible = (view_name == "find_match")
 
 func _on_sign_in_gui_input(event: InputEvent) -> void:
@@ -210,11 +281,11 @@ func _on_sign_in_gui_input(event: InputEvent) -> void:
 
 func _on_login_pressed() -> void:
 	login_ui.get_node("StatusLabel").text = "Signing in..."
+	sign_in_animap.visible = false
 	_google_sign_in.signIn()
 
 func _on_find_match_pressed() -> void:
-	# Go to hero selection screen instead of directly queuing
-	get_tree().change_scene_to_file("res://scenes/hero_select.tscn")
+	_show_view("hero_select")
 
 func _on_logout_pressed() -> void:
 	if _google_sign_in:
@@ -222,11 +293,12 @@ func _on_logout_pressed() -> void:
 	if _ws:
 		_ws.close()
 		_ws = null
+	sign_in_animap.visible = true
 	_show_view("login")
 	login_ui.get_node("StatusLabel").text = ""
 
 func _on_back_pressed() -> void:
-	_show_view("home")
+	_show_view("hero_select")
 
 func _apply_login_layout() -> void:
 	var boxes = GameState.get_scene_boxes("login")
@@ -258,3 +330,31 @@ func _apply_login_layout() -> void:
 		var sh = r["height"] * scale_factor
 		status_label.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
 		status_label.size = Vector2(sw, sh)
+
+# --- Credential persistence (desktop) ---
+
+const _CRED_PATH = "user://credentials.json"
+
+func _save_credentials(id_token: String, email: String, display_name: String) -> void:
+	var data = {"id_token": id_token, "email": email, "display_name": display_name}
+	var file = FileAccess.open(_CRED_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data))
+
+func _load_saved_credentials() -> Dictionary:
+	if not FileAccess.file_exists(_CRED_PATH):
+		return {}
+	var file = FileAccess.open(_CRED_PATH, FileAccess.READ)
+	if not file:
+		return {}
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		return {}
+	var data: Dictionary = json.data
+	if data.get("id_token", "").is_empty():
+		return {}
+	return data
+
+func _clear_saved_credentials() -> void:
+	if FileAccess.file_exists(_CRED_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(_CRED_PATH))

@@ -663,40 +663,40 @@
         "3-4": {
           "logo": {
             "animapSlug": "vg-logo",
-            "height": 710,
+            "height": 969,
             "id": "logo",
             "label": "Logo",
-            "nx": 0.5013020833333334,
-            "ny": 0.232421875,
+            "nx": 0.5035807291666666,
+            "ny": 0.3196614583333333,
             "pivot": "center",
             "screen_relative": true,
-            "width": 642,
-            "x": 449,
-            "y": 121
+            "width": 779,
+            "x": 384,
+            "y": 124
           },
           "sign_in_button": {
             "animapSlug": "google-sign-in",
             "height": 347,
             "id": "sign_in_button",
             "label": "Sign In Button",
-            "nx": 0.5016276041666666,
-            "ny": 0.492919921875,
+            "nx": 0.5035807291666666,
+            "ny": 0.518798828125,
             "pivot": "center",
             "screen_relative": true,
             "width": 497,
-            "x": 522,
-            "y": 836
+            "x": 525,
+            "y": 889
           },
           "status_label": {
             "height": 158,
             "id": "status_label",
             "label": "Status Label",
-            "nx": 0.5016276041666666,
-            "ny": 0.625,
+            "nx": 0.5035807291666666,
+            "ny": 0.6111111111111112,
             "pivot": "top-left",
             "screen_relative": true,
             "width": 437,
-            "x": 552,
+            "x": 555,
             "y": 1201
           }
         },
@@ -810,12 +810,12 @@
             "height_percent": 100,
             "id": "logo",
             "label": "Logo",
-            "nx": 0.49921875,
+            "nx": 0.5,
             "ny": 0.5,
             "pivot": "center",
             "width": 1080,
             "width_percent": 100,
-            "x": -1,
+            "x": 0,
             "y": 0
           }
         },
@@ -827,12 +827,12 @@
             "height_percent": 100,
             "id": "logo",
             "label": "Logo",
-            "nx": 0.499375,
+            "nx": 0.5,
             "ny": 0.49541666666666667,
             "pivot": "center",
             "width": 1080,
             "width_percent": 100,
-            "x": -1,
+            "x": 0,
             "y": 229
           }
         }
