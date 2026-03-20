@@ -215,17 +215,19 @@ func _update_casting_indicators(casts: Array):
 		if cast.get("resolved", false):
 			continue
 
+		var cast_id = cast.get("cast_id", "")
 		var caster_id = cast.get("caster_hero_instance_id", "")
+		var started_at = int(cast.get("started_at", 0))
 		var resolves_at = int(cast.get("resolves_at", 0))
 
 		if resolves_at <= now_ms:
 			continue
 
-		var remaining_ms = resolves_at - now_ms
+		var total_ms = resolves_at - started_at
 		var action_slug = cast.get("action_slug", "")
 		var hero = _find_hero_by_instance_id(caster_id)
 		if hero:
-			hero._show_casting(remaining_ms, action_slug)
+			hero._show_casting(cast_id, total_ms, action_slug)
 
 func _find_hero_by_instance_id(instance_id: String) -> Node:
 	for hero in my_heroes.values():
@@ -267,14 +269,20 @@ func _update_drag_hover():
 	var mouse_pos = get_global_mouse_position()
 	var new_hover: Node = null
 
+	var card_rect = _dragging_card.get_global_rect()
+	var card_center = card_rect.get_center()
+	var best_dist = INF
+
 	var all_heroes = []
 	all_heroes.append_array(my_heroes.values())
 	all_heroes.append_array(enemy_heroes.values())
 
 	for hero in all_heroes:
-		if hero.get_global_rect().has_point(mouse_pos):
-			new_hover = hero
-			break
+		if card_rect.intersects(hero.get_global_rect()):
+			var dist = card_center.distance_to(hero.get_global_rect().get_center())
+			if dist < best_dist:
+				best_dist = dist
+				new_hover = hero
 
 	if new_hover == _hovered_hero:
 		return

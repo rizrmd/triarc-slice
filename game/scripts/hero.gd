@@ -26,6 +26,7 @@ var _tween_brightness: Tween = null
 var _current_brightness: float = 1.0
 var _cast_pie: CastPie = null
 var _cast_action_label: Label = null
+var _current_cast_id: String = ""
 var _hero_config: Dictionary = {}
 var _mask_shader: Shader
 var _card_shader: Shader
@@ -454,11 +455,11 @@ func update_state(data: Dictionary):
 	
 	is_alive = new_alive
 	
-	# Update busy state (casting)
+	# Update busy state (casting) — only used as fallback if no cast data
 	var busy_until = int(data.get("busy_until", 0))
 	var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
 	if busy_until > now_ms:
-		_show_casting(busy_until - now_ms)
+		_show_casting("busy_%s" % hero_instance_id, busy_until - now_ms)
 
 func _tween_hp_change(new_hp: int):
 	if _tween_hp and _tween_hp.is_valid():
@@ -517,12 +518,16 @@ func _resize_cast_indicator(pie_size: float):
 		_cast_pie.position = Vector2.ZERO
 		_cast_pie.size = Vector2(pie_size, pie_size)
 	if _cast_action_label:
-		var label_x = pie_size + 6
+		var label_x = pie_size + 8 + 6
 		_cast_action_label.position = Vector2(label_x, 0)
 		_cast_action_label.size = Vector2(_cast_indicator.size.x - label_x, pie_size)
 		_cast_action_label.add_theme_font_size_override("font_size", max(8, int(pie_size * 0.5)))
 
-func _show_casting(duration_ms: int, action_slug: String = ""):
+func _show_casting(cast_id: String, duration_ms: int, action_slug: String = ""):
+	# Skip if already animating this same cast
+	if cast_id == _current_cast_id and _tween_cast and _tween_cast.is_valid():
+		return
+	_current_cast_id = cast_id
 	if _tween_cast and _tween_cast.is_valid():
 		_tween_cast.kill()
 	_cast_indicator.visible = true
@@ -555,6 +560,7 @@ func _set_cast_progress(value: float):
 
 func _hide_cast_indicator():
 	_cast_indicator.visible = false
+	_current_cast_id = ""
 
 func add_status_icon(status_kind: String):
 	# TODO: Add status effect icons (stun, shield, buff, etc.)
