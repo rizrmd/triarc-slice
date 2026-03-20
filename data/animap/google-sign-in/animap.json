@@ -1,7 +1,7 @@
 {
   "name": "google-sign-in",
-  "width": 300,
-  "height": 60,
+  "width": 2889,
+  "height": 791,
   "layers": [
     {
       "id": "default",
@@ -13,6 +13,23 @@
       "x": 0,
       "y": 0,
       "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    },
+    {
+      "id": "clicked",
+      "name": "clicked",
+      "layer_overrides": {
+        "default": {
+          "brightness": 125,
+          "lightness": 60,
+          "y": 9.94140625
+        }
+      }
     }
   ]
 }

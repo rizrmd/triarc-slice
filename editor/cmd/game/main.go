@@ -42,9 +42,12 @@ func main() {
 
 	setupLinks(gameDir)
 
+	// Clean stale Android build artifacts that cause UID duplicate warnings
+	cleanAndroidBuildArtifacts(gameDir)
+
 	// Always ensure assets are up to date
 	fmt.Println("Verifying project assets...")
-	
+
 	// Run headless import
 	// Use --path explicitly instead of setting Dir for clarity, though both work
 	cmd := exec.Command(godotExe, "--headless", "--path", gameDir, "--editor", "--quit")
@@ -219,6 +222,19 @@ func createLink(source, target string) {
 		// os.Symlink(oldname, newname)
 		if err := os.Symlink(source, target); err != nil {
 			fmt.Printf("Error creating symlink: %v\n", err)
+		}
+	}
+}
+
+func cleanAndroidBuildArtifacts(gameDir string) {
+	dirs := []string{
+		filepath.Join(gameDir, "android", "build", "build"),
+		filepath.Join(gameDir, "android", "build", "src"),
+	}
+	for _, dir := range dirs {
+		if _, err := os.Stat(dir); err == nil {
+			fmt.Println("Cleaning stale Android build artifacts:", dir)
+			os.RemoveAll(dir)
 		}
 	}
 }

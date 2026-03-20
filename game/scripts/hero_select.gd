@@ -1,17 +1,17 @@
 extends Control
 ## Hero Selection Screen - Pick 3 heroes before queuing
 
+signal back_requested
+signal find_match_requested
+
 @onready var hero_grid: GridContainer = $HeroGrid
 @onready var selected_container: HBoxContainer = $SelectedContainer
 @onready var find_match_button: Button = $FindMatchButton
 @onready var back_button: Button = $BackButton
 @onready var status_label: Label = $StatusLabel
 
-const HERO_BUTTON_SCENE = preload("res://scenes/hero_button.tscn")
-const HERO_PREVIEW_SCENE = preload("res://scenes/hero_preview.tscn")
-
 func _ready():
-	_find_match_button.pressed.connect(_on_find_match_pressed)
+	find_match_button.pressed.connect(_on_find_match_pressed)
 	back_button.pressed.connect(_on_back_pressed)
 	_populate_hero_grid()
 	_update_ui()
@@ -102,7 +102,7 @@ func _update_ui():
 func _on_find_match_pressed():
 	if not GameState.can_queue():
 		return
-	
+
 	# Send queue_matchmaking message
 	GameState.send_json({
 		"type": "queue_matchmaking",
@@ -110,9 +110,8 @@ func _on_find_match_pressed():
 		"hero_slug_2": GameState.selected_heroes[1],
 		"hero_slug_3": GameState.selected_heroes[2]
 	})
-	
-	# Transition to find match / searching screen
-	get_tree().change_scene_to_file("res://scenes/find_match.tscn")
+
+	find_match_requested.emit()
 
 func _on_back_pressed():
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	back_requested.emit()
