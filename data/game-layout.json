@@ -171,8 +171,8 @@
           "y": 319
         },
         "energy": {
-          "anchor_offset_x": 40,
-          "anchor_offset_y": -172,
+          "anchor_offset_x": -14,
+          "anchor_offset_y": -192,
           "height": 161,
           "height_percent": 8.4,
           "id": "energy",
@@ -182,8 +182,8 @@
           "screen_relative": true,
           "width": 336,
           "width_percent": 31.1,
-          "x": 40,
-          "y": 1668
+          "x": -14,
+          "y": 1648
         },
         "hero1": {
           "anchor_offset_x": -342,
