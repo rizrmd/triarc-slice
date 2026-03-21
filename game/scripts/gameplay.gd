@@ -538,7 +538,8 @@ func _set_initial_positions():
 	if _layout_boxes.has("reroll"):
 		var r = GameState.resolve_box(_layout_boxes["reroll"], vp_size, _layout_aspect_key)
 		reroll_button.position = Vector2(r["x"], r["y"])
-		# Size uses intrinsic texture dimensions, not layout JSON width/height
+		reroll_button.scale = Vector2(1.15, 1.15)
+		reroll_button.pivot_offset = reroll_button.size / 2.0
 	if _layout_boxes.has("settings"):
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)
 		back_button.position = Vector2(r["x"], r["y"])
