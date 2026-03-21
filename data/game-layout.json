@@ -137,13 +137,13 @@
             "y": 259
           },
           "energy": {
-            "height": 118,
+            "height": 246,
             "id": "energy",
             "label": "Energy Bar",
-            "nx": 0.279296875,
-            "ny": 0.908203125,
+            "nx": 0.31005859375,
+            "ny": 0.939453125,
             "pivot": "center-right",
-            "width": 378,
+            "width": 504,
             "x": 127,
             "y": 1801
           },
@@ -342,15 +342,15 @@
             "y": 305
           },
           "energy": {
-            "height": 115,
+            "height": 251,
             "id": "energy",
             "label": "Energy Bar",
-            "nx": 0.225,
-            "ny": 0.8888020833333333,
-            "pivot": "center-right",
-            "width": 338,
+            "nx": 0.24453125,
+            "ny": 0.9341145833333333,
+            "pivot": "center-left",
+            "width": 388,
             "x": 19,
-            "y": 1649
+            "y": 1668
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -547,15 +547,15 @@
             "y": 476
           },
           "energy": {
-            "height": 121,
+            "height": 217,
             "id": "energy",
             "label": "Energy Bar",
-            "nx": 0.2925,
-            "ny": 0.8535416666666666,
+            "nx": 0.32875,
+            "ny": 0.9064583333333334,
             "pivot": "top-left",
-            "width": 330,
-            "x": 43,
-            "y": 1988
+            "width": 440,
+            "x": 46,
+            "y": 2067
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -600,15 +600,15 @@
             "y": 1151
           },
           "reroll": {
-            "height": 151,
+            "height": 192,
             "id": "reroll",
             "label": "RE-ROLL",
-            "nx": 0.7565625,
-            "ny": 0.8772916666666667,
+            "nx": 0.743125,
+            "ny": 0.90875,
             "pivot": "bottom-right",
-            "width": 155,
-            "x": 873,
-            "y": 2030
+            "width": 220,
+            "x": 819,
+            "y": 2085
           },
           "settings": {
             "height": 71,
