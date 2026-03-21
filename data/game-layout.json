@@ -6,7 +6,7 @@
         "action1": {
           "actionSlug": "arcane-blast",
           "anchor_offset_x": -423,
-          "anchor_offset_y": 544,
+          "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
           "id": "action1",
@@ -18,12 +18,12 @@
           "width": 200,
           "width_percent": 18.5,
           "x": 17,
-          "y": 1354
+          "y": 1351
         },
         "action2": {
           "actionSlug": "blizzard",
           "anchor_offset_x": -210,
-          "anchor_offset_y": 544,
+          "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
           "id": "action2",
@@ -35,12 +35,12 @@
           "width": 200,
           "width_percent": 18.5,
           "x": 230,
-          "y": 1354
+          "y": 1351
         },
         "action3": {
           "actionSlug": "shadowstep",
-          "anchor_offset_x": 216,
-          "anchor_offset_y": 544,
+          "anchor_offset_x": 3,
+          "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
           "id": "action3",
@@ -51,13 +51,13 @@
           "screen_relative": true,
           "width": 200,
           "width_percent": 18.5,
-          "x": 656,
-          "y": 1354
+          "x": 443,
+          "y": 1351
         },
         "action4": {
           "actionSlug": "smoke-bomb",
-          "anchor_offset_x": 3,
-          "anchor_offset_y": 544,
+          "anchor_offset_x": 216,
+          "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
           "id": "action4",
@@ -68,13 +68,13 @@
           "screen_relative": true,
           "width": 200,
           "width_percent": 18.5,
-          "x": 443,
-          "y": 1354
+          "x": 656,
+          "y": 1351
         },
         "action5": {
           "actionSlug": "ice-nova",
           "anchor_offset_x": 429,
-          "anchor_offset_y": 544,
+          "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
           "id": "action5",
@@ -86,7 +86,7 @@
           "width": 200,
           "width_percent": 18.5,
           "x": 869,
-          "y": 1354
+          "y": 1351
         },
         "battery": {
           "anchor_offset_x": -107,
@@ -122,7 +122,7 @@
         },
         "enemy1": {
           "anchor_offset_x": 335,
-          "anchor_offset_y": -144,
+          "anchor_offset_y": -125,
           "fill": "cover",
           "height": 516,
           "height_percent": 26.9,
@@ -135,11 +135,11 @@
           "width": 320,
           "width_percent": 29.6,
           "x": 715,
-          "y": 300
+          "y": 319
         },
         "enemy2": {
           "anchor_offset_x": -11,
-          "anchor_offset_y": -144,
+          "anchor_offset_y": -125,
           "height": 516,
           "height_percent": 26.9,
           "id": "enemy2",
@@ -151,11 +151,11 @@
           "width": 320,
           "width_percent": 29.6,
           "x": 369,
-          "y": 300
+          "y": 319
         },
         "enemy3": {
           "anchor_offset_x": -358,
-          "anchor_offset_y": -144,
+          "anchor_offset_y": -125,
           "fill": "cover",
           "height": 516,
           "height_percent": 26.9,
@@ -168,26 +168,26 @@
           "width": 320,
           "width_percent": 29.6,
           "x": 22,
-          "y": 300
+          "y": 319
         },
         "energy": {
-          "anchor_offset_x": 27,
-          "anchor_offset_y": -183,
-          "height": 180,
-          "height_percent": 9.4,
+          "anchor_offset_x": -1,
+          "anchor_offset_y": -211,
+          "height": 161,
+          "height_percent": 8.4,
           "id": "energy",
           "label": "Energy Bar",
           "pivot": "center-left",
           "screen_anchor": "bottom-left",
           "screen_relative": true,
-          "width": 369,
-          "width_percent": 34.2,
-          "x": 27,
-          "y": 1647
+          "width": 336,
+          "width_percent": 31.1,
+          "x": -1,
+          "y": 1628
         },
         "hero1": {
           "anchor_offset_x": -342,
-          "anchor_offset_y": -119,
+          "anchor_offset_y": -118,
           "cardSlug": "earth-warden",
           "height": 495,
           "height_percent": 25.8,
@@ -200,11 +200,11 @@
           "width": 324,
           "width_percent": 30,
           "x": 36,
-          "y": 841
+          "y": 842
         },
         "hero2": {
           "anchor_offset_x": 0,
-          "anchor_offset_y": -119,
+          "anchor_offset_y": -118,
           "cardSlug": "arcane-paladin",
           "height": 495,
           "height_percent": 25.8,
@@ -217,11 +217,11 @@
           "width": 324,
           "width_percent": 30,
           "x": 378,
-          "y": 841
+          "y": 842
         },
         "hero3": {
           "anchor_offset_x": 342,
-          "anchor_offset_y": -119,
+          "anchor_offset_y": -118,
           "cardSlug": "dawn-priest",
           "height": 495,
           "height_percent": 25.8,
@@ -234,22 +234,22 @@
           "width": 324,
           "width_percent": 30,
           "x": 720,
-          "y": 841
+          "y": 842
         },
         "reroll": {
-          "anchor_offset_x": -45,
-          "anchor_offset_y": -56,
-          "height": 202,
-          "height_percent": 10.5,
+          "anchor_offset_x": -75,
+          "anchor_offset_y": -72,
+          "height": 166,
+          "height_percent": 8.6,
           "id": "reroll",
           "label": "RE-ROLL",
           "pivot": "bottom-right",
           "screen_anchor": "bottom-right",
           "screen_relative": true,
-          "width": 195,
-          "width_percent": 18.1,
-          "x": 840,
-          "y": 1662
+          "width": 170,
+          "width_percent": 15.7,
+          "x": 835,
+          "y": 1682
         },
         "settings": {
           "anchor_offset_x": 20,
