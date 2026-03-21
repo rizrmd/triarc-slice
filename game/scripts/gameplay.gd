@@ -25,6 +25,8 @@ var max_energy: int = 10
 var _last_state: Dictionary = {}
 var _layout_boxes: Dictionary = {}
 var _layout_aspect_key: String = ""
+var _available_layout_aspects: Array[String] = []
+var _layout_ready: bool = false
 var _is_first_state_update: bool = true
 
 # Drag state
@@ -45,10 +47,12 @@ func _ready():
 	reroll_button.button_down.connect(func(): reroll_button.modulate = Color(0.8, 0.8, 0.8, 1.0))
 	reroll_button.button_up.connect(func(): reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0))
 	back_button.pressed.connect(_on_back_pressed)
+	GameState.gameplay_aspect_changed.connect(_on_gameplay_aspect_changed)
 
-	_layout_boxes = GameState.get_scene_boxes("gameplay")
-	_layout_aspect_key = _get_matched_aspect_key()
-	_set_initial_positions()
+	_available_layout_aspects = _get_available_aspect_keys()
+	_refresh_layout_data()
+	_layout_ready = true
+	_apply_layout(false)
 	_create_dev_panel()
 
 	# Request initial match state
@@ -76,8 +80,13 @@ func _process(_delta):
 			_on_disconnected()
 
 func _unhandled_input(event: InputEvent):
-	if event is InputEventKey and event.pressed and event.keycode == KEY_F3:
-		_toggle_dev_panel()
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F3:
+			_toggle_dev_panel()
+
+func _notification(what: int):
+	if what == NOTIFICATION_RESIZED and _layout_ready:
+		_apply_layout(false)
 
 func _input(event: InputEvent):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -105,6 +114,11 @@ func _on_ws_message(msg: String):
 			pass
 		"error":
 			print("[Gameplay] Error: ", data.get("message", ""))
+
+func _on_gameplay_aspect_changed(_aspect_key: String):
+	if not _layout_ready:
+		return
+	_apply_layout(false)
 
 func _update_game_state(data: Dictionary):
 	var match_data = data.get("match", {})
@@ -494,30 +508,90 @@ func _on_match_end(winner: int):
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _set_initial_positions():
+	if energy_bar == null or reroll_button == null or back_button == null:
+		return
 	var vp_size = get_viewport().get_visible_rect().size
 	if _layout_boxes.has("energy"):
 		var r = GameState.resolve_box(_layout_boxes["energy"], vp_size, _layout_aspect_key)
 		energy_bar.position = Vector2(r["x"], r["y"])
+		# Size uses intrinsic texture dimensions, not layout JSON width/height
 	if _layout_boxes.has("reroll"):
 		var r = GameState.resolve_box(_layout_boxes["reroll"], vp_size, _layout_aspect_key)
 		reroll_button.position = Vector2(r["x"], r["y"])
+		# Size uses intrinsic texture dimensions, not layout JSON width/height
 	if _layout_boxes.has("settings"):
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)
 		back_button.position = Vector2(r["x"], r["y"])
 		back_button.size = Vector2(r["width"], r["height"])
 	# Hide UI elements for entrance animation
-	energy_bar.modulate.a = 0.0
-	reroll_button.modulate.a = 0.0
-	back_button.modulate.a = 0.0
+	if _is_first_state_update:
+		energy_bar.modulate.a = 0.0
+		reroll_button.modulate.a = 0.0
+		back_button.modulate.a = 0.0
 
-	# Load background from layout
-	var bg_slug = GameState.get_scene_background("gameplay")
-	if not bg_slug.is_empty():
-		var variant = "narrow" if _layout_aspect_key.begins_with("9") else "wide"
-		var path = "res://assets/places/%s-%s.webp" % [bg_slug, variant]
-		var tex = load(path)
-		if tex:
-			$Background.texture = tex
+	_apply_background()
+
+func _get_available_aspect_keys() -> Array[String]:
+	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get("gameplay", {})
+	var boxes: Dictionary = scene.get("boxes", {})
+	var keys: Array[String] = []
+	for key in boxes.keys():
+		keys.append(str(key))
+	keys.sort()
+	return keys
+
+func _refresh_layout_data():
+	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get("gameplay", {})
+	var boxes: Dictionary = scene.get("boxes", {})
+	_layout_aspect_key = _get_matched_aspect_key()
+	_layout_boxes = boxes.get(_layout_aspect_key, {})
+
+func _apply_layout(animated_hand: bool):
+	if _available_layout_aspects.is_empty():
+		_available_layout_aspects = GameState.get_available_gameplay_aspects()
+	if _available_layout_aspects.is_empty():
+		return
+	_refresh_layout_data()
+	_set_initial_positions()
+	_layout_existing_heroes()
+	_layout_hand_cards(animated_hand)
+	if _dev_visible:
+		_update_dev_panel()
+
+func _layout_existing_heroes():
+	var vp_size = get_viewport().get_visible_rect().size
+	for slot in enemy_heroes.keys():
+		var key = "enemy%d" % int(slot)
+		if _layout_boxes.has(key):
+			var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+			var hero = enemy_heroes[slot]
+			hero.position = Vector2(r["x"], r["y"])
+			hero.size = Vector2(r["width"], r["height"])
+			hero.apply_layout_size(Vector2(r["width"], r["height"]))
+	for slot in my_heroes.keys():
+		var key = "hero%d" % int(slot)
+		if _layout_boxes.has(key):
+			var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+			var hero = my_heroes[slot]
+			hero.position = Vector2(r["x"], r["y"])
+			hero.size = Vector2(r["width"], r["height"])
+			hero.apply_layout_size(Vector2(r["width"], r["height"]))
+
+func _apply_background():
+	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get("gameplay", {})
+	var backgrounds: Dictionary = scene.get("backgrounds", {})
+	var bg_slug = backgrounds.get(_layout_aspect_key, "")
+	if bg_slug.is_empty():
+		$Background.texture = null
+		return
+	var variant = "narrow" if _layout_aspect_key.begins_with("9") else "wide"
+	var path = "res://assets/places/%s-%s.webp" % [bg_slug, variant]
+	var tex = load(path)
+	if tex:
+		$Background.texture = tex
 
 # Public API for action cards
 func get_heroes() -> Array:
@@ -620,6 +694,8 @@ func _update_dev_panel():
 	lines.append("[b]Layout Dev Panel[/b]")
 	lines.append("Viewport: %d x %d" % [int(vp_size.x), int(vp_size.y)])
 	lines.append("Aspect: %.4f  Matched: [color=yellow]%s[/color]" % [aspect, _layout_aspect_key])
+	lines.append("Forced: %s" % (GameState.forced_gameplay_aspect_key if not GameState.forced_gameplay_aspect_key.is_empty() else "[color=gray]auto[/color]"))
+	lines.append("[color=gray]F4 next  Shift+F4 previous  F5 auto[/color]")
 	lines.append("")
 
 	# List all available aspect keys

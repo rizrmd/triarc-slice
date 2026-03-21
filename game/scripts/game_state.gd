@@ -1,6 +1,8 @@
 extends Node
 ## GameState - Autoload for shared game data
 
+signal gameplay_aspect_changed(aspect_key: String)
+
 # Player data
 var player_id: String = ""
 var display_name: String = ""
@@ -25,12 +27,34 @@ var action_defs: Dictionary = {}
 
 # Layout cache
 var _layout_data: Dictionary = {}
+var forced_gameplay_aspect_key: String = ""
+var _last_window_size: Vector2i = Vector2i.ZERO
+var _is_adjusting_window_size: bool = false
+const _GAMEPLAY_ASPECT_PATH := "user://gameplay_aspect.json"
+const _MIN_GAMEPLAY_WINDOW_HEIGHT := 640
 
 func _ready():
 	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()
 	_load_selected_heroes()
+	_load_saved_gameplay_aspect()
+	apply_gameplay_window_aspect()
+
+func _input(event: InputEvent):
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_F4:
+				if event.shift_pressed:
+					cycle_gameplay_aspect(-1)
+				else:
+					cycle_gameplay_aspect(1)
+			KEY_F5:
+				clear_forced_gameplay_aspect()
+
+func _notification(what: int):
+	if what == NOTIFICATION_WM_SIZE_CHANGED:
+		enforce_gameplay_window_aspect_ratio()
 
 # --- Layout utilities ---
 
@@ -47,6 +71,8 @@ func _load_game_layout() -> void:
 
 ## Find the aspect-ratio key in `boxes` closest to the device's current aspect.
 func find_best_aspect(boxes: Dictionary) -> String:
+	if not forced_gameplay_aspect_key.is_empty() and boxes.has(forced_gameplay_aspect_key):
+		return forced_gameplay_aspect_key
 	var viewport_size = get_viewport().get_visible_rect().size
 	var aspect = viewport_size.x / viewport_size.y
 	var best_key = ""
@@ -79,6 +105,126 @@ const ASPECT_VIEWPORTS = {
 	"9-20": Vector2(1080, 2400),
 	"3-4": Vector2(1536, 2048),
 }
+
+func get_available_gameplay_aspects() -> Array[String]:
+	var scenes: Dictionary = _layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get("gameplay", {})
+	var boxes: Dictionary = scene.get("boxes", {})
+	var keys: Array[String] = []
+	for key in boxes.keys():
+		keys.append(str(key))
+	keys.sort()
+	return keys
+
+func cycle_gameplay_aspect(step: int):
+	var aspects = get_available_gameplay_aspects()
+	if aspects.is_empty():
+		return
+	var current = forced_gameplay_aspect_key
+	if current.is_empty():
+		current = find_best_aspect(_layout_data.get("scenes", {}).get("gameplay", {}).get("boxes", {}))
+	var index = aspects.find(current)
+	if index == -1:
+		index = 0
+	forced_gameplay_aspect_key = aspects[posmod(index + step, aspects.size())]
+	_save_gameplay_aspect()
+	apply_gameplay_window_aspect()
+	gameplay_aspect_changed.emit(forced_gameplay_aspect_key)
+
+func clear_forced_gameplay_aspect():
+	if forced_gameplay_aspect_key.is_empty():
+		return
+	forced_gameplay_aspect_key = ""
+	_save_gameplay_aspect()
+	apply_gameplay_window_aspect()
+	gameplay_aspect_changed.emit(forced_gameplay_aspect_key)
+
+func apply_gameplay_window_aspect():
+	if OS.get_name() in ["Android", "iOS"]:
+		return
+	var window := get_window()
+	if window == null:
+		return
+	var target_size := get_gameplay_window_size()
+	if target_size == Vector2i.ZERO:
+		return
+	window.min_size = get_gameplay_min_window_size()
+	window.max_size = Vector2i.ZERO
+	window.unresizable = false
+	if window.size != target_size:
+		_set_window_size(window, target_size)
+	else:
+		_last_window_size = window.size
+
+func enforce_gameplay_window_aspect_ratio():
+	if OS.get_name() in ["Android", "iOS"] or _is_adjusting_window_size:
+		return
+	var window := get_window()
+	if window == null:
+		return
+	var ratio_size := get_gameplay_window_size()
+	if ratio_size == Vector2i.ZERO:
+		return
+	var current_size := window.size
+	if current_size.x <= 0 or current_size.y <= 0:
+		return
+	var target_ratio := float(ratio_size.x) / float(ratio_size.y)
+	var adjusted_size := current_size
+	adjusted_size.y = max(window.min_size.y, current_size.y)
+	adjusted_size.x = max(window.min_size.x, int(round(float(adjusted_size.y) * target_ratio)))
+	if adjusted_size != current_size:
+		_set_window_size(window, adjusted_size)
+	else:
+		_last_window_size = current_size
+
+func get_gameplay_window_size() -> Vector2i:
+	var scenes: Dictionary = _layout_data.get("scenes", {})
+	var scene: Dictionary = scenes.get("gameplay", {})
+	var boxes: Dictionary = scene.get("boxes", {})
+	var aspect_key := find_best_aspect(boxes)
+	var ref_vp: Vector2 = ASPECT_VIEWPORTS.get(aspect_key, Vector2.ZERO)
+	if ref_vp == Vector2.ZERO:
+		return Vector2i.ZERO
+	return Vector2i(int(ref_vp.x), int(ref_vp.y))
+
+func get_gameplay_min_window_size() -> Vector2i:
+	var target_size := get_gameplay_window_size()
+	if target_size == Vector2i.ZERO:
+		return Vector2i.ZERO
+	var target_ratio := float(target_size.x) / float(target_size.y)
+	var min_height: int = min(_MIN_GAMEPLAY_WINDOW_HEIGHT, target_size.y)
+	var min_width: int = int(round(float(min_height) * target_ratio))
+	return Vector2i(min_width, min_height)
+
+func _set_window_size(window: Window, size: Vector2i):
+	_is_adjusting_window_size = true
+	window.size = size
+	_last_window_size = size
+	_is_adjusting_window_size = false
+
+func _load_saved_gameplay_aspect():
+	if not FileAccess.file_exists(_GAMEPLAY_ASPECT_PATH):
+		return
+	var file = FileAccess.open(_GAMEPLAY_ASPECT_PATH, FileAccess.READ)
+	if not file:
+		return
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		return
+	var saved_key = str(json.data.get("forced_gameplay_aspect_key", ""))
+	if saved_key.is_empty():
+		forced_gameplay_aspect_key = ""
+		return
+	if get_available_gameplay_aspects().has(saved_key):
+		forced_gameplay_aspect_key = saved_key
+
+func _save_gameplay_aspect():
+	var file = FileAccess.open(_GAMEPLAY_ASPECT_PATH, FileAccess.WRITE)
+	if not file:
+		return
+	file.store_string(JSON.stringify({
+		"forced_gameplay_aspect_key": forced_gameplay_aspect_key
+	}))
 
 ## Resolve a box to pixel top-left position & size.
 ## Editor stores x,y as top-left coords for the reference viewport.
