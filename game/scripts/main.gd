@@ -27,6 +27,7 @@ var _ws: WebSocketPeer = null
 var _player_id: String = ""
 var _display_name: String = ""
 var _id_token: String = ""
+var _session_token: String = ""
 
 var _reauth_attempted: bool = false
 
@@ -100,8 +101,9 @@ func _ready() -> void:
 	# If saved credentials exist, show login screen while connecting
 	var saved = _load_saved_credentials()
 	if not saved.is_empty():
-		_id_token = saved["id_token"]
-		_display_name = saved["display_name"]
+		_id_token = saved.get("id_token", "")
+		_display_name = saved.get("display_name", "")
+		_session_token = saved.get("session_token", "")
 		login_ui.get_node("StatusLabel").text = "Connecting..."
 		sign_in_animap.visible = false
 		_show_view("login", false)
@@ -175,6 +177,7 @@ func _on_sign_out_complete() -> void:
 	print("[AUTH] Signed out")
 	_player_id = ""
 	_id_token = ""
+	_session_token = ""
 	_display_name = ""
 	_clear_saved_credentials()
 	if _ws:
@@ -208,7 +211,12 @@ func _check_connection() -> void:
 	var state = _ws.get_ready_state()
 	if state == WebSocketPeer.STATE_OPEN:
 		print("[WS] Connected, authenticating...")
-		_send_json({"type": "authenticate", "id_token": _id_token})
+		var auth_msg := {"type": "authenticate"}
+		if not _session_token.is_empty():
+			auth_msg["session_token"] = _session_token
+		if not _id_token.is_empty():
+			auth_msg["id_token"] = _id_token
+		_send_json(auth_msg)
 	elif state == WebSocketPeer.STATE_CONNECTING:
 		_wait_for_connection()
 	else:
@@ -233,16 +241,23 @@ func _on_ws_message(msg: String) -> void:
 		"authenticated":
 			_player_id = data.get("player_id", "")
 			_display_name = data.get("display_name", _display_name)
+			var new_session = data.get("session_token", "")
+			if not new_session.is_empty():
+				_session_token = new_session
 			_reauth_attempted = false
 			print("[WS] Authenticated: ", _player_id, " (", _display_name, ")")
 			home_ui.get_node("TitleLabel").text = "Welcome, " + _display_name
 			
+			# Re-save credentials with session token
+			var email = data.get("email", "")
+			_save_credentials(_id_token, email, _display_name)
+
 			# Update GameState
 			GameState.player_id = _player_id
 			GameState.display_name = _display_name
 			GameState.id_token = _id_token
 			GameState.ws = _ws
-			
+
 			_show_view("home")
 		"auth_error":
 			print("[WS] Auth error: ", data.get("message", ""))
@@ -259,6 +274,7 @@ func _on_ws_message(msg: String) -> void:
 				_reauth_attempted = false
 				_clear_saved_credentials()
 				_id_token = ""
+				_session_token = ""
 				sign_in_animap.visible = true
 				login_ui.get_node("StatusLabel").text = "Session expired. Please sign in again."
 				_show_view("login")
@@ -336,8 +352,9 @@ func _on_login_pressed() -> void:
 	# Use saved credentials if available, skip Google entirely
 	var saved = _load_saved_credentials()
 	if not saved.is_empty():
-		_id_token = saved["id_token"]
-		_display_name = saved["display_name"]
+		_id_token = saved.get("id_token", "")
+		_display_name = saved.get("display_name", "")
+		_session_token = saved.get("session_token", "")
 		_connect_to_server()
 	else:
 		_google_sign_in.signIn()
@@ -399,7 +416,7 @@ func _apply_login_layout() -> void:
 const _CRED_PATH = "user://credentials.json"
 
 func _save_credentials(id_token: String, email: String, display_name: String) -> void:
-	var data = {"id_token": id_token, "email": email, "display_name": display_name}
+	var data = {"id_token": id_token, "email": email, "display_name": display_name, "session_token": _session_token}
 	var file = FileAccess.open(_CRED_PATH, FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(data))
