@@ -19,7 +19,7 @@ window/stretch/aspect="expand"
 
 [gui]
 
-theme/custom_font="res://fonts/Vollkorn-Regular.ttf"
+theme/custom_font="res://fonts/Volkhov-Regular.ttf"
 
 [rendering]
 

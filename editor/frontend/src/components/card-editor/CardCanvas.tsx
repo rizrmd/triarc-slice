@@ -399,7 +399,7 @@ export function CardCanvas({
                       top: '50%',
                       transform: `translate(calc(-50% + ${config.name_pos?.x ?? 0}px), calc(-50% + ${config.name_pos?.y ?? 0}px))`,
                       fontSize: `${config.name_scale ?? 40}px`,
-                      fontFamily: '"Vollkorn", serif',
+                      fontFamily: '"Volkhov", serif',
                       lineHeight: 1,
                       textShadow: shadow,
                     }}
@@ -449,7 +449,7 @@ export function CardCanvas({
                 {actionCost !== null && (
                   <div
                     className="pointer-events-none absolute left-[10px] top-3 z-[29] rounded-md border border-black/40 bg-black/75 px-3 py-1.5 text-[21px] font-bold leading-none text-white shadow-lg"
-                    style={{ fontFamily: '"Vollkorn", serif' }}
+                    style={{ fontFamily: '"Volkhov", serif' }}
                   >
                     {actionCost}
                   </div>

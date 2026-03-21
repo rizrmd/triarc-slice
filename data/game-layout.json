@@ -14,8 +14,8 @@
             "id": "action1",
             "label": "Action 1",
             "locked": false,
-            "nx": 0.2373046875,
-            "ny": 0.288818359375,
+            "nx": 0.14973958333333334,
+            "ny": 0.788818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
@@ -28,8 +28,8 @@
             "id": "action2",
             "label": "Action 2",
             "locked": false,
-            "nx": 0.36865234375,
-            "ny": 0.288818359375,
+            "nx": 0.3248697916666667,
+            "ny": 0.788818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
@@ -56,8 +56,8 @@
             "id": "action4",
             "label": "Action 4",
             "locked": false,
-            "nx": 0.630859375,
-            "ny": 0.288818359375,
+            "nx": 0.6744791666666666,
+            "ny": 0.788818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
@@ -70,8 +70,8 @@
             "id": "action5",
             "label": "Action 5",
             "locked": false,
-            "nx": 0.76220703125,
-            "ny": 0.288818359375,
+            "nx": 0.849609375,
+            "ny": 0.788818359375,
             "pivot": "center",
             "screen_relative": true,
             "width": 226,
@@ -137,15 +137,15 @@
             "y": 259
           },
           "energy": {
-            "height": 165,
+            "height": 118,
             "id": "energy",
             "label": "Energy Bar",
-            "nx": 0.4443359375,
-            "ny": 0.932373046875,
-            "pivot": "top-left",
-            "width": 1054,
+            "nx": 0.279296875,
+            "ny": 0.908203125,
+            "pivot": "center-right",
+            "width": 378,
             "x": 127,
-            "y": 1827
+            "y": 1801
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -153,8 +153,8 @@
             "id": "hero1",
             "label": "Hero 1",
             "locked": false,
-            "nx": 0.72998046875,
-            "ny": 0.062255859375,
+            "nx": 0.806640625,
+            "ny": 0.562255859375,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
@@ -167,8 +167,8 @@
             "id": "hero2",
             "label": "Hero 2",
             "locked": false,
-            "nx": 0.50390625,
-            "ny": 0.059814453125,
+            "nx": 0.5052083333333334,
+            "ny": 0.559814453125,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
@@ -181,8 +181,8 @@
             "id": "hero3",
             "label": "Hero 3",
             "locked": false,
-            "nx": 0.26953125,
-            "ny": 0.057373046875,
+            "nx": 0.19270833333333334,
+            "ny": 0.557373046875,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
@@ -342,15 +342,15 @@
             "y": 305
           },
           "energy": {
-            "height": 195,
+            "height": 115,
             "id": "energy",
             "label": "Energy Bar",
-            "nx": 0.410546875,
-            "ny": 0.9278645833333333,
-            "pivot": "top-left",
-            "width": 813,
+            "nx": 0.225,
+            "ny": 0.8888020833333333,
+            "pivot": "center-right",
+            "width": 338,
             "x": 19,
-            "y": 1684
+            "y": 1649
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -359,12 +359,12 @@
             "label": "Hero 1",
             "locked": false,
             "nx": 0.17222222222222222,
-            "ny": 0.5674479166666667,
+            "ny": 0.5684895833333333,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 24,
-            "y": 842
+            "y": 844
           },
           "hero2": {
             "cardSlug": "arcane-paladin",
@@ -373,12 +373,12 @@
             "label": "Hero 2",
             "locked": false,
             "nx": 0.4981481481481482,
-            "ny": 0.5690104166666666,
+            "ny": 0.5700520833333333,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 376,
-            "y": 845
+            "y": 847
           },
           "hero3": {
             "cardSlug": "dawn-priest",
@@ -387,12 +387,12 @@
             "label": "Hero 3",
             "locked": false,
             "nx": 0.8231481481481482,
-            "ny": 0.5674479166666667,
+            "ny": 0.5684895833333333,
             "pivot": "top-center",
             "screen_relative": true,
             "width": 324,
             "x": 727,
-            "y": 842
+            "y": 844
           },
           "reroll": {
             "height": 201,
@@ -547,26 +547,15 @@
             "y": 476
           },
           "energy": {
-            "height": 159,
+            "height": 121,
             "id": "energy",
             "label": "Energy Bar",
-            "nx": 0.440625,
-            "ny": 0.8785416666666667,
+            "nx": 0.2925,
+            "ny": 0.8535416666666666,
             "pivot": "top-left",
-            "width": 804,
+            "width": 330,
             "x": 43,
-            "y": 2029
-          },
-          "health": {
-            "height": 100,
-            "id": "health",
-            "label": "Health Bar",
-            "nx": 0.249375,
-            "ny": 0.9620833333333333,
-            "pivot": "bottom-left",
-            "width": 166,
-            "x": 56,
-            "y": 2259
+            "y": 1988
           },
           "hero1": {
             "cardSlug": "earth-warden",
@@ -609,17 +598,6 @@
             "width": 324,
             "x": 719,
             "y": 1151
-          },
-          "mana": {
-            "height": 100,
-            "id": "mana",
-            "label": "Mana Bar",
-            "nx": 0.5228125,
-            "ny": 0.9620833333333333,
-            "pivot": "bottom-center",
-            "width": 295,
-            "x": 429,
-            "y": 2259
           },
           "reroll": {
             "height": 151,

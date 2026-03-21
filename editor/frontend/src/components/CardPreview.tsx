@@ -368,7 +368,7 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
         ctx.save();
         ctx.fillStyle = 'white';
         const fontSize = config.name_scale || 40;
-        ctx.font = `${fontSize}px "Vollkorn", serif`;
+        ctx.font = `${fontSize}px "Volkhov", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         
@@ -430,7 +430,7 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
         const fontSizeRatio = baseFontSize / 471;
         const fontSize = Math.max(12, Math.round(cardW * fontSizeRatio));
         
-        ctx.font = `${fontSize}px "Vollkorn", serif`;
+        ctx.font = `${fontSize}px "Volkhov", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0,0,0,0.8)';
@@ -445,7 +445,7 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
         ctx.save();
         ctx.fillStyle = 'white';
         const costFontSize = Math.round(cardW * 0.13);
-        ctx.font = `bold ${costFontSize}px "Vollkorn", serif`;
+        ctx.font = `bold ${costFontSize}px "Volkhov", serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';

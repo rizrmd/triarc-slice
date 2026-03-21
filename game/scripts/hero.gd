@@ -2,6 +2,8 @@ class_name Hero
 extends Control
 ## Hero - Displays a hero with layered sprites, HP bar, and status effects
 
+signal hero_clicked(hero: Hero)
+
 @onready var bg_sprite: Sprite2D = $BGSprite
 @onready var shadow_sprite: Sprite2D = $ShadowSprite
 @onready var char_sprite: Sprite2D = $CharSprite
@@ -23,7 +25,11 @@ var is_enemy: bool = false
 var _tween_hp: Tween = null
 var _tween_cast: Tween = null
 var _tween_brightness: Tween = null
+var _tween_selection: Tween = null
 var _current_brightness: float = 1.0
+var _is_selected: bool = false
+var _selection_strength: float = 0.0
+var _frame_base_modulate: Color = Color.WHITE
 var _cast_pie: CastPie = null
 var _cast_action_label: Label = null
 var _current_cast_id: String = ""
@@ -41,6 +47,7 @@ var _hp_bar_font_size: float = 31.0
 var _name_label: Label
 
 func _ready():
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	_cast_indicator.visible = false
 	_build_cast_indicator()
 	_build_hp_bar()
@@ -73,6 +80,12 @@ void fragment() {
 	var img = Image.create(1, 1, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	_empty_mask = ImageTexture.create_from_image(img)
+
+func _gui_input(event: InputEvent):
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		print("[Hero] click hero=", hero_slug, " slot=", slot_index, " enemy=", is_enemy, " rect=", get_global_rect())
+		hero_clicked.emit(self)
+		accept_event()
 
 func setup(data: Dictionary, is_enemy_team: bool = false):
 	hero_instance_id = data.get("hero_instance_id", "")
@@ -434,6 +447,7 @@ func _load_card_sprites():
 		var tint_str = _hero_config.get("tint", "#ffffff")
 		if typeof(tint_str) == TYPE_STRING:
 			shadow_sprite.modulate = Color(tint_str)
+		_frame_base_modulate = shadow_sprite.modulate
 
 	# Foreground layer
 	var fg_path = base_path + "char-fg.webp"
@@ -593,15 +607,43 @@ func set_char_brightness(value: float, duration: float = 0.2):
 
 func _apply_brightness(value: float):
 	_current_brightness = value
-	for sprite in [bg_sprite, char_sprite]:
-		if sprite.material is ShaderMaterial:
-			(sprite.material as ShaderMaterial).set_shader_parameter("brightness", value)
+	_refresh_selection_visuals()
+
+func set_selected(selected: bool):
+	if _is_selected == selected:
+		print("[Hero] set_selected noop hero=", hero_slug, " selected=", selected)
+		return
+	_is_selected = selected
+	print("[Hero] set_selected hero=", hero_slug, " selected=", selected)
+	if _tween_selection and _tween_selection.is_valid():
+		_tween_selection.kill()
+	_tween_selection = create_tween()
+	_tween_selection.set_ease(Tween.EASE_OUT)
+	_tween_selection.set_trans(Tween.TRANS_CUBIC)
+	_tween_selection.tween_method(_set_selection_strength, _selection_strength, 1.0 if _is_selected else 0.0, 0.18)
+
+func _set_selection_strength(value: float):
+	_selection_strength = value
+	_refresh_selection_visuals()
+
+func _refresh_selection_visuals():
+	var bg_brightness = _current_brightness * lerpf(1.0, 0.35, _selection_strength)
+	if bg_sprite.material is ShaderMaterial:
+		(bg_sprite.material as ShaderMaterial).set_shader_parameter("brightness", bg_brightness)
+	if char_sprite.material is ShaderMaterial:
+		(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", _current_brightness)
+	if shadow_sprite.texture:
+		shadow_sprite.modulate = _frame_base_modulate * lerpf(1.0, 0.4, _selection_strength)
+	print("[Hero] refresh_visuals hero=", hero_slug, " selected=", _is_selected, " strength=", _selection_strength, " bg_brightness=", bg_brightness, " frame_modulate=", shadow_sprite.modulate)
 
 func get_slot_index() -> int:
 	return slot_index
 
 func is_dead() -> bool:
 	return not is_alive
+
+func is_casting() -> bool:
+	return _current_cast_id != ""
 
 class CastPie:
 	extends Control
