@@ -136,7 +136,7 @@ const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
     { id: 'reroll', label: 'RE-ROLL' },
     { id: 'energy', label: 'Energy Bar' },
     { id: 'settings', label: 'Settings' },
-    { id: 'clock', label: 'Clock' },
+    { id: 'time_elapsed', label: 'Time Elapsed' },
     { id: 'battery', label: 'Battery' },
   ],
   postgame: [

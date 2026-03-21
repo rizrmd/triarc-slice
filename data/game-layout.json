@@ -104,22 +104,6 @@
           "x": 973,
           "y": 1
         },
-        "clock": {
-          "anchor_offset_x": -87,
-          "anchor_offset_y": 19,
-          "height": 61,
-          "height_percent": 3.2,
-          "id": "clock",
-          "label": "Clock",
-          "nx": 0.501171875,
-          "ny": 0.02578125,
-          "pivot": "top-left",
-          "screen_anchor": "top-center",
-          "width": 177,
-          "width_percent": 16.4,
-          "x": 453,
-          "y": 19
-        },
         "enemy1": {
           "anchor_offset_x": 335,
           "anchor_offset_y": -125,
@@ -171,8 +155,8 @@
           "y": 319
         },
         "energy": {
-          "anchor_offset_x": -1,
-          "anchor_offset_y": -211,
+          "anchor_offset_x": 40,
+          "anchor_offset_y": -172,
           "height": 161,
           "height_percent": 8.4,
           "id": "energy",
@@ -182,12 +166,12 @@
           "screen_relative": true,
           "width": 336,
           "width_percent": 31.1,
-          "x": -1,
-          "y": 1628
+          "x": 40,
+          "y": 1668
         },
         "hero1": {
           "anchor_offset_x": -342,
-          "anchor_offset_y": -118,
+          "anchor_offset_y": -116,
           "cardSlug": "earth-warden",
           "height": 495,
           "height_percent": 25.8,
@@ -200,11 +184,11 @@
           "width": 324,
           "width_percent": 30,
           "x": 36,
-          "y": 842
+          "y": 844
         },
         "hero2": {
           "anchor_offset_x": 0,
-          "anchor_offset_y": -118,
+          "anchor_offset_y": -116,
           "cardSlug": "arcane-paladin",
           "height": 495,
           "height_percent": 25.8,
@@ -217,11 +201,11 @@
           "width": 324,
           "width_percent": 30,
           "x": 378,
-          "y": 842
+          "y": 844
         },
         "hero3": {
           "anchor_offset_x": 342,
-          "anchor_offset_y": -118,
+          "anchor_offset_y": -116,
           "cardSlug": "dawn-priest",
           "height": 495,
           "height_percent": 25.8,
@@ -234,12 +218,12 @@
           "width": 324,
           "width_percent": 30,
           "x": 720,
-          "y": 842
+          "y": 844
         },
         "reroll": {
           "anchor_offset_x": -75,
           "anchor_offset_y": -72,
-          "height": 166,
+          "height": 165,
           "height_percent": 8.6,
           "id": "reroll",
           "label": "RE-ROLL",
@@ -249,7 +233,7 @@
           "width": 170,
           "width_percent": 15.7,
           "x": 835,
-          "y": 1682
+          "y": 1683
         },
         "settings": {
           "anchor_offset_x": 20,
@@ -266,6 +250,21 @@
           "width_percent": 4.8,
           "x": 20,
           "y": 12
+        },
+        "time_elapsed": {
+          "anchor_offset_x": -37,
+          "anchor_offset_y": -219,
+          "height": 93,
+          "height_percent": 4.8,
+          "id": "time_elapsed",
+          "label": "Time Elapsed",
+          "pivot": "top-left",
+          "screen_anchor": "bottom-center",
+          "screen_relative": true,
+          "width": 210,
+          "width_percent": 19.4,
+          "x": 503,
+          "y": 1701
         }
       }
     },

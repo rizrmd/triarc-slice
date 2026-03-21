@@ -176,7 +176,7 @@ boxes: {
 }
 ```
 
-Standard box IDs: `hero1-3`, `enemy1-3`, `action1-5`, `mana`, `health`, `reroll`, `settings`, `clock`, `battery`
+Standard box IDs: `hero1-3`, `enemy1-3`, `action1-5`, `mana`, `health`, `reroll`, `settings`, `time_elapsed`, `battery`
 
 ---
 

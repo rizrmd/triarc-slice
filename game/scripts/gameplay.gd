@@ -28,6 +28,7 @@ var _layout_aspect_key: String = ""
 var _available_layout_aspects: Array[String] = []
 var _layout_ready: bool = false
 var _is_first_state_update: bool = true
+var _rerolling: bool = false
 
 # Drag state
 var _dragging_card = null
@@ -260,6 +261,9 @@ func _update_hand(hand_data: Array):
 			if _is_first_state_update:
 				card.modulate.a = 0.0
 				card.position.y += 200
+			elif _rerolling:
+				card.modulate.a = 0.0
+				card.position.y += 120
 		else:
 			existing_by_key.erase(card_key)
 			card.size = target_size
@@ -272,6 +276,10 @@ func _update_hand(hand_data: Array):
 		stale_card.queue_free()
 
 	hand_cards = next_hand_cards
+
+	if _rerolling:
+		_play_reroll_entrance()
+		_rerolling = false
 
 func _tween_energy(new_energy: int):
 	if current_energy == new_energy:
@@ -349,6 +357,7 @@ func _on_card_drag_ended(card, dropped_on_target):
 		card.queue_free()
 		# Auto-reroll when all cards are used (server grants free reroll)
 		if hand_cards.is_empty():
+			_rerolling = true
 			_used_hand_keys.clear()
 			_prev_server_keys.clear()
 			GameState.send_json({
@@ -476,8 +485,19 @@ func _get_hand_card_key(slot_index: int, action_slug: String) -> String:
 	return "%s::%s" % [slot_index, action_slug]
 
 func _on_reroll_pressed():
+	if _rerolling:
+		return
+	_rerolling = true
 	_used_hand_keys.clear()
 	_prev_server_keys.clear()
+	# Animate old cards out
+	var delay := 0.0
+	for card in hand_cards:
+		var tween = create_tween().set_parallel(true)
+		tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(card, "position:y", card.position.y + 120, 0.25).set_delay(delay)
+		tween.tween_property(card, "modulate:a", 0.0, 0.2).set_delay(delay + 0.05)
+		delay += 0.05
 	GameState.send_json({
 		"type": "reroll_hand",
 		"match_id": GameState.current_match_id
@@ -586,6 +606,18 @@ func get_heroes() -> Array:
 	all.append_array(my_heroes.values())
 	all.append_array(enemy_heroes.values())
 	return all
+
+# --- Reroll Animation ---
+
+func _play_reroll_entrance():
+	var delay := 0.0
+	for card in hand_cards:
+		var final_y = card.position.y - 120
+		var tween = create_tween().set_parallel(true)
+		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tween.tween_property(card, "modulate:a", 1.0, 0.25).set_delay(delay)
+		tween.tween_property(card, "position:y", final_y, 0.35).set_delay(delay)
+		delay += 0.06
 
 # --- Entrance Animation ---
 
