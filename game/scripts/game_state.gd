@@ -32,6 +32,7 @@ var _last_window_size: Vector2i = Vector2i.ZERO
 var _is_adjusting_window_size: bool = false
 const _GAMEPLAY_ASPECT_PATH := "user://gameplay_aspect.json"
 const _MIN_GAMEPLAY_WINDOW_HEIGHT := 640
+const _DEFAULT_GAMEPLAY_ASPECT := "9-16"
 
 func _ready():
 	_load_game_layout()
@@ -71,6 +72,10 @@ func _load_game_layout() -> void:
 
 ## Find the aspect-ratio key in `boxes` closest to the device's current aspect.
 func find_best_aspect(boxes: Dictionary) -> String:
+	if boxes.is_empty():
+		return forced_gameplay_aspect_key if not forced_gameplay_aspect_key.is_empty() else _DEFAULT_GAMEPLAY_ASPECT
+	if not _uses_aspect_map(boxes):
+		return forced_gameplay_aspect_key if not forced_gameplay_aspect_key.is_empty() else _DEFAULT_GAMEPLAY_ASPECT
 	if not forced_gameplay_aspect_key.is_empty() and boxes.has(forced_gameplay_aspect_key):
 		return forced_gameplay_aspect_key
 	var viewport_size = get_viewport().get_visible_rect().size
@@ -94,6 +99,8 @@ func get_scene_boxes(scene_name: String) -> Dictionary:
 	var boxes: Dictionary = scene.get("boxes", {})
 	if boxes.is_empty():
 		return {}
+	if not _uses_aspect_map(boxes):
+		return boxes
 	var best = find_best_aspect(boxes)
 	if best.is_empty():
 		return {}
@@ -107,11 +114,8 @@ const ASPECT_VIEWPORTS = {
 }
 
 func get_available_gameplay_aspects() -> Array[String]:
-	var scenes: Dictionary = _layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var boxes: Dictionary = scene.get("boxes", {})
 	var keys: Array[String] = []
-	for key in boxes.keys():
+	for key in ASPECT_VIEWPORTS.keys():
 		keys.append(str(key))
 	keys.sort()
 	return keys
@@ -178,10 +182,7 @@ func enforce_gameplay_window_aspect_ratio():
 		_last_window_size = current_size
 
 func get_gameplay_window_size() -> Vector2i:
-	var scenes: Dictionary = _layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var boxes: Dictionary = scene.get("boxes", {})
-	var aspect_key := find_best_aspect(boxes)
+	var aspect_key := forced_gameplay_aspect_key if not forced_gameplay_aspect_key.is_empty() else _DEFAULT_GAMEPLAY_ASPECT
 	var ref_vp: Vector2 = ASPECT_VIEWPORTS.get(aspect_key, Vector2.ZERO)
 	if ref_vp == Vector2.ZERO:
 		return Vector2i.ZERO
@@ -230,35 +231,72 @@ func _save_gameplay_aspect():
 ## Editor stores x,y as top-left coords for the reference viewport.
 ## screen_relative boxes scale with the current viewport; others use fixed pixel coords.
 func resolve_box(box: Dictionary, viewport_size: Vector2, aspect_key: String = "") -> Dictionary:
-	var w: float = box.get("width", 0)
-	var h: float = box.get("height", 0)
-	var px: float
-	var py: float
-	if box.get("screen_relative", false):
-		# x,y are top-left in the reference viewport — compute normalized center,
-		# then convert to current viewport top-left
+	var w: float = float(box.get("width", 0))
+	var h: float = float(box.get("height", 0))
+	if box.has("width_percent"):
+		w = viewport_size.x * float(box.get("width_percent", 0.0)) / 100.0
+	if box.has("height_percent"):
+		h = viewport_size.y * float(box.get("height_percent", 0.0)) / 100.0
+	var px: float = float(box.get("x", 0))
+	var py: float = float(box.get("y", 0))
+	if box.has("screen_anchor"):
+		var anchor_point := _get_anchor_point(str(box.get("screen_anchor", "top-left")), viewport_size)
+		var pivot_point := anchor_point + Vector2(
+			float(box.get("anchor_offset_x", px)),
+			float(box.get("anchor_offset_y", py))
+		)
+		var pivot_factor := _get_anchor_factor(str(box.get("pivot", "top-left")))
+		px = pivot_point.x - w * pivot_factor.x
+		py = pivot_point.y - h * pivot_factor.y
+	elif box.get("screen_relative", false):
 		var ref_vp: Vector2 = ASPECT_VIEWPORTS.get(aspect_key, Vector2(1080, 1920))
 		var cx_norm = (float(box.get("x", 0)) + w / 2.0) / ref_vp.x
 		var cy_norm = (float(box.get("y", 0)) + h / 2.0) / ref_vp.y
 		px = cx_norm * viewport_size.x - w / 2.0
 		py = cy_norm * viewport_size.y - h / 2.0
-	else:
-		# x,y are already top-left pixel coords
-		px = float(box.get("x", 0))
-		py = float(box.get("y", 0))
 	return {"x": px, "y": py, "width": w, "height": h}
+
+func _uses_aspect_map(boxes: Dictionary) -> bool:
+	for key in boxes.keys():
+		if ASPECT_VIEWPORTS.has(str(key)):
+			return true
+	return false
+
+func _get_anchor_factor(anchor: String) -> Vector2:
+	match anchor:
+		"top-center":
+			return Vector2(0.5, 0.0)
+		"top-right":
+			return Vector2(1.0, 0.0)
+		"center-left":
+			return Vector2(0.0, 0.5)
+		"center":
+			return Vector2(0.5, 0.5)
+		"center-right":
+			return Vector2(1.0, 0.5)
+		"bottom-left":
+			return Vector2(0.0, 1.0)
+		"bottom-center":
+			return Vector2(0.5, 1.0)
+		"bottom-right":
+			return Vector2(1.0, 1.0)
+		_:
+			return Vector2.ZERO
+
+func _get_anchor_point(anchor: String, viewport_size: Vector2) -> Vector2:
+	var factor := _get_anchor_factor(anchor)
+	return Vector2(viewport_size.x * factor.x, viewport_size.y * factor.y)
 
 ## Get background slug for a scene using best aspect match.
 func get_scene_background(scene_name: String) -> String:
 	var scenes: Dictionary = _layout_data.get("scenes", {})
 	var scene: Dictionary = scenes.get(scene_name, {})
+	if scene.has("background"):
+		return str(scene.get("background", ""))
 	var bgs: Dictionary = scene.get("backgrounds", {})
 	if bgs.is_empty():
 		return ""
-	var best = find_best_aspect(bgs)
-	if best.is_empty():
-		return ""
-	return bgs.get(best, "")
+	return str(bgs.get(_DEFAULT_GAMEPLAY_ASPECT, bgs.get("9-16", "")))
 
 func _load_hero_definitions():
 	# Hero stats from vg-server content.gleam

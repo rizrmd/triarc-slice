@@ -47,6 +47,35 @@ import { ASPECT_PRESETS, getViewportForAspect } from '@/lib/godot';
 import type { Box, GameLayout, GameLayoutFile, AnimapConfig } from '@/types';
 import { GAME_SCENES } from '@/types';
 
+type ScreenAnchor =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'center-left'
+  | 'center'
+  | 'center-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
+const SCREEN_ANCHORS: readonly ScreenAnchor[] = [
+  'top-left', 'top-center', 'top-right',
+  'center-left', 'center', 'center-right',
+  'bottom-left', 'bottom-center', 'bottom-right',
+];
+
+const ANCHOR_FACTORS: Record<ScreenAnchor, { x: number; y: number }> = {
+  'top-left': { x: 0, y: 0 },
+  'top-center': { x: 0.5, y: 0 },
+  'top-right': { x: 1, y: 0 },
+  'center-left': { x: 0, y: 0.5 },
+  'center': { x: 0.5, y: 0.5 },
+  'center-right': { x: 1, y: 0.5 },
+  'bottom-left': { x: 0, y: 1 },
+  'bottom-center': { x: 0.5, y: 1 },
+  'bottom-right': { x: 1, y: 1 },
+};
+
 function AnimapBoxPreview({ slug }: { slug: string }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -151,40 +180,83 @@ function getDefaultBoxDefs(sceneSlug: string) {
 function makeDefaultBoxes(sceneSlug: string): Record<string, Box> {
   const initialBoxes: Record<string, Box> = {};
   getDefaultBoxDefs(sceneSlug).forEach((box, i) => {
+    const x = 50 + (i % 5) * 360;
+    const y = 50 + Math.floor(i / 5) * 530;
     initialBoxes[box.id] = {
       id: box.id,
-      x: 50 + (i % 5) * 360,
-      y: 50 + Math.floor(i / 5) * 530,
+      x,
+      y,
       width: 344,
       height: 516,
       label: box.label,
-      pivot: 'top-left'
+      pivot: 'top-left',
+      screen_anchor: 'top-left',
+      anchor_offset_x: x,
+      anchor_offset_y: y,
+      width_percent: +(344 / 1080 * 100).toFixed(1),
+      height_percent: +(516 / 1920 * 100).toFixed(1),
     };
   });
   return initialBoxes;
+}
+
+function ensureBoxAnchor(box: Box, viewport: { width: number; height: number }): Box {
+  const pivot = box.pivot || 'top-left';
+  const pivotFactor = ANCHOR_FACTORS[(SCREEN_ANCHORS.includes(pivot as ScreenAnchor) ? pivot : 'top-left') as ScreenAnchor];
+  const pivotPoint = {
+    x: box.x + box.width * pivotFactor.x,
+    y: box.y + box.height * pivotFactor.y,
+  };
+  const screenAnchor = (box.screen_anchor as ScreenAnchor | undefined) || pickScreenAnchor(pivotPoint, viewport);
+  const anchorFactor = ANCHOR_FACTORS[screenAnchor];
+  const anchorPoint = {
+    x: viewport.width * anchorFactor.x,
+    y: viewport.height * anchorFactor.y,
+  };
+  return {
+    ...box,
+    pivot,
+    screen_anchor: screenAnchor,
+    anchor_offset_x: box.anchor_offset_x ?? Math.round(pivotPoint.x - anchorPoint.x),
+    anchor_offset_y: box.anchor_offset_y ?? Math.round(pivotPoint.y - anchorPoint.y),
+  };
 }
 
 function mergeWithDefaults(boxes: Record<string, Box>, sceneSlug: string): Record<string, Box> {
   const defaults = getDefaultBoxDefs(sceneSlug);
   const defaultIds = new Set(defaults.map(b => b.id));
   const merged: Record<string, Box> = {};
+  const defaultViewport = { width: 1080, height: 1920 };
   // Only keep boxes that are in the current defaults
   for (const [id, box] of Object.entries(boxes)) {
     if (defaultIds.has(id)) {
-      merged[id] = { ...box, pivot: box.pivot || 'top-left' };
+      merged[id] = ensureBoxAnchor({
+        ...box,
+        pivot: box.pivot || 'top-left',
+        screen_anchor: box.screen_anchor || 'top-left',
+        anchor_offset_x: box.anchor_offset_x ?? box.x,
+        anchor_offset_y: box.anchor_offset_y ?? box.y,
+      }, defaultViewport);
     }
   }
   // Add any missing defaults
   defaults.forEach((box, i) => {
     if (!merged[box.id]) {
+      const x = 50 + (i % 5) * 360;
+      const y = 50 + Math.floor(i / 5) * 530;
       merged[box.id] = {
         id: box.id,
-        x: 50 + (i % 5) * 360,
-        y: 50 + Math.floor(i / 5) * 530,
+        x,
+        y,
         width: 344,
         height: 516,
         label: box.label,
-        pivot: 'top-left'
+        pivot: 'top-left',
+        screen_anchor: 'top-left',
+        anchor_offset_x: x,
+        anchor_offset_y: y,
+        width_percent: +(344 / 1080 * 100).toFixed(1),
+        height_percent: +(516 / 1920 * 100).toFixed(1),
       };
     }
   });
@@ -221,7 +293,7 @@ function extractSceneLayout(data: any, sceneSlug: string): GameLayout {
     if (sceneData) {
       return migrateLayout(sceneData);
     }
-    return { backgrounds: {}, boxes: {} };
+    return { background: '', boxes: {} };
   }
   // Legacy format — treat as gameplay scene
   return migrateLayout(data);
@@ -236,24 +308,61 @@ function buildFullLayout(fullData: any, sceneSlug: string, sceneLayout: GameLayo
 
 // Migrate old flat format { boxes: { enemy1: {...}, ... } }
 // to new per-aspect format { boxes: { "9-16": { enemy1: {...}, ... } } }
+function getSourceBoxes(data: any): Record<string, Box> {
+  const rawBoxes = data.boxes || {};
+  const boxKeys = Object.keys(rawBoxes);
+  const usesAspectMap = boxKeys.length > 0 && ASPECT_PRESETS.some(p => boxKeys.includes(p.slug));
+  if (!usesAspectMap) return rawBoxes;
+  return rawBoxes[DEFAULT_ASPECT] || rawBoxes[boxKeys[0]] || {};
+}
+
+function getPivotPoint(box: Box): { x: number; y: number } {
+  const pivot = box.pivot || 'top-left';
+  const factor = ANCHOR_FACTORS[(SCREEN_ANCHORS.includes(pivot as ScreenAnchor) ? pivot : 'top-left') as ScreenAnchor];
+  return {
+    x: box.x + box.width * factor.x,
+    y: box.y + box.height * factor.y,
+  };
+}
+
+function pickScreenAnchor(point: { x: number; y: number }, viewport: { width: number; height: number }): ScreenAnchor {
+  const horizontal = point.x < viewport.width / 3 ? 'left' : point.x > viewport.width * 2 / 3 ? 'right' : 'center';
+  const vertical = point.y < viewport.height / 3 ? 'top' : point.y > viewport.height * 2 / 3 ? 'bottom' : 'center';
+  return `${vertical}-${horizontal}`.replace('center-center', 'center') as ScreenAnchor;
+}
+
+function migrateBox(box: Box, viewport: { width: number; height: number }): Box {
+  const pivot = box.pivot || 'top-left';
+  const pivotPoint = getPivotPoint(box);
+  const screenAnchor = (box.screen_anchor as ScreenAnchor | undefined) || pickScreenAnchor(pivotPoint, viewport);
+  const anchorFactor = ANCHOR_FACTORS[screenAnchor];
+  const anchorPoint = {
+    x: viewport.width * anchorFactor.x,
+    y: viewport.height * anchorFactor.y,
+  };
+  return {
+    ...box,
+    pivot,
+    screen_anchor: screenAnchor,
+    anchor_offset_x: box.anchor_offset_x ?? Math.round(pivotPoint.x - anchorPoint.x),
+    anchor_offset_y: box.anchor_offset_y ?? Math.round(pivotPoint.y - anchorPoint.y),
+    width_percent: box.width_percent ?? +(box.width / viewport.width * 100).toFixed(1),
+    height_percent: box.height_percent ?? +(box.height / viewport.height * 100).toFixed(1),
+  };
+}
+
 function migrateLayout(data: any): GameLayout {
   const backgrounds = data.backgrounds || {};
-
-  // Check if boxes is already in new format (keys are aspect slugs)
-  const boxKeys = Object.keys(data.boxes || {});
-  const isNewFormat = boxKeys.length > 0 && ASPECT_PRESETS.some(p => boxKeys.includes(p.slug));
-
-  if (isNewFormat) {
-    return {
-      backgrounds: migrateBackgrounds(backgrounds),
-      boxes: data.boxes
-    };
-  }
-
-  // Old format: flat boxes — put them under the default aspect
+  const sourceViewport = getViewportForAspect(DEFAULT_ASPECT) || { width: 1080, height: 1920 };
+  const sourceBoxes = getSourceBoxes(data);
+  const boxes: Record<string, Box> = {};
+  Object.entries(sourceBoxes).forEach(([id, value]) => {
+    boxes[id] = migrateBox(value as Box, sourceViewport);
+  });
+  const migratedBackgrounds = migrateBackgrounds(backgrounds);
   return {
-    backgrounds: migrateBackgrounds(backgrounds),
-    boxes: { [DEFAULT_ASPECT]: data.boxes || {} }
+    background: normalizeBgName(data.background || migratedBackgrounds[DEFAULT_ASPECT] || migratedBackgrounds[Object.keys(migratedBackgrounds)[0]] || ''),
+    boxes,
   };
 }
 
@@ -289,15 +398,13 @@ export default function GameLayoutEditor() {
     [preset]
   );
 
-  // Helper to get boxes for current aspect
   const getBoxes = useCallback((l: GameLayout): Record<string, Box> => {
-    return l.boxes[aspectSlug] || {};
-  }, [aspectSlug]);
+    return l.boxes || {};
+  }, []);
 
-  // Helper to set boxes for current aspect
-  const setBoxesForAspect = useCallback((l: GameLayout, boxes: Record<string, Box>): GameLayout => {
-    return { ...l, boxes: { ...l.boxes, [aspectSlug]: boxes } };
-  }, [aspectSlug]);
+  const setBoxes = useCallback((l: GameLayout, boxes: Record<string, Box>): GameLayout => {
+    return { ...l, boxes };
+  }, []);
 
   const [layout, setLayout] = useState<GameLayout | null>(null);
   const [places, setPlaces] = useState<{ name: string; url: string }[]>([]);
@@ -331,12 +438,12 @@ export default function GameLayoutEditor() {
   const loadingBgRef = useRef<string>('');
   const didDragRef = useRef(false);
   const getBoxesRef = useRef<(l: GameLayout) => Record<string, Box>>(null as any);
-  const setBoxesForAspectRef = useRef<(l: GameLayout, boxes: Record<string, Box>) => GameLayout>(null as any);
+  const setBoxesRef = useRef<(l: GameLayout, boxes: Record<string, Box>) => GameLayout>(null as any);
   const syncRafRef = useRef<number>(0);
 
   // Keep refs up-to-date for use in sync effect (avoids aspect-change triggering sync)
   getBoxesRef.current = getBoxes;
-  setBoxesForAspectRef.current = setBoxesForAspect;
+  setBoxesRef.current = setBoxes;
 
   const cloneLayout = useCallback((value: GameLayout): GameLayout => (
     JSON.parse(JSON.stringify(value)) as GameLayout
@@ -425,100 +532,73 @@ export default function GameLayoutEditor() {
     syncHistoryState();
   }, [cloneLayout, syncHistoryState]);
 
-  const getBgMetrics = useCallback(() => {
-    const VIEWPORT_W = viewport.width;
-    const VIEWPORT_H = viewport.height;
-    const bgW = bgDimensions.width || 1640; // Default fallback
-    const bgH = bgDimensions.height || 2460;
+  const getAnchorPoint = useCallback((screenAnchor: string | undefined, currentViewport = viewport) => {
+    const anchor = ANCHOR_FACTORS[(screenAnchor as ScreenAnchor) || 'top-left'] || ANCHOR_FACTORS['top-left'];
+    return {
+      x: currentViewport.width * anchor.x,
+      y: currentViewport.height * anchor.y,
+    };
+  }, [viewport]);
 
-    const scaleX = VIEWPORT_W / bgW;
-    const scaleY = VIEWPORT_H / bgH;
-    const scale = Math.max(scaleX, scaleY); // Cover
-
-    const scaledW = bgW * scale;
-    const scaledH = bgH * scale;
-
-    const offsetX = (VIEWPORT_W - scaledW) / 2;
-    const offsetY = (VIEWPORT_H - scaledH) / 2;
-
-    return { scaledW, scaledH, offsetX, offsetY };
-  }, [bgDimensions, viewport]);
-
-  // Helper to check if a box ID is a card type that should use vertical center pivot
-  const isVerticalCenterPivotCard = useCallback((boxId: string) => {
-    return boxId.startsWith('hero') || boxId.startsWith('enemy') || boxId.startsWith('action');
+  const getPivotFactor = useCallback((pivot: string | undefined) => {
+    return ANCHOR_FACTORS[(pivot as ScreenAnchor) || 'top-left'] || ANCHOR_FACTORS['top-left'];
   }, []);
 
-  const toNormalized = useCallback((x: number, y: number, w: number, h: number, screen_relative: boolean = false, boxId: string = '') => {
-    const cx = x + w / 2;
-    const cy = y + h / 2;
+  const resolveBoxFrame = useCallback((box: Box, currentViewport = viewport) => {
+    const width = box.width_percent != null
+      ? Math.round(currentViewport.width * box.width_percent / 100)
+      : box.width;
+    const height = box.height_percent != null
+      ? Math.round(currentViewport.height * box.height_percent / 100)
+      : box.height;
+    const anchorPoint = getAnchorPoint(box.screen_anchor, currentViewport);
+    const pivotFactor = getPivotFactor(box.pivot);
+    const pivotX = anchorPoint.x + (box.anchor_offset_x ?? box.x);
+    const pivotY = anchorPoint.y + (box.anchor_offset_y ?? box.y);
+    return {
+      width,
+      height,
+      x: Math.round(pivotX - width * pivotFactor.x),
+      y: Math.round(pivotY - height * pivotFactor.y),
+    };
+  }, [getAnchorPoint, getPivotFactor, viewport]);
 
-    if (screen_relative) {
-      // Screen-relative: normalize to viewport dimensions
-      const nx = cx / viewport.width;
-      const ny = cy / viewport.height;
-      return { nx, ny };
-    }
+  const updateBoxGeometry = useCallback((box: Box, frame: { x: number; y: number; width: number; height: number }): Box => {
+    const nextWidth = Math.round(frame.width);
+    const nextHeight = Math.round(frame.height);
+    const nextX = Math.round(frame.x);
+    const nextY = Math.round(frame.y);
+    const pivotFactor = getPivotFactor(box.pivot);
+    const anchorPoint = getAnchorPoint(box.screen_anchor);
+    const pivotX = nextX + nextWidth * pivotFactor.x;
+    const pivotY = nextY + nextHeight * pivotFactor.y;
 
-    const { scaledW, scaledH, offsetX, offsetY } = getBgMetrics();
+    return {
+      ...box,
+      x: nextX,
+      y: nextY,
+      width: nextWidth,
+      height: nextHeight,
+      anchor_offset_x: Math.round(pivotX - anchorPoint.x),
+      anchor_offset_y: Math.round(pivotY - anchorPoint.y),
+      width_percent: +(nextWidth / viewport.width * 100).toFixed(1),
+      height_percent: +(nextHeight / viewport.height * 100).toFixed(1),
+      nx: undefined,
+      ny: undefined,
+      screen_relative: true,
+    };
+  }, [getAnchorPoint, getPivotFactor, viewport]);
 
-    // For action, enemy, and hero cards, use vertical center of background as pivot point
-    if (isVerticalCenterPivotCard(boxId)) {
-      const bgCenterY = offsetY + scaledH / 2;
-      const nx = (cx - offsetX) / scaledW;
-      const ny = (cy - bgCenterY) / scaledH;
-      return { nx, ny };
-    }
-
-    // Background-relative: normalize to background metrics
-    const nx = (cx - offsetX) / scaledW;
-    const ny = (cy - offsetY) / scaledH;
-    return { nx, ny };
-  }, [getBgMetrics, viewport, isVerticalCenterPivotCard]);
-
-  // Update ref for use in sync effect (avoid viewport change triggering sync)
-  toNormalizedRef.current = toNormalized;
-
-  const toPixels = useCallback((nx: number, ny: number, w: number, h: number, screen_relative: boolean = false, boxId: string = '') => {
-    if (screen_relative) {
-      // Screen-relative: convert from viewport dimensions
-      const cx = nx * viewport.width;
-      const cy = ny * viewport.height;
-      const x = cx - w / 2;
-      const y = cy - h / 2;
-      return { x, y };
-    }
-
-    const { scaledW, scaledH, offsetX, offsetY } = getBgMetrics();
-
-    // For action, enemy, and hero cards, use vertical center of background as pivot point
-    if (isVerticalCenterPivotCard(boxId)) {
-      const bgCenterY = offsetY + scaledH / 2;
-      const cx = offsetX + nx * scaledW;
-      const cy = bgCenterY + ny * scaledH;
-      const x = cx - w / 2;
-      const y = cy - h / 2;
-      return { x, y };
-    }
-
-    // Background-relative: convert using background metrics
-    const cx = offsetX + nx * scaledW;
-    const cy = offsetY + ny * scaledH;
-    const x = cx - w / 2;
-    const y = cy - h / 2;
-    return { x, y };
-  }, [getBgMetrics, viewport, isVerticalCenterPivotCard]);
-
-  // Update ref for use in sync effect (avoid viewport change triggering sync)
-  toPixelsRef.current = toPixels;
+  toNormalizedRef.current = updateBoxGeometry;
+  toPixelsRef.current = resolveBoxFrame;
 
   useEffect(() => {
     layoutRef.current = layout;
   }, [layout]);
 
   useEffect(() => {
-    if (layout?.backgrounds) {
-      const currentBackground = layout.backgrounds[aspectSlug];
+    if (layout?.background) {
+      const currentBackground = layout.background;
       if (currentBackground) {
         loadingBgRef.current = currentBackground;
 
@@ -536,11 +616,9 @@ export default function GameLayoutEditor() {
         };
       }
     }
-  }, [layout?.backgrounds, aspectSlug]);
+  }, [layout?.background, aspectSlug]);
 
-  // Sync nx/ny and x/y whenever bgDimensions change AFTER initial load.
-  // Uses refs for getBoxes/setBoxesForAspect so aspect-slug changes alone
-  // don't trigger a sync (which would use stale nx/ny with the wrong viewport).
+  // Re-resolve box frames whenever the preview viewport/background changes.
   useEffect(() => {
     if (bgDimensions.width > 0 && initialSyncDoneRef.current && toPixelsRef.current && toNormalizedRef.current) {
       cancelAnimationFrame(syncRafRef.current);
@@ -552,23 +630,14 @@ export default function GameLayoutEditor() {
 
           Object.keys(newBoxes).forEach(key => {
             const box = newBoxes[key];
-            if (box.nx !== undefined && box.ny !== undefined) {
-              const screenRelative = box.screen_relative ?? false;
-              const { x, y } = toPixelsRef.current(box.nx, box.ny, box.width, box.height, screenRelative, key);
-              if (Math.abs(x - box.x) > 1 || Math.abs(y - box.y) > 1) {
-                console.log(`[sync] ${key}: (${box.x},${box.y}) → (${Math.round(x)},${Math.round(y)})`);
-                newBoxes[key] = { ...box, x: Math.round(x), y: Math.round(y) };
-                changed = true;
-              }
-            } else {
-              const screenRelative = box.screen_relative ?? false;
-              const { nx, ny } = toNormalizedRef.current(box.x, box.y, box.width, box.height, screenRelative, key);
-              newBoxes[key] = { ...box, nx, ny };
+            const frame = toPixelsRef.current(box);
+            if (Math.abs(frame.x - box.x) > 1 || Math.abs(frame.y - box.y) > 1 || Math.abs(frame.width - box.width) > 1 || Math.abs(frame.height - box.height) > 1) {
+              newBoxes[key] = { ...box, ...frame };
               changed = true;
             }
           });
 
-          return changed ? setBoxesForAspectRef.current(prev, newBoxes) : prev;
+          return changed ? setBoxesRef.current(prev, newBoxes) : prev;
         }, { recordHistory: false });
       });
     }
@@ -646,13 +715,10 @@ export default function GameLayoutEditor() {
       ids.forEach(id => {
         if (id !== targetId) {
           const box = newBoxes[id];
-          newBoxes[id] = { ...box, x: targetBox.x };
-          const { nx, ny } = toNormalized(targetBox.x, box.y, box.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: targetBox.x, y: box.y, width: box.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -672,13 +738,10 @@ export default function GameLayoutEditor() {
         if (id !== targetId) {
           const box = newBoxes[id];
           const newX = targetCenterX - box.width / 2;
-          newBoxes[id] = { ...box, x: Math.round(newX) };
-          const { nx, ny } = toNormalized(newX, box.y, box.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: newX, y: box.y, width: box.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -698,13 +761,10 @@ export default function GameLayoutEditor() {
         if (id !== targetId) {
           const box = newBoxes[id];
           const newX = targetRight - box.width;
-          newBoxes[id] = { ...box, x: Math.round(newX) };
-          const { nx, ny } = toNormalized(newX, box.y, box.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: newX, y: box.y, width: box.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -722,13 +782,10 @@ export default function GameLayoutEditor() {
       ids.forEach(id => {
         if (id !== targetId) {
           const box = newBoxes[id];
-          newBoxes[id] = { ...box, y: targetBox.y };
-          const { nx, ny } = toNormalized(box.x, targetBox.y, box.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: targetBox.y, width: box.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -748,13 +805,10 @@ export default function GameLayoutEditor() {
         if (id !== targetId) {
           const box = newBoxes[id];
           const newY = targetCenterY - box.height / 2;
-          newBoxes[id] = { ...box, y: Math.round(newY) };
-          const { nx, ny } = toNormalized(box.x, newY, box.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: newY, width: box.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -774,13 +828,10 @@ export default function GameLayoutEditor() {
         if (id !== targetId) {
           const box = newBoxes[id];
           const newY = targetBottom - box.height;
-          newBoxes[id] = { ...box, y: Math.round(newY) };
-          const { nx, ny } = toNormalized(box.x, newY, box.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: newY, width: box.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -808,13 +859,10 @@ export default function GameLayoutEditor() {
         const id = sortedIds[i];
         const box = newBoxes[id];
         const newX = Math.round(currentX);
-        newBoxes[id] = { ...box, x: newX };
-        const { nx, ny } = toNormalized(newX, box.y, box.width, box.height);
-        newBoxes[id].nx = nx;
-        newBoxes[id].ny = ny;
+        newBoxes[id] = updateBoxGeometry(box, { x: newX, y: box.y, width: box.width, height: box.height });
         currentX += box.width + gapWidth;
       }
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -842,13 +890,10 @@ export default function GameLayoutEditor() {
         const id = sortedIds[i];
         const box = newBoxes[id];
         const newY = Math.round(currentY);
-        newBoxes[id] = { ...box, y: newY };
-        const { nx, ny } = toNormalized(box.x, newY, box.width, box.height);
-        newBoxes[id].nx = nx;
-        newBoxes[id].ny = ny;
+        newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: newY, width: box.width, height: box.height });
         currentY += box.height + gapHeight;
       }
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -866,13 +911,10 @@ export default function GameLayoutEditor() {
       ids.forEach(id => {
         if (id !== targetId) {
           const box = newBoxes[id];
-          newBoxes[id] = { ...box, width: targetBox.width };
-          const { nx, ny } = toNormalized(box.x, box.y, targetBox.width, box.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: box.y, width: targetBox.width, height: box.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -890,13 +932,10 @@ export default function GameLayoutEditor() {
       ids.forEach(id => {
         if (id !== targetId) {
           const box = newBoxes[id];
-          newBoxes[id] = { ...box, height: targetBox.height };
-          const { nx, ny } = toNormalized(box.x, box.y, box.width, targetBox.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: box.y, width: box.width, height: targetBox.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -914,13 +953,10 @@ export default function GameLayoutEditor() {
       ids.forEach(id => {
         if (id !== targetId) {
           const box = newBoxes[id];
-          newBoxes[id] = { ...box, width: targetBox.width, height: targetBox.height };
-          const { nx, ny } = toNormalized(box.x, box.y, targetBox.width, targetBox.height);
-          newBoxes[id].nx = nx;
-          newBoxes[id].ny = ny;
+          newBoxes[id] = updateBoxGeometry(box, { x: box.x, y: box.y, width: targetBox.width, height: targetBox.height });
         }
       });
-      return setBoxesForAspect(prev, newBoxes);
+      return setBoxes(prev, newBoxes);
     });
   };
 
@@ -965,39 +1001,13 @@ export default function GameLayoutEditor() {
         fullLayoutDataRef.current = data;
         const migrated = extractSceneLayout(data, sceneSlug);
 
-        // Ensure current aspect has boxes (copy from default if missing)
-        if (!migrated.boxes[aspectSlug] || Object.keys(migrated.boxes[aspectSlug]).length === 0) {
-          const sourceBoxes = migrated.boxes[DEFAULT_ASPECT];
-          if (sourceBoxes && Object.keys(sourceBoxes).length > 0) {
-            // Deep clone from default aspect
-            migrated.boxes[aspectSlug] = JSON.parse(JSON.stringify(sourceBoxes));
-          } else {
-            migrated.boxes[aspectSlug] = makeDefaultBoxes(sceneSlug);
-          }
-        }
-
-        // Merge with default box definitions
-        migrated.boxes[aspectSlug] = mergeWithDefaults(migrated.boxes[aspectSlug], sceneSlug);
-
-        // Recompute nx/ny for screen_relative boxes from pixel coords to fix
-        // any stale normalized values (e.g. computed before screen_relative was set)
-        const vw = preset ? preset.width : 1080;
-        const vh = preset ? preset.height : 1920;
-        const boxes = migrated.boxes[aspectSlug];
-        Object.keys(boxes).forEach(key => {
-          const box = boxes[key];
-          if (box.screen_relative) {
-            const cx = box.x + box.width / 2;
-            const cy = box.y + box.height / 2;
-            box.nx = cx / vw;
-            box.ny = cy / vh;
-          }
+        migrated.boxes = mergeWithDefaults(
+          Object.keys(migrated.boxes).length > 0 ? migrated.boxes : makeDefaultBoxes(sceneSlug),
+          sceneSlug,
+        );
+        Object.keys(migrated.boxes).forEach(key => {
+          migrated.boxes[key] = { ...migrated.boxes[key], ...resolveBoxFrame(migrated.boxes[key]) };
         });
-
-        // Ensure background exists for this aspect
-        if (!migrated.backgrounds[aspectSlug]) {
-          migrated.backgrounds[aspectSlug] = migrated.backgrounds[DEFAULT_ASPECT];
-        }
 
         layoutRef.current = migrated;
         skipAutoSaveRef.current = true;
@@ -1042,7 +1052,7 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(setAnimaps)
       .catch(err => console.error("Failed to fetch animaps", err));
-  }, [aspectSlug, sceneSlug]);
+  }, [sceneSlug, resolveBoxFrame]);
 
   // Auto-save effect
   useEffect(() => {
@@ -1090,53 +1100,40 @@ export default function GameLayoutEditor() {
     return () => clearTimeout(timer);
   }, [layout]);
 
-  // Properties that should be shared across all aspect ratios
   const SHARED_BOX_PROPS: (keyof Box)[] = ['animapSlug', 'cardSlug', 'actionSlug', 'poseSlug', 'asset', 'fill'];
 
   const updateBox = (id: string, updates: Partial<Box>) => {
     updateLayout(prev => {
       const boxes = getBoxes(prev);
       const oldBox = boxes[id];
-      const newBox = { ...oldBox, ...updates };
-      const screenRelative = newBox.screen_relative ?? false;
-
-      // If pixel coords or size changed, update normalized
+      let newBox = { ...oldBox, ...updates };
       if ('x' in updates || 'y' in updates || 'width' in updates || 'height' in updates) {
-        const { nx, ny } = toNormalized(newBox.x, newBox.y, newBox.width, newBox.height, screenRelative, id);
-        newBox.nx = nx;
-        newBox.ny = ny;
-      }
-      // If normalized coords changed, update pixel coords
-      else if ('nx' in updates || 'ny' in updates) {
-        if (newBox.nx !== undefined && newBox.ny !== undefined) {
-          const { x, y } = toPixels(newBox.nx, newBox.ny, newBox.width, newBox.height, screenRelative, id);
-          newBox.x = Math.round(x);
-          newBox.y = Math.round(y);
-        }
+        newBox = updateBoxGeometry(newBox, {
+          x: newBox.x,
+          y: newBox.y,
+          width: newBox.width,
+          height: newBox.height,
+        });
+      } else {
+        newBox = { ...newBox, ...resolveBoxFrame(newBox) };
       }
 
-      let result = setBoxesForAspect(prev, { ...boxes, [id]: newBox });
+      let result = setBoxes(prev, { ...boxes, [id]: newBox });
 
-      // Sync shared properties to all other aspect ratios
       const sharedUpdates: Record<string, unknown> = {};
       for (const key of SHARED_BOX_PROPS) {
         if (key in updates) {
           sharedUpdates[key] = (updates as Record<string, unknown>)[key];
         }
       }
-      if (Object.keys(sharedUpdates).length > 0) {
-        const allBoxes = { ...result.boxes };
-        for (const otherAspect of Object.keys(allBoxes)) {
-          if (otherAspect === aspectSlug) continue;
-          const otherBoxes = allBoxes[otherAspect];
-          if (otherBoxes?.[id]) {
-            allBoxes[otherAspect] = {
-              ...otherBoxes,
-              [id]: { ...otherBoxes[id], ...sharedUpdates },
-            };
-          }
-        }
-        result = { ...result, boxes: allBoxes };
+      if (Object.keys(sharedUpdates).length > 0 && result.boxes[id]) {
+        result = {
+          ...result,
+          boxes: {
+            ...result.boxes,
+            [id]: { ...result.boxes[id], ...sharedUpdates },
+          },
+        };
       }
 
       return result;
@@ -1204,10 +1201,10 @@ export default function GameLayoutEditor() {
             </label>
             <select
               className="p-2 border rounded bg-background text-foreground"
-              value={normalizeBgName(layout.backgrounds?.[aspectSlug] || '')}
+              value={normalizeBgName(layout.background || '')}
               onChange={e => updateLayout(current => ({
                 ...current,
-                backgrounds: { ...(current.backgrounds || {}), [aspectSlug]: e.target.value }
+                background: e.target.value
               }))}
             >
               {places.length > 0 ? (
@@ -1269,14 +1266,12 @@ export default function GameLayoutEditor() {
                     }
 
                     if (modified) {
-                      const screenRelative = box.screen_relative ?? false;
-                      const { nx, ny } = toNormalized(x, y, width, height, screenRelative, key);
-                      newBoxes[key] = { ...box, x: Math.round(x), y: Math.round(y), width, height, nx, ny };
+                      newBoxes[key] = updateBoxGeometry(box, { x, y, width, height });
                       changed = true;
                     }
                   });
 
-                  return changed ? setBoxesForAspect(prev, newBoxes) : prev;
+                  return changed ? setBoxes(prev, newBoxes) : prev;
                 });
               }}
               title="Fit All Boxes Inside Canvas"
@@ -1341,11 +1336,11 @@ export default function GameLayoutEditor() {
             <div className="relative w-full h-full border border-gray-700 shadow-lg bg-black"
               onClick={() => setSelectedBoxes(new Set())}>
               <div
-                key={`bg-${aspectSlug}-${layout.backgrounds?.[aspectSlug]}`}
+                key={`bg-${aspectSlug}-${layout.background || ''}`}
                 className="absolute inset-0 bg-no-repeat pointer-events-none"
                 style={{
-                  backgroundImage: layout.backgrounds?.[aspectSlug]
-                    ? `url(/assets/places/${resolveBgVariant(layout.backgrounds[aspectSlug], aspectSlug)})`
+                  backgroundImage: layout.background
+                    ? `url(/assets/places/${resolveBgVariant(layout.background, aspectSlug)})`
                     : undefined,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center'
@@ -1384,12 +1379,9 @@ export default function GameLayoutEditor() {
                         if (newX !== box.x || newY !== box.y) didDragRef.current = true;
                         const dx = newX - box.x;
                         const dy = newY - box.y;
-                        const screenRelative = box.screen_relative ?? false;
-
                         updateLayout(prev => {
                           const boxes = { ...getBoxes(prev) };
-                          const { nx, ny } = toNormalized(newX, newY, box.width, box.height, screenRelative, box.id);
-                          boxes[box.id] = { ...box, x: newX, y: newY, nx, ny };
+                          boxes[box.id] = updateBoxGeometry(box, { x: newX, y: newY, width: box.width, height: box.height });
 
                           if (selectedBoxes.has(box.id) && selectedBoxes.size > 1) {
                             for (const id of selectedBoxes) {
@@ -1398,13 +1390,11 @@ export default function GameLayoutEditor() {
                               if (!other || other.locked) continue;
                               const ox = other.x + dx;
                               const oy = other.y + dy;
-                              const osr = other.screen_relative ?? false;
-                              const { nx: onx, ny: ony } = toNormalized(ox, oy, other.width, other.height, osr, id);
-                              boxes[id] = { ...other, x: ox, y: oy, nx: onx, ny: ony };
+                              boxes[id] = updateBoxGeometry(other, { x: ox, y: oy, width: other.width, height: other.height });
                             }
                           }
 
-                          return setBoxesForAspect(prev, boxes);
+                          return setBoxes(prev, boxes);
                         });
                       }}
                       onResizeStop={(_e, _direction, ref, _delta, position) => {
@@ -1412,21 +1402,11 @@ export default function GameLayoutEditor() {
                         const newH = Math.round(parseInt(ref.style.height));
                         const newX = Math.round(position.x);
                         const newY = Math.round(position.y);
-                        const screenRelative = box.screen_relative ?? false;
-                        const { nx, ny } = toNormalized(newX, newY, newW, newH, screenRelative, box.id);
-
                         updateLayout(prev => {
                           const boxes = getBoxes(prev);
-                          return setBoxesForAspect(prev, {
+                          return setBoxes(prev, {
                             ...boxes,
-                            [box.id]: {
-                              ...box,
-                              width: newW,
-                              height: newH,
-                              x: newX,
-                              y: newY,
-                              nx, ny
-                            }
+                            [box.id]: updateBoxGeometry(box, { x: newX, y: newY, width: newW, height: newH })
                           });
                         });
                       }}
@@ -1512,17 +1492,16 @@ export default function GameLayoutEditor() {
                                       if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
 
                                       const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
-                                      const { nx, ny } = toNormalized(currentBox.x, adjustedY, currentBox.width, targetHeight, false, box.id);
                                       console.log(`[aspectRatio:card] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}, ratio=${ratio.toFixed(3)}`);
 
-                                      return setBoxesForAspect(prev, {
+                                      return setBoxes(prev, {
                                         ...boxes,
-                                        [box.id]: {
-                                          ...currentBox,
-                                          height: targetHeight,
+                                        [box.id]: updateBoxGeometry(currentBox, {
+                                          x: currentBox.x,
                                           y: adjustedY,
-                                          nx, ny
-                                        }
+                                          width: currentBox.width,
+                                          height: targetHeight,
+                                        })
                                       });
                                     }, { recordHistory: false });
                                   }, 0);
@@ -1553,18 +1532,16 @@ export default function GameLayoutEditor() {
                                       if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
 
                                       const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
-                                      const { nx, ny } = toNormalized(currentBox.x, adjustedY, currentBox.width, targetHeight, false, box.id);
                                       console.log(`[aspectRatio:action] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}`);
 
-                                      return setBoxesForAspect(prev, {
+                                      return setBoxes(prev, {
                                         ...boxes,
-                                        [box.id]: {
-                                          ...currentBox,
-                                          height: targetHeight,
+                                        [box.id]: updateBoxGeometry(currentBox, {
+                                          x: currentBox.x,
                                           y: adjustedY,
-                                          nx,
-                                          ny,
-                                        }
+                                          width: currentBox.width,
+                                          height: targetHeight,
+                                        })
                                       });
                                     }, { recordHistory: false });
                                   }, 0);
@@ -1609,17 +1586,16 @@ export default function GameLayoutEditor() {
                                       if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
 
                                       const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
-                                      const { nx, ny } = toNormalized(currentBox.x, adjustedY, currentBox.width, targetHeight, false, box.id);
                                       console.log(`[aspectRatio:asset] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}`);
 
-                                      return setBoxesForAspect(prev, {
+                                      return setBoxes(prev, {
                                         ...boxes,
-                                        [box.id]: {
-                                          ...currentBox,
-                                          height: targetHeight,
+                                        [box.id]: updateBoxGeometry(currentBox, {
+                                          x: currentBox.x,
                                           y: adjustedY,
-                                          nx, ny
-                                        }
+                                          width: currentBox.width,
+                                          height: targetHeight,
+                                        })
                                       });
                                     }, { recordHistory: false });
                                   }, 0);

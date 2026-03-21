@@ -532,21 +532,11 @@ func _set_initial_positions():
 	_apply_background()
 
 func _get_available_aspect_keys() -> Array[String]:
-	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var boxes: Dictionary = scene.get("boxes", {})
-	var keys: Array[String] = []
-	for key in boxes.keys():
-		keys.append(str(key))
-	keys.sort()
-	return keys
+	return GameState.get_available_gameplay_aspects()
 
 func _refresh_layout_data():
-	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var boxes: Dictionary = scene.get("boxes", {})
 	_layout_aspect_key = _get_matched_aspect_key()
-	_layout_boxes = boxes.get(_layout_aspect_key, {})
+	_layout_boxes = GameState.get_scene_boxes("gameplay")
 
 func _apply_layout(animated_hand: bool):
 	if _available_layout_aspects.is_empty():
@@ -580,10 +570,7 @@ func _layout_existing_heroes():
 			hero.apply_layout_size(Vector2(r["width"], r["height"]))
 
 func _apply_background():
-	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var backgrounds: Dictionary = scene.get("backgrounds", {})
-	var bg_slug = backgrounds.get(_layout_aspect_key, "")
+	var bg_slug = GameState.get_scene_background("gameplay")
 	if bg_slug.is_empty():
 		$Background.texture = null
 		return
@@ -645,12 +632,7 @@ func _animate_ui_element(element: Control, delay: float, offset: Vector2):
 # --- Dev Panel (desktop only, toggle with F3) ---
 
 func _get_matched_aspect_key() -> String:
-	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var boxes: Dictionary = scene.get("boxes", {})
-	if boxes.is_empty():
-		return ""
-	return GameState.find_best_aspect(boxes)
+	return GameState.forced_gameplay_aspect_key if not GameState.forced_gameplay_aspect_key.is_empty() else "9-16"
 
 func _create_dev_panel():
 	if OS.get_name() in ["Android", "iOS"]:
@@ -698,12 +680,8 @@ func _update_dev_panel():
 	lines.append("[color=gray]F4 next  Shift+F4 previous  F5 auto[/color]")
 	lines.append("")
 
-	# List all available aspect keys
-	var scenes: Dictionary = GameState._layout_data.get("scenes", {})
-	var scene: Dictionary = scenes.get("gameplay", {})
-	var all_boxes: Dictionary = scene.get("boxes", {})
 	lines.append("[b]Available aspects:[/b]")
-	for key in all_boxes.keys():
+	for key in GameState.get_available_gameplay_aspects():
 		var parts = key.split("-")
 		if parts.size() == 2:
 			var bp_aspect = float(parts[0]) / float(parts[1])
