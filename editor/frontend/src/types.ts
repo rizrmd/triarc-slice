@@ -169,6 +169,9 @@ export interface Box {
   ny?: number;
   label: string;
   pivot?: string;
+  screen_anchor: string;
+  anchor_offset_x: number;
+  anchor_offset_y: number;
   fill?: 'contain' | 'cover' | 'stretch' | 'none';
   cardSlug?: string;
   actionSlug?: string;
@@ -182,8 +185,8 @@ export interface Box {
 }
 
 export interface GameLayout {
-  backgrounds: Record<string, string>; // key: aspect slug, value: background URL
-  boxes: Record<string, Record<string, Box>>; // key: aspect slug, value: boxes for that aspect
+  background?: string;
+  boxes: Record<string, Box>;
 }
 
 export interface GameLayoutFile {

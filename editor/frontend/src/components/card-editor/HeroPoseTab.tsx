@@ -416,7 +416,7 @@ export function HeroPoseTab({
       drawOnCanvas('pose-mask-fg', canvas, event);
   };
 
-  const defaultBoxes = layout?.boxes?.['9-16'] || {};
+  const defaultBoxes = layout?.boxes || {};
   const enemy2Box = defaultBoxes['enemy2'];
   const baseSize = useMemo(
     () => (enemy2Box ? { width: enemy2Box.width, height: enemy2Box.height } : { width: 320, height: 517 }),
@@ -523,7 +523,7 @@ export function HeroPoseTab({
                   {/* Background */}
                   <div
                       className="absolute inset-0 bg-no-repeat bg-center bg-cover"
-                      style={{ backgroundImage: (layout.backgrounds?.['9-16'] || layout.backgrounds?.['0']) ? `url(/assets/places/${resolveBgVariant(layout.backgrounds['9-16'] || layout.backgrounds['0'], '-narrow')})` : undefined }}
+                      style={{ backgroundImage: layout.background ? `url(/assets/places/${resolveBgVariant(layout.background, '-narrow')})` : undefined }}
                   />
                   
                   {/* Hero in Enemy2 Box */}

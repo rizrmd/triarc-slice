@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from "react";
 
 import type { Box } from "@/types";
 
-const PIVOT_OPTIONS = [
+const ANCHOR_OPTIONS = [
   'top-left', 'top-center', 'top-right',
   'center-left', 'center', 'center-right',
   'bottom-left', 'bottom-center', 'bottom-right'
@@ -124,9 +124,6 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
 
   const isHeroBox = selectedBox.id.startsWith('hero');
   const isActionBox = selectedBox.id.startsWith('action');
-  const isEnemyBox = selectedBox.id.startsWith('enemy');
-  const isVerticalCenterPivotCard = isHeroBox || isActionBox || isEnemyBox;
-
   const handleLabelDragStart = (e: React.MouseEvent, prop: keyof Box, value: number) => {
     if (selectedBox.locked) return;
     startXRef.current = e.clientX;
@@ -202,8 +199,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopyAll = () => {
-    const { x, y, width, height, pivot, fill, cardSlug, actionSlug, asset, width_percent, height_percent } = selectedBox;
-    setFullBoxClipboard({ x, y, width, height, pivot, fill, cardSlug, actionSlug, asset, width_percent, height_percent });
+    const { x, y, width, height, pivot, screen_anchor, anchor_offset_x, anchor_offset_y, fill, cardSlug, actionSlug, asset, width_percent, height_percent } = selectedBox;
+    setFullBoxClipboard({ x, y, width, height, pivot, screen_anchor, anchor_offset_x, anchor_offset_y, fill, cardSlug, actionSlug, asset, width_percent, height_percent });
   };
 
   const handleCopyPosition = () => {
@@ -384,18 +381,17 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </select>
         </div>
 
-        {!isVerticalCenterPivotCard && (
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-medium text-muted-foreground">Pivot Point</Label>
+          <Label className="text-[11px] font-medium text-muted-foreground">Screen Anchor</Label>
           <div className="flex items-center gap-2">
             <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md shrink-0 ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
-              {PIVOT_OPTIONS.map((option) => (
+              {ANCHOR_OPTIONS.map((option) => (
                 <button
                   key={option}
-                  onClick={() => onUpdate(selectedBox.id, { pivot: option })}
+                  onClick={() => onUpdate(selectedBox.id, { screen_anchor: option })}
                   className={`
                     w-6 h-6 rounded-sm transition-all border
-                    ${selectedBox.pivot === option
+                    ${selectedBox.screen_anchor === option
                       ? 'bg-primary border-primary'
                       : 'bg-background hover:bg-accent border-transparent'}
                   `}
@@ -404,17 +400,16 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                 >
                   <div className={`
                     w-1.5 h-1.5 rounded-full mx-auto
-                    ${selectedBox.pivot === option ? 'bg-primary-foreground' : 'bg-muted-foreground'}
+                    ${selectedBox.screen_anchor === option ? 'bg-primary-foreground' : 'bg-muted-foreground'}
                   `} />
                 </button>
               ))}
             </div>
             <span className="text-[11px] text-muted-foreground capitalize">
-              {selectedBox.pivot?.replace('-', ' ')}
+              {(selectedBox.screen_anchor || 'top-left').replace('-', ' ')}
             </span>
           </div>
         </div>
-        )}
 
         <div className="space-y-2">
           {/* Special Size Control for Heroes */}
@@ -510,7 +505,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     disabled={selectedBox.locked}
                   />
                 )}
-                {isSizeProp && percentKey && !isVerticalCenterPivotCard && (
+                {isSizeProp && percentKey && (
                   <Button
                     variant="ghost"
                     size="icon"
