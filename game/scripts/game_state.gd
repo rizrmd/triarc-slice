@@ -35,6 +35,7 @@ const _MIN_GAMEPLAY_WINDOW_HEIGHT := 640
 const _DEFAULT_GAMEPLAY_ASPECT := "9-16"
 
 func _ready():
+	_apply_display_aspect_policy()
 	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()
@@ -56,6 +57,15 @@ func _input(event: InputEvent):
 func _notification(what: int):
 	if what == NOTIFICATION_WM_SIZE_CHANGED:
 		enforce_gameplay_window_aspect_ratio()
+
+func _apply_display_aspect_policy() -> void:
+	var root := get_tree().root
+	if root == null:
+		return
+	if OS.get_name() in ["Android", "iOS"]:
+		root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	else:
+		root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 
 # --- Layout utilities ---
 
