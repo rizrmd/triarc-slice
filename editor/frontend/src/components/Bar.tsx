@@ -48,7 +48,7 @@ export function Bar({ current, max, hue = 0, fontSize = 31, className = '' }: Ba
         <span 
           className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
           style={{ 
-            fontFamily: '"Vollkorn", serif',
+            fontFamily: '"Volkhov", serif',
             fontSize: `${fontSize}px` 
           }}
         >

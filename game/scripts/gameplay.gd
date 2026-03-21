@@ -3,18 +3,21 @@ extends Control
 
 @onready var heroes_container: Control = $HeroesContainer
 @onready var hand_container: Control = $HandContainer
-@onready var energy_bar: ProgressBar = $UIOverlay/EnergyBar
-@onready var reroll_button: Button = $UIOverlay/RerollButton
+@onready var energy_bar: TextureRect = $UIOverlay/EnergyBar
+@onready var reroll_button: TextureButton = $UIOverlay/RerollButton
 @onready var back_button: Button = $UIOverlay/BackButton
+@onready var fade_rect: ColorRect = $UIOverlay/FadeRect
 
 const HERO_SCENE = preload("res://scenes/hero.tscn")
 const ACTION_CARD_SCENE = preload("res://scenes/action_card.tscn")
+const HAND_REFLOW_DURATION := 0.22
 
 # Heroes
 var my_heroes: Dictionary = {}  # slot_index -> Hero node
 var enemy_heroes: Dictionary = {}  # slot_index -> Hero node
 var hand_cards: Array = []
-var _used_hand_slots: Array = []  # slot indices of cards used this hand
+var _used_hand_keys: Array = []  # "action_slug:slot_index" of cards cast this hand
+var _prev_server_keys: Dictionary = {}  # keys from previous hand update for stabilization
 
 # State
 var current_energy: int = 10
@@ -22,10 +25,13 @@ var max_energy: int = 10
 var _last_state: Dictionary = {}
 var _layout_boxes: Dictionary = {}
 var _layout_aspect_key: String = ""
+var _is_first_state_update: bool = true
 
 # Drag state
 var _dragging_card = null
 var _hovered_hero: Node = null
+var _hover_tween: Tween = null
+var _selected_hero: Hero = null
 
 # Dev panel
 var _dev_panel: PanelContainer = null
@@ -36,6 +42,8 @@ func _ready():
 	add_to_group("gameplay")
 
 	reroll_button.pressed.connect(_on_reroll_pressed)
+	reroll_button.button_down.connect(func(): reroll_button.modulate = Color(0.8, 0.8, 0.8, 1.0))
+	reroll_button.button_up.connect(func(): reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0))
 	back_button.pressed.connect(_on_back_pressed)
 
 	_layout_boxes = GameState.get_scene_boxes("gameplay")
@@ -70,6 +78,16 @@ func _process(_delta):
 func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and event.keycode == KEY_F3:
 		_toggle_dev_panel()
+
+func _input(event: InputEvent):
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var mouse_pos = get_global_mouse_position()
+		var clicked_hero = _get_my_hero_at_point(mouse_pos)
+		print("[Gameplay] global click pos=", mouse_pos, " clicked_hero=", clicked_hero.hero_slug if clicked_hero else "none")
+		if clicked_hero:
+			_set_selected_hero(clicked_hero)
+		else:
+			_clear_selected_hero()
 
 func _on_ws_message(msg: String):
 	var json = JSON.new()
@@ -121,6 +139,11 @@ func _update_game_state(data: Dictionary):
 	# Update casting indicators
 	_update_casting_indicators(casts)
 	
+	# Trigger entrance animation on first state update
+	if _is_first_state_update:
+		_is_first_state_update = false
+		_play_entrance_animation()
+
 	# Check match end
 	var winner = match_data.get("winner", 0)
 	if winner != 0:
@@ -136,6 +159,7 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 	var hero = HERO_SCENE.instantiate()
 	heroes_container.add_child(hero)
 	hero.setup(hero_data, is_enemy)
+	hero.hero_clicked.connect(_on_hero_clicked)
 
 	# Position and scale based on layout from game-layout.json
 	var vp_size = get_viewport().get_visible_rect().size
@@ -148,6 +172,10 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 		# Scale sprites to fit the layout box
 		hero.apply_layout_size(Vector2(r["width"], r["height"]))
 
+	if _is_first_state_update:
+		hero.modulate.a = 0.0
+		hero.scale = Vector2(0.8, 0.8)
+
 	dict[slot] = hero
 	return hero
 
@@ -156,21 +184,42 @@ func _update_hand(hand_data: Array):
 	for card in hand_cards:
 		if card.is_dragging:
 			return
-	# Clear existing hand cards
-	for card in hand_cards:
-		card.queue_free()
-	hand_cards.clear()
 
-	# Filter out used slots (cards already cast this hand)
+	# No hand data in this update — keep current display intact.
+	if hand_data.is_empty():
+		return
+
+	# Build raw server keys for used-card pruning
+	var raw_server_keys: Dictionary = {}
+	for cd in hand_data:
+		raw_server_keys["%s:%d" % [cd.get("action_slug", ""), cd.get("slot_index", 0)]] = true
+
+	# Prune used entries the server has confirmed as gone
+	_used_hand_keys = _used_hand_keys.filter(func(k): return k in raw_server_keys)
+
+	# Stabilize: only keep cards present in BOTH this and previous update.
+	# This filters out cards that flip in/out due to server sending both teams' data.
+	if not _prev_server_keys.is_empty() and not hand_cards.is_empty():
+		hand_data = hand_data.filter(func(cd):
+			var key = "%s:%d" % [cd.get("action_slug", ""), cd.get("slot_index", 0)]
+			return key in _prev_server_keys)
+	_prev_server_keys = raw_server_keys
+
+	# Filter out cards the player already cast
 	var filtered_hand: Array = []
 	for card_data in hand_data:
-		var slot_idx = card_data.get("slot_index", 0)
-		if slot_idx not in _used_hand_slots:
+		var key = "%s:%d" % [card_data.get("action_slug", ""), card_data.get("slot_index", 0)]
+		if key not in _used_hand_keys:
 			filtered_hand.append(card_data)
 
 	var vp_size = get_viewport().get_visible_rect().size
+	var existing_by_key: Dictionary = {}
+	for card in hand_cards:
+		existing_by_key[_get_hand_card_key(card.slot_index, card.action_slug)] = card
 
-	# Create new cards positioned in sequential layout slots
+	var next_hand_cards: Array = []
+
+	# Reuse existing cards when possible so hand reflow can animate.
 	for i in range(filtered_hand.size()):
 		var key = "action%d" % (i + 1)
 		if not _layout_boxes.has(key):
@@ -178,35 +227,61 @@ func _update_hand(hand_data: Array):
 
 		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
 		var card_data = filtered_hand[i]
-		var card = ACTION_CARD_SCENE.instantiate()
-		hand_container.add_child(card)
+		var card_key = _get_hand_card_key(card_data.get("slot_index", 0), card_data.get("action_slug", ""))
+		var card = existing_by_key.get(card_key, null)
+		var target_pos = Vector2(r["x"], r["y"])
+		var target_size = Vector2(r["width"], r["height"])
 
-		# Set size from layout before building visuals
-		card.size = Vector2(r["width"], r["height"])
-		card.position = Vector2(r["x"], r["y"])
-		card.setup(card_data)
-		card.card_drag_started.connect(_on_card_drag_started)
-		card.card_drag_ended.connect(_on_card_drag_ended)
+		if card == null:
+			card = ACTION_CARD_SCENE.instantiate()
+			hand_container.add_child(card)
 
-		hand_cards.append(card)
+			# Set size from layout before building visuals
+			card.size = target_size
+			card.position = target_pos
+			card.setup(card_data)
+			card.card_drag_started.connect(_on_card_drag_started)
+			card.card_drag_ended.connect(_on_card_drag_ended)
+
+			if _is_first_state_update:
+				card.modulate.a = 0.0
+				card.position.y += 200
+		else:
+			existing_by_key.erase(card_key)
+			card.size = target_size
+			_move_hand_card(card, target_pos, true)
+
+		card.set_enabled(card.can_afford(current_energy))
+		next_hand_cards.append(card)
+
+	for stale_card in existing_by_key.values():
+		stale_card.queue_free()
+
+	hand_cards = next_hand_cards
 
 func _tween_energy(new_energy: int):
 	if current_energy == new_energy:
 		return
-	
-	var tween = create_tween()
-	tween.set_ease(Tween.EASE_OUT)
+
+	var old_ratio = float(current_energy) / float(max_energy) if max_energy > 0 else 0.0
+	var new_ratio = float(new_energy) / float(max_energy) if max_energy > 0 else 0.0
+
+	var tween = create_tween().set_parallel(true)
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	tween.tween_method(_set_energy, current_energy, new_energy, 0.5)
+	tween.tween_method(_set_energy_fill, old_ratio, new_ratio, 0.5)
 	current_energy = new_energy
 
 func _set_energy(value: int):
-	energy_bar.max_value = max_energy
-	energy_bar.value = value
-	energy_bar.get_node("Label").text = "%d/%d" % [int(value), max_energy]
-	
+	energy_bar.get_node("CurrentLabel").text = str(int(value))
+	energy_bar.get_node("MaxLabel").text = str(max_energy)
+
 	# Update card affordability
 	for card in hand_cards:
 		card.set_enabled(card.can_afford(int(value)))
+
+func _set_energy_fill(ratio: float):
+	energy_bar.get_node("EnergyFull").material.set_shader_parameter("fill_amount", ratio)
 
 func _update_casting_indicators(casts: Array):
 	var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
@@ -239,6 +314,8 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 	return null
 
 func _on_card_drag_started(_card):
+	print("[Gameplay] drag started action=", _card.action_slug, " slot=", _card.slot_index, " clearing selection")
+	_clear_selected_hero()
 	_dragging_card = _card
 	_hovered_hero = null
 	_highlight_valid_targets(_card.target_rule)
@@ -246,16 +323,20 @@ func _on_card_drag_started(_card):
 func _on_card_drag_ended(card, dropped_on_target):
 	_dragging_card = null
 	_hovered_hero = null
+	if _hover_tween and _hover_tween.is_valid():
+		_hover_tween.kill()
 	_clear_highlights()
 	if dropped_on_target:
-		# Track the used slot so state_update won't recreate it
-		_used_hand_slots.append(card.slot_index)
+		# Track the used card so state_update won't recreate it
+		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
 		# Remove the used card from hand
 		hand_cards.erase(card)
+		_layout_hand_cards(true)
 		card.queue_free()
 		# Auto-reroll when all cards are used (server grants free reroll)
 		if hand_cards.is_empty():
-			_used_hand_slots.clear()
+			_used_hand_keys.clear()
+			_prev_server_keys.clear()
 			GameState.send_json({
 				"type": "reroll_hand",
 				"match_id": GameState.current_match_id
@@ -290,25 +371,99 @@ func _update_drag_hover():
 	# Restore previous hover
 	if _hovered_hero and is_instance_valid(_hovered_hero) and not _hovered_hero.is_enemy:
 		_hovered_hero.set_char_brightness(0.4)
-	if _hovered_hero and _dragging_card:
-		var tween = create_tween()
-		tween.tween_property(_dragging_card, "modulate:a", 1.0, 0.15)
 
 	_hovered_hero = new_hover
+
+	# Kill previous hover tween before creating a new one
+	if _hover_tween and _hover_tween.is_valid():
+		_hover_tween.kill()
 
 	# Hovered ally: restore brightness, reduce card opacity
 	if _hovered_hero and not _hovered_hero.is_enemy:
 		_hovered_hero.set_char_brightness(1.0)
 	if _hovered_hero and _dragging_card:
-		var tween = create_tween()
-		tween.tween_property(_dragging_card, "modulate:a", 0.6, 0.15)
+		_hover_tween = create_tween()
+		_hover_tween.tween_property(_dragging_card, "modulate:a", 0.6, 0.15)
+	elif _dragging_card:
+		_hover_tween = create_tween()
+		_hover_tween.tween_property(_dragging_card, "modulate:a", 1.0, 0.15)
 
 func _clear_highlights():
 	for hero in my_heroes.values():
 		hero.set_char_brightness(1.0)
 
+func _on_hero_clicked(hero: Hero):
+	print("[Gameplay] hero_clicked hero=", hero.hero_slug, " slot=", hero.slot_index, " enemy=", hero.is_enemy, " dead=", hero.is_dead())
+	if hero == null or hero.is_enemy or hero.is_dead():
+		_clear_selected_hero()
+		return
+	_set_selected_hero(hero)
+
+func _set_selected_hero(hero: Hero):
+	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero != hero:
+		print("[Gameplay] deselect previous hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
+		_selected_hero.set_selected(false)
+	_selected_hero = hero
+	if _selected_hero and is_instance_valid(_selected_hero):
+		print("[Gameplay] select hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
+		_selected_hero.set_selected(true)
+
+func _clear_selected_hero():
+	if _selected_hero and is_instance_valid(_selected_hero):
+		print("[Gameplay] clear selected hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
+		_selected_hero.set_selected(false)
+	else:
+		print("[Gameplay] clear selected hero=noop")
+	_selected_hero = null
+
+func _get_my_hero_at_point(point: Vector2) -> Hero:
+	for hero in my_heroes.values():
+		if hero.get_global_rect().has_point(point):
+			print("[Gameplay] point over hero=", hero.hero_slug, " slot=", hero.slot_index)
+			return hero
+	return null
+
+func _layout_hand_cards(animated: bool):
+	var vp_size = get_viewport().get_visible_rect().size
+	for i in range(hand_cards.size()):
+		var key = "action%d" % (i + 1)
+		if not _layout_boxes.has(key):
+			continue
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+		var card = hand_cards[i]
+		card.size = Vector2(r["width"], r["height"])
+		_move_hand_card(card, Vector2(r["x"], r["y"]), animated)
+
+func _move_hand_card(card: Control, target_pos: Vector2, animated: bool):
+	var tween: Tween = card.get_meta("hand_reflow_tween") if card.has_meta("hand_reflow_tween") else null
+	if tween and tween.is_valid():
+		tween.kill()
+
+	if not animated:
+		card.position = target_pos
+		card.remove_meta("hand_reflow_tween")
+		return
+
+	if card.position.is_equal_approx(target_pos):
+		card.remove_meta("hand_reflow_tween")
+		return
+
+	tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(card, "position", target_pos, HAND_REFLOW_DURATION)
+	card.set_meta("hand_reflow_tween", tween)
+	tween.finished.connect(func():
+		if is_instance_valid(card):
+			card.remove_meta("hand_reflow_tween")
+	)
+
+func _get_hand_card_key(slot_index: int, action_slug: String) -> String:
+	return "%s::%s" % [slot_index, action_slug]
+
 func _on_reroll_pressed():
-	_used_hand_slots.clear()
+	_used_hand_keys.clear()
+	_prev_server_keys.clear()
 	GameState.send_json({
 		"type": "reroll_hand",
 		"match_id": GameState.current_match_id
@@ -340,18 +495,21 @@ func _on_match_end(winner: int):
 
 func _set_initial_positions():
 	var vp_size = get_viewport().get_visible_rect().size
-	if _layout_boxes.has("mana"):
-		var r = GameState.resolve_box(_layout_boxes["mana"], vp_size, _layout_aspect_key)
+	if _layout_boxes.has("energy"):
+		var r = GameState.resolve_box(_layout_boxes["energy"], vp_size, _layout_aspect_key)
 		energy_bar.position = Vector2(r["x"], r["y"])
-		energy_bar.size = Vector2(r["width"], r["height"])
 	if _layout_boxes.has("reroll"):
 		var r = GameState.resolve_box(_layout_boxes["reroll"], vp_size, _layout_aspect_key)
 		reroll_button.position = Vector2(r["x"], r["y"])
-		reroll_button.size = Vector2(r["width"], r["height"])
 	if _layout_boxes.has("settings"):
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)
 		back_button.position = Vector2(r["x"], r["y"])
 		back_button.size = Vector2(r["width"], r["height"])
+	# Hide UI elements for entrance animation
+	energy_bar.modulate.a = 0.0
+	reroll_button.modulate.a = 0.0
+	back_button.modulate.a = 0.0
+
 	# Load background from layout
 	var bg_slug = GameState.get_scene_background("gameplay")
 	if not bg_slug.is_empty():
@@ -367,6 +525,48 @@ func get_heroes() -> Array:
 	all.append_array(my_heroes.values())
 	all.append_array(enemy_heroes.values())
 	return all
+
+# --- Entrance Animation ---
+
+func _play_entrance_animation():
+	# Fade out the black overlay
+	var fade_tween = create_tween()
+	fade_tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+
+	# Animate heroes with stagger
+	var hero_delay = 0.3
+	var all_heroes = []
+	all_heroes.append_array(enemy_heroes.values())
+	all_heroes.append_array(my_heroes.values())
+	for hero in all_heroes:
+		var tween = create_tween().set_parallel(true)
+		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(hero, "modulate:a", 1.0, 0.4).set_delay(hero_delay)
+		tween.tween_property(hero, "scale", Vector2(1.0, 1.0), 0.4).set_delay(hero_delay)
+		hero_delay += 0.1
+
+	# Animate cards sliding up with stagger
+	var card_delay = 0.6
+	for card in hand_cards:
+		var final_y = card.position.y - 200
+		var tween = create_tween().set_parallel(true)
+		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tween.tween_property(card, "modulate:a", 1.0, 0.35).set_delay(card_delay)
+		tween.tween_property(card, "position:y", final_y, 0.45).set_delay(card_delay)
+		card_delay += 0.08
+
+	# Animate UI elements
+	_animate_ui_element(energy_bar, 0.7, Vector2(0, 30))
+	_animate_ui_element(reroll_button, 0.8, Vector2(0, 30))
+	_animate_ui_element(back_button, 0.75, Vector2(0, -20))
+
+func _animate_ui_element(element: Control, delay: float, offset: Vector2):
+	var final_pos = element.position
+	element.position += offset
+	var tween = create_tween().set_parallel(true)
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(element, "modulate:a", 1.0, 0.35).set_delay(delay)
+	tween.tween_property(element, "position", final_pos, 0.4).set_delay(delay)
 
 # --- Dev Panel (desktop only, toggle with F3) ---
 

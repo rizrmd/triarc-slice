@@ -188,8 +188,8 @@ func _build_card_visual(config: Dictionary):
 	var cost_w = cost_font_size * 2.0
 	var cost_h = cost_font_size * 2.0
 	cost_lbl.position = Vector2(
-		card_size.x * 0.112 - cost_w / 2.0,
-		card_size.y * 0.08 - cost_h / 2.0
+		card_size.x * 0.132 - cost_w / 2.0,
+		card_size.y * 0.09 - cost_h / 2.0
 	)
 	cost_lbl.size = Vector2(cost_w, cost_h)
 	container.add_child(cost_lbl)
@@ -285,41 +285,36 @@ func _input(event):
 
 func _end_drag():
 	is_dragging = false
-	scale = Vector2(1.0, 1.0)
-	modulate.a = 1.0
-	z_index = 1
 
 	var dropped_on = _get_drop_target()
 	var valid_drop = _is_valid_target(dropped_on)
 
-	if dropped_on == null:
-		print("[Card] '%s' dropped on nothing (mouse=%s)" % [action_name, get_global_mouse_position()])
-		var gameplay = get_tree().get_first_node_in_group("gameplay")
-		if gameplay:
-			for hero in gameplay.get_heroes():
-				print("  hero '%s' rect=%s is_enemy=%s" % [hero.hero_name, hero.get_global_rect(), hero.is_enemy])
-	elif not valid_drop:
-		var h = dropped_on as Hero
-		print("[Card] '%s' dropped on '%s' (is_enemy=%s) — must drop on your own hero" % [action_name, h.hero_name, h.is_enemy])
-	else:
-		print("[Card] '%s' → caster '%s'" % [action_name, (dropped_on as Hero).hero_name])
-
 	if valid_drop:
+		# Hide immediately — before any property resets that could flash
 		visible = false
 		_cast_action(dropped_on)
 		card_drag_ended.emit(self, true)
 	else:
+		scale = Vector2(1.0, 1.0)
+		modulate.a = 1.0
+		z_index = 1
 		_snap_back()
 		card_drag_ended.emit(self, false)
 
 func _get_drop_target() -> Control:
-	var mouse_pos = get_global_mouse_position()
+	var card_rect = get_global_rect()
+	var card_center = card_rect.get_center()
+	var best_dist = INF
+	var best_hero: Control = null
 	var gameplay = get_tree().get_first_node_in_group("gameplay")
 	if gameplay:
 		for hero in gameplay.get_heroes():
-			if hero.get_global_rect().has_point(mouse_pos):
-				return hero
-	return null
+			if card_rect.intersects(hero.get_global_rect()):
+				var dist = card_center.distance_to(hero.get_global_rect().get_center())
+				if dist < best_dist:
+					best_dist = dist
+					best_hero = hero
+	return best_hero
 
 func _is_valid_target(target: Control) -> bool:
 	if target == null:
@@ -327,8 +322,8 @@ func _is_valid_target(target: Control) -> bool:
 	var target_hero = target as Hero
 	if not target_hero:
 		return false
-	# Only your own alive heroes are valid drop targets (they become the caster)
-	return not target_hero.is_enemy and not target_hero.is_dead()
+	# Only your own alive, non-casting heroes are valid drop targets
+	return not target_hero.is_enemy and not target_hero.is_dead() and not target_hero.is_casting()
 
 func _cast_action(caster: Hero):
 	# The hero you drop the card on IS the caster.
