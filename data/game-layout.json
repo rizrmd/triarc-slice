@@ -5,7 +5,7 @@
       "boxes": {
         "action1": {
           "actionSlug": "arcane-blast",
-          "anchor_offset_x": -423,
+          "anchor_offset_x": -420,
           "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
@@ -17,12 +17,12 @@
           "screen_relative": true,
           "width": 200,
           "width_percent": 18.5,
-          "x": 17,
+          "x": 20,
           "y": 1351
         },
         "action2": {
           "actionSlug": "blizzard",
-          "anchor_offset_x": -210,
+          "anchor_offset_x": -208,
           "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
@@ -34,12 +34,12 @@
           "screen_relative": true,
           "width": 200,
           "width_percent": 18.5,
-          "x": 230,
+          "x": 232,
           "y": 1351
         },
         "action3": {
           "actionSlug": "shadowstep",
-          "anchor_offset_x": 3,
+          "anchor_offset_x": 5,
           "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
@@ -51,12 +51,12 @@
           "screen_relative": true,
           "width": 200,
           "width_percent": 18.5,
-          "x": 443,
+          "x": 445,
           "y": 1351
         },
         "action4": {
           "actionSlug": "smoke-bomb",
-          "anchor_offset_x": 216,
+          "anchor_offset_x": 217,
           "anchor_offset_y": 541,
           "height": 300,
           "height_percent": 15.6,
@@ -68,7 +68,7 @@
           "screen_relative": true,
           "width": 200,
           "width_percent": 18.5,
-          "x": 656,
+          "x": 657,
           "y": 1351
         },
         "action5": {
@@ -103,6 +103,22 @@
           "width_percent": 7.8,
           "x": 973,
           "y": 1
+        },
+        "clock": {
+          "anchor_offset_x": -87,
+          "anchor_offset_y": 19,
+          "height": 61,
+          "height_percent": 3.2,
+          "id": "clock",
+          "label": "Clock",
+          "nx": 0.501171875,
+          "ny": 0.02578125,
+          "pivot": "top-left",
+          "screen_anchor": "top-center",
+          "width": 177,
+          "width_percent": 16.4,
+          "x": 453,
+          "y": 19
         },
         "enemy1": {
           "anchor_offset_x": 335,
