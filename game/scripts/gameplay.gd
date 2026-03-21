@@ -29,6 +29,8 @@ var _available_layout_aspects: Array[String] = []
 var _layout_ready: bool = false
 var _is_first_state_update: bool = true
 var _rerolling: bool = false
+var _reroll_animating: bool = false
+var _reroll_entrance_pending: bool = false
 
 # Drag state
 var _dragging_card = null
@@ -84,12 +86,6 @@ func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F3:
 			_toggle_dev_panel()
-
-func _notification(what: int):
-	if what == NOTIFICATION_RESIZED and _layout_ready:
-		_apply_layout(false)
-
-func _input(event: InputEvent):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var mouse_pos = get_global_mouse_position()
 		var clicked_hero = _get_my_hero_at_point(mouse_pos)
@@ -98,6 +94,10 @@ func _input(event: InputEvent):
 			_set_selected_hero(clicked_hero)
 		else:
 			_clear_selected_hero()
+
+func _notification(what: int):
+	if what == NOTIFICATION_RESIZED and _layout_ready:
+		_apply_layout(false)
 
 func _on_ws_message(msg: String):
 	var json = JSON.new()
@@ -195,6 +195,10 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 	return hero
 
 func _update_hand(hand_data: Array):
+	# Skip updates during reroll exit/entrance animation
+	if _rerolling or _reroll_animating:
+		return
+
 	# Skip update if a card is being dragged
 	for card in hand_cards:
 		if card.is_dragging:
@@ -261,9 +265,9 @@ func _update_hand(hand_data: Array):
 			if _is_first_state_update:
 				card.modulate.a = 0.0
 				card.position.y += 200
-			elif _rerolling:
+			elif _reroll_entrance_pending:
 				card.modulate.a = 0.0
-				card.position.y += 120
+				card.position.x += 300
 		else:
 			existing_by_key.erase(card_key)
 			card.size = target_size
@@ -277,9 +281,9 @@ func _update_hand(hand_data: Array):
 
 	hand_cards = next_hand_cards
 
-	if _rerolling:
+	if _reroll_entrance_pending:
+		_reroll_entrance_pending = false
 		_play_reroll_entrance()
-		_rerolling = false
 
 func _tween_energy(new_energy: int):
 	if current_energy == new_energy:
@@ -357,7 +361,7 @@ func _on_card_drag_ended(card, dropped_on_target):
 		card.queue_free()
 		# Auto-reroll when all cards are used (server grants free reroll)
 		if hand_cards.is_empty():
-			_rerolling = true
+			_reroll_entrance_pending = true
 			_used_hand_keys.clear()
 			_prev_server_keys.clear()
 			GameState.send_json({
@@ -476,28 +480,24 @@ func _move_hand_card(card: Control, target_pos: Vector2, animated: bool):
 	tween.set_trans(Tween.TRANS_CUBIC)
 	tween.tween_property(card, "position", target_pos, HAND_REFLOW_DURATION)
 	card.set_meta("hand_reflow_tween", tween)
-	tween.finished.connect(func():
-		if is_instance_valid(card):
-			card.remove_meta("hand_reflow_tween")
-	)
+	tween.finished.connect(_on_hand_reflow_finished.bind(card.get_instance_id()))
+
+func _on_hand_reflow_finished(card_instance_id: int):
+	var card := instance_from_id(card_instance_id) as Control
+	if card:
+		card.remove_meta("hand_reflow_tween")
 
 func _get_hand_card_key(slot_index: int, action_slug: String) -> String:
 	return "%s::%s" % [slot_index, action_slug]
 
 func _on_reroll_pressed():
-	if _rerolling:
+	if _rerolling or _reroll_animating:
 		return
 	_rerolling = true
+	reroll_button.modulate = Color(0.4, 0.4, 0.4, 1.0)
 	_used_hand_keys.clear()
 	_prev_server_keys.clear()
-	# Animate old cards out
-	var delay := 0.0
-	for card in hand_cards:
-		var tween = create_tween().set_parallel(true)
-		tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
-		tween.tween_property(card, "position:y", card.position.y + 120, 0.25).set_delay(delay)
-		tween.tween_property(card, "modulate:a", 0.0, 0.2).set_delay(delay + 0.05)
-		delay += 0.05
+	_play_reroll_exit()
 	GameState.send_json({
 		"type": "reroll_hand",
 		"match_id": GameState.current_match_id
@@ -609,15 +609,74 @@ func get_heroes() -> Array:
 
 # --- Reroll Animation ---
 
-func _play_reroll_entrance():
-	var delay := 0.0
+func _play_reroll_exit():
+	_reroll_animating = true
+	if hand_cards.is_empty():
+		_rerolling = false
+		_reroll_animating = false
+		_reroll_entrance_pending = true
+		return
+	# Kill any existing tweens and capture targets upfront
+	var exit_targets: Array = []
 	for card in hand_cards:
-		var final_y = card.position.y - 120
-		var tween = create_tween().set_parallel(true)
-		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-		tween.tween_property(card, "modulate:a", 1.0, 0.25).set_delay(delay)
-		tween.tween_property(card, "position:y", final_y, 0.35).set_delay(delay)
-		delay += 0.06
+		var old_tween = card.get_meta("hand_reflow_tween") if card.has_meta("hand_reflow_tween") else null
+		if old_tween and old_tween.is_valid():
+			old_tween.kill()
+			card.remove_meta("hand_reflow_tween")
+		exit_targets.append(card.position.x - card.global_position.x - card.size.x)
+	# Start all exit tweens immediately with stagger via delay
+	var last_delay := 0.0
+	for i in range(hand_cards.size()):
+		var card = hand_cards[i]
+		var delay = i * 0.08
+		var t = create_tween().set_parallel(true)
+		t.tween_property(card, "modulate:a", 0.0, 0.3) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE).set_delay(delay)
+		t.tween_property(card, "position:x", exit_targets[i], 0.4) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUINT).set_delay(delay)
+		last_delay = delay
+	# Wait for all animations to finish, then swap
+	var total_time = last_delay + 0.4
+	var wait_tween = create_tween()
+	wait_tween.tween_interval(total_time)
+	wait_tween.finished.connect(func():
+		# Remove old cards
+		for card in hand_cards:
+			hand_container.remove_child(card)
+			card.queue_free()
+		hand_cards.clear()
+		# Unblock _update_hand — next server state will build new cards with entrance
+		_rerolling = false
+		_reroll_animating = false
+		_reroll_entrance_pending = true
+	)
+
+func _play_reroll_entrance():
+	if hand_cards.is_empty():
+		return
+	_reroll_animating = true
+	var targets: Array = []
+	for card in hand_cards:
+		targets.append(card.position.x - 300)
+		card.visible = false
+	var last_delay := 0.0
+	for i in range(hand_cards.size()):
+		var card = hand_cards[i]
+		var final_x = targets[i]
+		var delay = i * 0.12
+		var t = create_tween().set_parallel(true)
+		t.tween_callback(card.set.bind("visible", true)).set_delay(delay)
+		t.tween_property(card, "modulate:a", 1.0, 0.35) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE).set_delay(delay)
+		t.tween_property(card, "position:x", final_x, 0.55) \
+			.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUINT).set_delay(delay)
+		last_delay = delay
+	var wait_tween = create_tween()
+	wait_tween.tween_interval(last_delay + 0.55)
+	wait_tween.finished.connect(func():
+		_reroll_animating = false
+		reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0)
+	)
 
 # --- Entrance Animation ---
 

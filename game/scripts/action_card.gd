@@ -17,6 +17,7 @@ var _drag_offset: Vector2 = Vector2.ZERO
 var _frame_tex: Texture2D
 var _char_shader: Shader
 var _mask_shader: Shader
+var _bg_group: CanvasGroup
 
 # Reference card size (action-frame.webp is 1024x1536)
 const REF_W: float = 1024.0
@@ -117,9 +118,9 @@ func _build_card_visual(config: Dictionary):
 	# --- char-bg layer with mask (CanvasGroup so mask blends only against char) ---
 	var bg_pos = config.get("char_bg_pos", {"x": 0, "y": 0})
 	var bg_scale = float(config.get("char_bg_scale", 100)) / 100.0
-	var bg_group = _make_masked_char_group("bg", bg_pos, bg_scale, card_size)
-	if bg_group:
-		container.add_child(bg_group)
+	_bg_group = _make_masked_char_group("bg", bg_pos, bg_scale, card_size)
+	if _bg_group:
+		container.add_child(_bg_group)
 
 	# --- Frame overlay (tinted) ---
 	if _frame_tex:
@@ -347,5 +348,10 @@ func can_afford(current_energy: int) -> bool:
 func set_enabled(enabled: bool):
 	if is_dragging:
 		return
-	modulate = Color.WHITE if enabled else Color(0.5, 0.5, 0.5, 0.5)
 	disabled = not enabled
+	if _bg_group:
+		if enabled:
+			var tween = create_tween()
+			tween.tween_property(_bg_group, "modulate", Color.WHITE, 0.2)
+		else:
+			_bg_group.modulate = Color(0.5, 0.5, 0.5, 0.5)
