@@ -9,9 +9,8 @@ Heroes are not empty vessels — they are autonomous fighters with their own att
 - Hero targeting (assign primary & secondary targets per hero)
 
 **Heroes control:**
-- Auto-attacks on their target
-- Passive effects (always active)
 - Skills (cooldown-based, fire automatically)
+- Passive effects (always active or trigger-based)
 - Reactions (trigger on game events)
 - Ultimate (charges over time/events, fires when ready)
 
@@ -28,14 +27,11 @@ Heroes are not empty vessels — they are autonomous fighters with their own att
 
 ## Ability Types
 
-### Auto-Attack
-The hero's basic attack. Fires on a cooldown (typically 2-4 seconds) at their primary target. Damage scales with the hero's attack stat and element affinity. Each hero has a unique auto-attack that reflects their identity.
+### Skill
+Active abilities on cooldowns (7-12s for basic attacks, up to 20s for powerful ones) that fire automatically when the cooldown is ready. Skills are the hero's bread and butter — consistent, reliable, impactful. Heroes may have multiple skills. Each hero has at least one basic attack skill that targets their primary target.
 
 ### Passive
 Always-on effects that modify the hero's behavior or stats. No cooldown, no activation — they simply exist. Some passives trigger on specific events (e.g., "on damage dealt, apply burn") while others are constant modifiers (e.g., "+10% defense to adjacent allies").
-
-### Skill
-Active abilities on longer cooldowns (8-20 seconds) that fire automatically when the cooldown is ready. Skills are the hero's bread and butter — consistent, reliable, impactful. Heroes may have multiple skills.
 
 ### Reaction
 Abilities that trigger in response to game events. They don't have a regular cooldown cycle — instead they watch for specific conditions:
@@ -110,13 +106,15 @@ Abilities produce effects. Each effect has a `kind` and parameters:
 
 Each hero gets an `abilities.json` file at `data/hero/{slug}/abilities.json`:
 
+Ability icon planning for the current hero docs lives in `docs/heroes/skill-icon-manifest.md`.
+
 ```json
 {
   "abilities": [
     {
       "id": "string",
       "name": "Display Name",
-      "type": "auto_attack | passive | skill | reaction | ultimate",
+      "type": "skill | passive | reaction | ultimate",
       "description": "Flavor text shown to player.",
       "element": "fire | ice | earth | wind | light | shadow",
       "cooldown_ms": 3000,
@@ -147,15 +145,40 @@ Each hero gets an `abilities.json` file at `data/hero/{slug}/abilities.json`:
 
 ---
 
+## Action Reactions
+
+Each hero reacts uniquely to every action card in the game. When a player uses an action card on a hero, the hero's personality and element reshape how that action works. Reactions can modify:
+
+- **Cast time** — faster or slower depending on affinity
+- **Power** — amplified or weakened
+- **Bonus effects** — additional DoTs, AoE splashes, element shifts, temporary skills
+- **Thought** — a character-specific line shown in the UI
+
+This means the same action card plays differently on every hero. A Fireball cast through Flame Warlock is faster and spreads ignite. The same Fireball cast through Frost Queen is slower and weaker, but might create steam.
+
+Action reactions are defined per-hero in their individual doc files under `docs/heroes/`.
+
+---
+
+## Alliance System
+
+Not all heroes will fight alongside each other. Heroes have alignments — some are rightful (noble, disciplined, light-aligned), others are chaotic (dark, destructive, self-serving), and some are neutral (mercenaries, loners).
+
+Heroes with conflicting alignments have no synergy bonuses and may even suffer penalties when teamed together. Heroes with compatible alignments unlock synergy effects — passive bonuses, combo abilities, or amplified skills that only activate when specific allies are present.
+
+Alliance compatibility is documented per-hero.
+
+---
+
 ## Synergy System
 
-Heroes are designed to complement each other. Synergies are emergent — they arise from how abilities interact, not from hardcoded bonuses. Examples:
+Synergies are mechanical bonuses that activate when compatible heroes are on the same team. They arise from the heroes' lore, element interactions, and ability design. Examples:
 
-- A tank's passive that draws enemy fire pairs with a damage dealer who punishes distracted enemies
-- A healer's reaction to ally damage pairs with a bruiser who thrives at low HP
-- A debuffer's DoT pairs with an assassin who deals bonus damage to debuffed targets
+- A fire mage's DoTs tick faster when a wind-aligned ally uses wind skills
+- An assassin's poison detonates for burst damage when a fire ally damages the same target
+- A death mage gains charge when allies kill enemies nearby
 
-Synergies are documented per-hero below, describing which allies amplify their kit and which enemies counter them.
+Synergies are documented per-hero, describing which allies amplify their kit and which enemies counter them.
 
 ---
 
@@ -189,53 +212,53 @@ Heroes are discussed and designed one at a time. Each entry includes:
 
 ---
 
-### 1. Flame Warlock
-*To be designed*
+### 1. Flame Warlock — Malachar
+See [heroes/flame-warlock.md](heroes/flame-warlock.md)
 
 ### 2. Iron Knight
-*To be designed*
+See [heroes/iron-knight.md](heroes/iron-knight.md)
 
 ### 3. Frost Queen
-*To be designed*
+See [heroes/frost-queen.md](heroes/frost-queen.md)
 
 ### 4. Demon Empress
-*To be designed*
+See [heroes/demon-empress.md](heroes/demon-empress.md)
 
 ### 5. Earth Warden
-*To be designed*
+See [heroes/earth-warden.md](heroes/earth-warden.md)
 
 ### 6. Gunslinger
-*To be designed*
+See [heroes/gunslinger.md](heroes/gunslinger.md)
 
 ### 7. Necromancer
-*To be designed*
+See [heroes/necromancer.md](heroes/necromancer.md)
 
 ### 8. Night Venom
-*To be designed*
+See [heroes/night-venom.md](heroes/night-venom.md)
 
 ### 9. Princess Emberheart
-*To be designed*
+See [heroes/princess-emberheart.md](heroes/princess-emberheart.md)
 
 ### 10. Spellblade Empress
-*To be designed*
+See [heroes/spellblade-empress.md](heroes/spellblade-empress.md)
 
 ### 11. Arcane Paladin
-*To be designed*
+See [heroes/arcane-paladin.md](heroes/arcane-paladin.md)
 
 ### 12. Blood Alchemist
-*To be designed*
+See [heroes/blood-alchemist.md](heroes/blood-alchemist.md)
 
 ### 13. Wind Monk
-*To be designed*
+See [heroes/wind-monk.md](heroes/wind-monk.md)
 
 ### 14. Tyrant Overlord
-*To be designed*
+See [heroes/tyrant-overlord.md](heroes/tyrant-overlord.md)
 
 ### 15. Storm Ranger
-*To be designed*
+See [heroes/storm-ranger.md](heroes/storm-ranger.md)
 
 ### 16. Dawn Priest
-*To be designed*
+See [heroes/dawn-priest.md](heroes/dawn-priest.md)
 
 ### 17. Arc Strider
-*To be designed*
+See [heroes/arc-strider.md](heroes/arc-strider.md)
