@@ -1,0 +1,12 @@
+{
+  "hero_slug": "storm-ranger",
+  "hero_name": "Storm Ranger",
+  "abilities": [
+    { "id": "volt-arrow", "name": "Volt Arrow", "type": "skill", "icon": "volt-arrow.webp" },
+    { "id": "hunters-mark", "name": "Hunter's Mark", "type": "skill", "icon": "hunters-mark.webp" },
+    { "id": "gale-volley", "name": "Gale Volley", "type": "skill", "icon": "gale-volley.webp" },
+    { "id": "patience", "name": "Patience", "type": "passive", "icon": "patience.webp" },
+    { "id": "storm-shelter", "name": "Storm Shelter", "type": "reaction", "icon": "storm-shelter.webp" },
+    { "id": "skybreak-volley", "name": "Skybreak Volley", "type": "ultimate", "icon": "skybreak-volley.webp" }
+  ]
+}

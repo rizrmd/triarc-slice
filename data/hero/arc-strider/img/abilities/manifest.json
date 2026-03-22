@@ -1,0 +1,12 @@
+{
+  "hero_slug": "arc-strider",
+  "hero_name": "Arc Strider",
+  "abilities": [
+    { "id": "arc-slash", "name": "Arc Slash", "type": "skill", "icon": "arc-slash.webp" },
+    { "id": "thunder-step", "name": "Thunder Step", "type": "skill", "icon": "thunder-step.webp" },
+    { "id": "storm-pulse", "name": "Storm Pulse", "type": "skill", "icon": "storm-pulse.webp" },
+    { "id": "static-charge", "name": "Static Charge", "type": "passive", "icon": "static-charge.webp" },
+    { "id": "lightning-reflexes", "name": "Lightning Reflexes", "type": "reaction", "icon": "lightning-reflexes.webp" },
+    { "id": "tempest-surge", "name": "Tempest Surge", "type": "ultimate", "icon": "tempest-surge.webp" }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "hero_slug": "dawn-priest",
+  "hero_name": "Dawn Priest",
+  "abilities": [
+    { "id": "sunbeam", "name": "Sunbeam", "type": "skill", "icon": "sunbeam.webp" },
+    { "id": "radiant-heal", "name": "Radiant Heal", "type": "skill", "icon": "radiant-heal.webp" },
+    { "id": "blessing-of-dawn", "name": "Blessing of Dawn", "type": "skill", "icon": "blessing-of-dawn.webp" },
+    { "id": "lights-embrace", "name": "Light's Embrace", "type": "passive", "icon": "lights-embrace.webp" },
+    { "id": "prophets-sight", "name": "Prophet's Sight", "type": "reaction", "icon": "prophets-sight.webp" },
+    { "id": "martyrdom", "name": "Martyrdom", "type": "reaction", "icon": "martyrdom.webp" },
+    { "id": "dawn-ascendant", "name": "Dawn Ascendant", "type": "ultimate", "icon": "dawn-ascendant.webp" }
+  ]
+}

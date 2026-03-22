@@ -1,0 +1,145 @@
+{
+  "abilities": [
+    {
+      "id": "fire-bolt",
+      "name": "Fire Bolt",
+      "type": "skill",
+      "description": "Hurl a bolt of concentrated flame at the primary target.",
+      "icon_image": "/data/hero/flame-warlock/img/abilities/fire-bolt.webp",
+      "element": "fire",
+      "cooldown_ms": 8000,
+      "target": "primary",
+      "trigger": null,
+      "trigger_value": null,
+      "chance": 1.0,
+      "once": false,
+      "charge": null,
+      "visibility": {
+        "condition": "always",
+        "value": null
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "base_power": 10
+        }
+      ],
+      "thought": "Burn, {target}..."
+    },
+    {
+      "id": "ignite",
+      "name": "Ignite",
+      "type": "passive",
+      "description": "Whenever Malachar deals damage, there is a 30% chance to apply a burn to the damaged target.",
+      "icon_image": "/data/hero/flame-warlock/img/abilities/ignite.webp",
+      "element": "fire",
+      "cooldown_ms": 0,
+      "target": "self",
+      "trigger": "on_damage_dealt",
+      "trigger_value": null,
+      "chance": 0.3,
+      "once": false,
+      "charge": null,
+      "visibility": {
+        "condition": "always",
+        "value": null
+      },
+      "effects": [
+        {
+          "kind": "apply_status",
+          "status": "dot",
+          "duration_ms": 3000,
+          "value": 5
+        }
+      ],
+      "thought": "{target} is burning!"
+    },
+    {
+      "id": "inferno",
+      "name": "Inferno",
+      "type": "skill",
+      "description": "Channel a wave of fire that hits all enemies.",
+      "icon_image": "/data/hero/flame-warlock/img/abilities/inferno.webp",
+      "element": "fire",
+      "cooldown_ms": 15000,
+      "target": "all_enemies",
+      "trigger": null,
+      "trigger_value": null,
+      "chance": 1.0,
+      "once": false,
+      "charge": null,
+      "visibility": {
+        "condition": "always",
+        "value": null
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "base_power": 20
+        }
+      ],
+      "thought": "The flames hunger for ALL of you!"
+    },
+    {
+      "id": "volatile-end",
+      "name": "Volatile End",
+      "type": "reaction",
+      "description": "When Malachar drops below 20% HP, he detonates once per match and damages all enemies.",
+      "icon_image": "/data/hero/flame-warlock/img/abilities/volatile-end.webp",
+      "element": "fire",
+      "cooldown_ms": 0,
+      "target": "all_enemies",
+      "trigger": "on_hp_below_pct",
+      "trigger_value": 20,
+      "chance": 1.0,
+      "once": true,
+      "charge": null,
+      "visibility": {
+        "condition": "hidden_until_triggered",
+        "value": null
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "base_power": 30
+        }
+      ],
+      "thought": "If I fall... you ALL burn with me!"
+    },
+    {
+      "id": "apocalypse-flame",
+      "name": "Apocalypse Flame",
+      "type": "ultimate",
+      "description": "Charge through damage dealt, then incinerate all enemies with massive fire damage and a lingering burn.",
+      "icon_image": "/data/hero/flame-warlock/img/abilities/apocalypse-flame.webp",
+      "element": "fire",
+      "cooldown_ms": 0,
+      "target": "all_enemies",
+      "trigger": null,
+      "trigger_value": null,
+      "chance": 1.0,
+      "once": false,
+      "charge": {
+        "method": "damage_dealt",
+        "threshold": 1000
+      },
+      "visibility": {
+        "condition": "always",
+        "value": null
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "base_power": 60
+        },
+        {
+          "kind": "apply_status",
+          "status": "dot",
+          "duration_ms": 5000,
+          "value": 15
+        }
+      ],
+      "thought": "EVERYTHING BURNS!"
+    }
+  ]
+}

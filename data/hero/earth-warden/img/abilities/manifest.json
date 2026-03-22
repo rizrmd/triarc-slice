@@ -1,0 +1,13 @@
+{
+  "hero_slug": "earth-warden",
+  "hero_name": "Earth Warden",
+  "abilities": [
+    { "id": "stone-fist", "name": "Stone Fist", "type": "skill", "icon": "stone-fist.webp" },
+    { "id": "quake", "name": "Quake", "type": "skill", "icon": "quake.webp" },
+    { "id": "mountains-embrace", "name": "Mountain's Embrace", "type": "skill", "icon": "mountains-embrace.webp" },
+    { "id": "bedrock", "name": "Bedrock", "type": "passive", "icon": "bedrock.webp" },
+    { "id": "earthen-retaliation", "name": "Earthen Retaliation", "type": "reaction", "icon": "earthen-retaliation.webp" },
+    { "id": "tectonic-shift", "name": "Tectonic Shift", "type": "reaction", "icon": "tectonic-shift.webp" },
+    { "id": "continental-crush", "name": "Continental Crush", "type": "ultimate", "icon": "continental-crush.webp" }
+  ]
+}

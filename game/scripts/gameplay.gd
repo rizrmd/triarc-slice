@@ -3,6 +3,7 @@ extends Control
 
 @onready var heroes_container: Control = $HeroesContainer
 @onready var hand_container: Control = $HandContainer
+@onready var hero_detail_placeholder: ColorRect = $UIOverlay/HeroDetailPlaceholder
 @onready var energy_bar: TextureRect = $UIOverlay/EnergyBar
 @onready var reroll_button: TextureButton = $UIOverlay/RerollButton
 @onready var back_button: Button = $UIOverlay/BackButton
@@ -87,6 +88,7 @@ func _ready():
 	_create_dev_panel()
 	_setup_info_animap()
 	_setup_time_animap()
+	_update_hero_detail_placeholder()
 
 	# Request initial match state
 	if not GameState.current_match_id.is_empty():
@@ -593,6 +595,10 @@ func _on_hero_clicked(hero: Hero):
 	_set_selected_hero(hero)
 
 func _set_selected_hero(hero: Hero):
+	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero == hero:
+		print("[Gameplay] toggle off hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
+		_clear_selected_hero()
+		return
 	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero != hero:
 		print("[Gameplay] deselect previous hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
@@ -600,6 +606,7 @@ func _set_selected_hero(hero: Hero):
 	if _selected_hero and is_instance_valid(_selected_hero):
 		print("[Gameplay] select hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(true)
+	_update_hero_detail_placeholder()
 
 func _clear_selected_hero():
 	if _selected_hero and is_instance_valid(_selected_hero):
@@ -608,6 +615,56 @@ func _clear_selected_hero():
 	else:
 		print("[Gameplay] clear selected hero=noop")
 	_selected_hero = null
+	_update_hero_detail_placeholder()
+
+func _update_hero_detail_placeholder():
+	if hero_detail_placeholder == null:
+		return
+	if _selected_hero == null or not is_instance_valid(_selected_hero):
+		hero_detail_placeholder.visible = false
+		return
+	var placeholder_rect := _get_hand_placeholder_rect()
+	hero_detail_placeholder.position = placeholder_rect.position
+	hero_detail_placeholder.size = placeholder_rect.size
+	var label: Label = hero_detail_placeholder.get_node("PlaceholderLabel") as Label
+	if label:
+		label.text = "%s\n\nDetails coming soon" % _selected_hero.hero_slug.replace("-", " ").capitalize()
+	hero_detail_placeholder.visible = true
+
+func _get_hand_placeholder_rect() -> Rect2:
+	var vp_size := get_viewport().get_visible_rect().size
+	var first_key := "action1"
+	var last_key := ""
+	for i in range(5, 0, -1):
+		var candidate_key := "action%d" % i
+		if _layout_boxes.has(candidate_key):
+			last_key = candidate_key
+			break
+	if not _layout_boxes.has(first_key) or last_key.is_empty():
+		return Rect2(Vector2(270, 1220), Vector2(540, 540))
+	var first_box: Dictionary = GameState.resolve_box(_layout_boxes[first_key], vp_size, _layout_aspect_key)
+	var last_box: Dictionary = GameState.resolve_box(_layout_boxes[last_key], vp_size, _layout_aspect_key)
+	var top_left: Vector2 = Vector2(float(first_box.get("x", 0.0)), float(first_box.get("y", 0.0)))
+	var bottom_right: Vector2 = Vector2(
+		float(last_box.get("x", 0.0)) + float(last_box.get("width", 0.0)),
+		float(last_box.get("y", 0.0)) + float(last_box.get("height", 0.0))
+	)
+	if _layout_boxes.has("energy"):
+		var energy_box: Dictionary = GameState.resolve_box(_layout_boxes["energy"], vp_size, _layout_aspect_key)
+		top_left.x = min(top_left.x, float(energy_box.get("x", 0.0)))
+		bottom_right.y = max(
+			bottom_right.y,
+			float(energy_box.get("y", 0.0)) + float(energy_box.get("height", 0.0))
+		)
+	if _layout_boxes.has("reroll"):
+		var reroll_box: Dictionary = GameState.resolve_box(_layout_boxes["reroll"], vp_size, _layout_aspect_key)
+		bottom_right.y = max(
+			bottom_right.y,
+			float(reroll_box.get("y", 0.0)) + float(reroll_box.get("height", 0.0))
+		)
+	top_left.x = max(top_left.x, 12.0)
+	bottom_right.y += 50.0
+	return Rect2(top_left, bottom_right - top_left)
 
 func _get_my_hero_at_point(point: Vector2) -> Hero:
 	for hero in my_heroes.values():
@@ -675,7 +732,8 @@ func _on_back_pressed():
 		"type": "leave_match",
 		"match_id": GameState.current_match_id
 	})
-	
+
+	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
@@ -684,6 +742,7 @@ func _on_disconnected():
 	_ping_samples.clear()
 	_display_ping_ms = -1
 	_refresh_ping_label()
+	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
@@ -692,9 +751,10 @@ func _on_match_end(winner: int):
 	reroll_button.disabled = true
 	for card in hand_cards:
 		card.disabled = true
-	
+
 	# Show result and return to main after delay
 	await get_tree().create_timer(3.0).timeout
+	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _set_initial_positions():
@@ -750,6 +810,7 @@ func _apply_layout(animated_hand: bool):
 	_set_initial_positions()
 	_layout_existing_heroes()
 	_layout_hand_cards(animated_hand)
+	_update_hero_detail_placeholder()
 	if _dev_visible:
 		_update_dev_panel()
 
