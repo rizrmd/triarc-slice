@@ -5,6 +5,7 @@ signal animap_loaded(slug: String)
 signal state_changed(state_id: String)
 
 const LAYER_SHADER := preload("res://shaders/animap_layer.gdshader")
+const VOLKHOV_FONT := preload("res://fonts/Volkhov-Regular.ttf")
 const MAX_MASK_TEXTURES := 4
 const LOOP_SWAP_MARGIN := 0.05
 
@@ -146,6 +147,8 @@ func _build_layers() -> void:
 				node = _create_image_layer(layer)
 			"video":
 				node = _create_video_layer(layer)
+			"text":
+				node = _create_text_layer(layer)
 			"mask":
 				continue
 			_:
@@ -210,6 +213,21 @@ func _create_video_layer(layer: Dictionary) -> Control:
 
 	return container
 
+func _create_text_layer(layer: Dictionary) -> Control:
+	var node := Label.new()
+	node.position = Vector2.ZERO
+	node.clip_contents = false
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.size = Vector2(float(layer.get("width", 480.0)), float(layer.get("height", 160.0)))
+	node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	node.text = String(layer.get("text", layer.get("name", "")))
+	node.add_theme_font_override("font", VOLKHOV_FONT)
+	node.add_theme_font_size_override("font_size", int(layer.get("font_size", 96)))
+	node.add_theme_color_override("font_color", Color.from_string(String(layer.get("color", "#ffffff")), Color.WHITE))
+	node.horizontal_alignment = _resolve_text_alignment(String(layer.get("text_align", "left")))
+	node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return node
+
 func _make_video_player(stream: VideoStream) -> VideoStreamPlayer:
 	var p := VideoStreamPlayer.new()
 	p.expand = true
@@ -264,6 +282,16 @@ func _apply_layer_static(node: Control, layer: Dictionary) -> void:
 		var texture_node := node as TextureRect
 		if texture_node.texture != null:
 			texture_node.size = texture_node.texture.get_size()
+	elif node is Label:
+		var label_node := node as Label
+		label_node.size = Vector2(float(layer.get("width", 480.0)), float(layer.get("height", 160.0)))
+		label_node.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label_node.text = String(layer.get("text", layer.get("name", "")))
+		label_node.add_theme_font_override("font", VOLKHOV_FONT)
+		label_node.add_theme_font_size_override("font_size", int(layer.get("font_size", 96)))
+		label_node.add_theme_color_override("font_color", Color.from_string(String(layer.get("color", "#ffffff")), Color.WHITE))
+		label_node.horizontal_alignment = _resolve_text_alignment(String(layer.get("text_align", "left")))
+		label_node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 func _apply_layer_numeric(node: Control, layer: Dictionary) -> void:
 	node.position = Vector2(float(layer.get("x", 0)), float(layer.get("y", 0)))
@@ -398,3 +426,12 @@ func _clear_layers() -> void:
 	_layer_nodes.clear()
 	_layer_materials.clear()
 	_video_layers.clear()
+
+func _resolve_text_alignment(value: String) -> HorizontalAlignment:
+	match value:
+		"center":
+			return HORIZONTAL_ALIGNMENT_CENTER
+		"right":
+			return HORIZONTAL_ALIGNMENT_RIGHT
+		_:
+			return HORIZONTAL_ALIGNMENT_LEFT

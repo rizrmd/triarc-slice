@@ -1,9 +1,9 @@
-import { Image, Film, Layers, Plus, Trash2, ChevronUp, ChevronDown, Lock, LockOpen, Eye, EyeOff } from 'lucide-react';
+import { Image, Film, Layers, Type, Plus, Trash2, ChevronUp, ChevronDown, Lock, LockOpen, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { AnimapConfig } from '@/types';
+import type { AnimapConfig, AnimapLayer } from '@/types';
 import { useState } from 'react';
 import { addAnimapState, DEFAULT_STATE_ID, deleteAnimapState, normalizeAnimapConfig, renameAnimapState } from '@/lib/animap-state';
 import { toKebabCase } from '@/lib/utils';
@@ -24,6 +24,7 @@ const typeIcons = {
   image: Image,
   video: Film,
   mask: Layers,
+  text: Type,
 };
 
 export function AnimapLayerPanel({
@@ -39,7 +40,7 @@ export function AnimapLayerPanel({
 }: AnimapLayerPanelProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newLayerName, setNewLayerName] = useState('');
-  const [newLayerType, setNewLayerType] = useState<'image' | 'video' | 'mask'>('image');
+  const [newLayerType, setNewLayerType] = useState<'image' | 'video' | 'mask' | 'text'>('image');
   const [newStateName, setNewStateName] = useState('');
   const states = normalizeAnimapConfig(config).states ?? [];
 
@@ -48,13 +49,14 @@ export function AnimapLayerPanel({
     const kebabName = toKebabCase(newLayerName);
     if (!kebabName) return;
     const id = `layer-${Date.now()}`;
-    const layer = {
+    const layer: AnimapLayer = {
       id,
       name: kebabName,
       type: newLayerType,
       file: '',
       visible: true,
       ...(newLayerType !== 'mask' ? { opacity: 1.0, x: 0, y: 0, scale: 1.0 } : {}),
+      ...(newLayerType === 'text' ? { text: newLayerName, font_size: 96, color: '#ffffff', text_align: 'left', width: 480, height: 160 } : {}),
       ...(newLayerType === 'video' ? { loop: true, loop_start: 0, loop_end: 0 } : {}),
       ...(newLayerType === 'mask' ? { targets: [] } : {}),
     };
@@ -200,16 +202,25 @@ export function AnimapLayerPanel({
             <Button size="sm" className="h-7 px-2 text-xs" onClick={addLayer} disabled={!newLayerName.trim()}>
               Add
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 px-0"
+              onClick={() => setIsAdding(false)}
+              title="Close add layer"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <div className="flex items-center gap-1">
-            {(['image', 'video', 'mask'] as const).map((t) => {
+          <div className="grid grid-cols-2 gap-1">
+            {(['image', 'video', 'mask', 'text'] as const).map((t) => {
               const Icon = typeIcons[t];
               return (
                 <Button
                   key={t}
                   size="sm"
                   variant={newLayerType === t ? 'default' : 'outline'}
-                  className="h-6 px-2 text-xs flex-1"
+                  className="h-7 px-2 text-xs justify-start"
                   onClick={() => setNewLayerType(t)}
                 >
                   <Icon className="h-3 w-3 mr-1" />
@@ -217,9 +228,6 @@ export function AnimapLayerPanel({
                 </Button>
               );
             })}
-            <Button size="sm" variant="ghost" className="h-6 px-1 text-xs" onClick={() => setIsAdding(false)}>
-              &times;
-            </Button>
           </div>
         </div>
       )}

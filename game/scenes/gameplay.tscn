@@ -1,9 +1,11 @@
-[gd_scene load_steps=7 format=3 uid="uid://g1x8x8x8x8x8x"]
+[gd_scene load_steps=9 format=3 uid="uid://g1x8x8x8x8x8x"]
 
 [ext_resource type="Script" path="res://scripts/gameplay.gd" id="1_gameplay"]
 [ext_resource type="Texture2D" path="res://assets/ui/bar/energy-empty.webp" id="2_energy_empty"]
 [ext_resource type="Texture2D" path="res://assets/ui/btns/re-roll.webp" id="3_reroll"]
 [ext_resource type="Texture2D" path="res://assets/ui/bar/energy-full.webp" id="4_energy_full"]
+[ext_resource type="PackedScene" path="res://scenes/animap_player.tscn" id="5_time_animap"]
+[ext_resource type="PackedScene" path="res://scenes/animap_player.tscn" id="6_info_animap"]
 
 [sub_resource type="Shader" id="shader_energy_fill"]
 code = "shader_type canvas_item;
@@ -58,6 +60,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+
+[node name="TimeAnimap" parent="." instance=ExtResource("5_time_animap")]
+layout_mode = 0
+mouse_filter = 2
+
+[node name="InfoAnimap" parent="." instance=ExtResource("6_info_animap")]
+layout_mode = 0
 
 [node name="UIOverlay" type="CanvasLayer" parent="."]
 

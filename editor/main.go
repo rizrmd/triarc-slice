@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 )
 
 type HeroConfig struct {
@@ -47,15 +46,15 @@ type HeroConfig struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"hp_bar_pos"`
-	HpBarScale    float64                `json:"hp_bar_scale"`
-	HpBarCurrent  int                    `json:"hp_bar_current"`
-	HpBarMax      int                    `json:"hp_bar_max"`
-	HpBarHue      float64                `json:"hp_bar_hue"`
-	HpBarFontSize float64                `json:"hp_bar_font_size,omitempty"`
-	Lore          string                 `json:"lore"`
-	Stats         map[string]interface{} `json:"stats"`
-	Audio         map[string]string      `json:"audio"`
-	Pose          map[string]interface{} `json:"pose"`
+	HpBarScale      float64                       `json:"hp_bar_scale"`
+	HpBarCurrent    int                           `json:"hp_bar_current"`
+	HpBarMax        int                           `json:"hp_bar_max"`
+	HpBarHue        float64                       `json:"hp_bar_hue"`
+	HpBarFontSize   float64                       `json:"hp_bar_font_size,omitempty"`
+	Lore            string                        `json:"lore"`
+	Stats           map[string]interface{}        `json:"stats"`
+	Audio           map[string]string             `json:"audio"`
+	Pose            map[string]interface{}        `json:"pose"`
 	ActionOverrides map[string]HeroActionOverride `json:"action_overrides,omitempty"`
 }
 
@@ -105,24 +104,24 @@ type ActionConfig struct {
 		X int `json:"x"`
 		Y int `json:"y"`
 	} `json:"name_pos"`
-	NameScale       float64         `json:"name_scale"`
-	TextShadowColor string          `json:"text_shadow_color"`
-	TextShadowSize  float64         `json:"text_shadow_size,omitempty"`
-	Tint            string          `json:"tint"`
-	Description     string          `json:"description"`
-	Cost            int             `json:"cost"`
-	Element         ElementList     `json:"element"`
-	TargetRule      string          `json:"target_rule"`
+	NameScale       float64          `json:"name_scale"`
+	TextShadowColor string           `json:"text_shadow_color"`
+	TextShadowSize  float64          `json:"text_shadow_size,omitempty"`
+	Tint            string           `json:"tint"`
+	Description     string           `json:"description"`
+	Cost            int              `json:"cost"`
+	Element         ElementList      `json:"element"`
+	TargetRule      string           `json:"target_rule"`
 	Targeting       *ActionTargeting `json:"targeting,omitempty"`
-	VisibleLayers   map[string]bool `json:"visible_layers,omitempty"`
+	VisibleLayers   map[string]bool  `json:"visible_layers,omitempty"`
 }
 
 type ActionTargeting struct {
-	Side       string `json:"side"`
-	Scope      string `json:"scope"`
-	Selection  string `json:"selection"`
-	AllowSelf  bool   `json:"allow_self,omitempty"`
-	AllowDead  bool   `json:"allow_dead,omitempty"`
+	Side      string `json:"side"`
+	Scope     string `json:"scope"`
+	Selection string `json:"selection"`
+	AllowSelf bool   `json:"allow_self,omitempty"`
+	AllowDead bool   `json:"allow_dead,omitempty"`
 }
 
 type HeroActionOverride struct {
@@ -533,19 +532,25 @@ func main() {
 }
 
 type AnimapLayer struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	Type      string   `json:"type"`
-	File      string   `json:"file"`
-	Visible   bool     `json:"visible"`
-	Locked    *bool    `json:"locked,omitempty"`
-	Opacity   *float64 `json:"opacity,omitempty"`
-	X         *float64 `json:"x,omitempty"`
-	Y         *float64 `json:"y,omitempty"`
-	Scale     *float64 `json:"scale,omitempty"`
-	Loop      *bool    `json:"loop,omitempty"`
-	LoopStart *float64 `json:"loop_start,omitempty"`
-	LoopEnd   *float64 `json:"loop_end,omitempty"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	Type       string   `json:"type"`
+	File       string   `json:"file"`
+	Visible    bool     `json:"visible"`
+	Locked     *bool    `json:"locked,omitempty"`
+	Opacity    *float64 `json:"opacity,omitempty"`
+	X          *float64 `json:"x,omitempty"`
+	Y          *float64 `json:"y,omitempty"`
+	Width      *float64 `json:"width,omitempty"`
+	Height     *float64 `json:"height,omitempty"`
+	Scale      *float64 `json:"scale,omitempty"`
+	Text       string   `json:"text,omitempty"`
+	FontSize   *float64 `json:"font_size,omitempty"`
+	Color      string   `json:"color,omitempty"`
+	TextAlign  string   `json:"text_align,omitempty"`
+	Loop       *bool    `json:"loop,omitempty"`
+	LoopStart  *float64 `json:"loop_start,omitempty"`
+	LoopEnd    *float64 `json:"loop_end,omitempty"`
 	Targets    []string `json:"targets,omitempty"`
 	Hue        *float64 `json:"hue,omitempty"`
 	Saturation *float64 `json:"saturation,omitempty"`
@@ -560,11 +565,11 @@ type AnimapTransition struct {
 }
 
 type AnimapState struct {
-	ID              string                                    `json:"id"`
-	Name            string                                    `json:"name"`
-	LayerOverrides  map[string]map[string]interface{}          `json:"layer_overrides,omitempty"`
-	TransitionsTo   map[string]AnimapTransition               `json:"transitions_to,omitempty"`
-	TransitionsFrom map[string]AnimapTransition               `json:"transitions_from,omitempty"`
+	ID              string                            `json:"id"`
+	Name            string                            `json:"name"`
+	LayerOverrides  map[string]map[string]interface{} `json:"layer_overrides,omitempty"`
+	TransitionsTo   map[string]AnimapTransition       `json:"transitions_to,omitempty"`
+	TransitionsFrom map[string]AnimapTransition       `json:"transitions_from,omitempty"`
 }
 
 type AnimapConfig struct {
@@ -573,6 +578,42 @@ type AnimapConfig struct {
 	Height int           `json:"height"`
 	Layers []AnimapLayer `json:"layers"`
 	States []AnimapState `json:"states,omitempty"`
+}
+
+func normalizeAnimapConfig(config AnimapConfig) AnimapConfig {
+	config.Layers = normalizeAnimapLayers(config.Layers)
+	return config
+}
+
+func normalizeAnimapLayers(layers []AnimapLayer) []AnimapLayer {
+	normalized := make([]AnimapLayer, len(layers))
+	for i, layer := range layers {
+		if layer.Type == "text" {
+			if layer.Text == "" {
+				layer.Text = layer.Name
+			}
+			if layer.FontSize == nil {
+				v := 96.0
+				layer.FontSize = &v
+			}
+			if layer.Color == "" {
+				layer.Color = "#ffffff"
+			}
+			if layer.TextAlign == "" {
+				layer.TextAlign = "left"
+			}
+			if layer.Width == nil {
+				v := 480.0
+				layer.Width = &v
+			}
+			if layer.Height == nil {
+				v := 160.0
+				layer.Height = &v
+			}
+		}
+		normalized[i] = layer
+	}
+	return normalized
 }
 
 func listAnimapsHandler(w http.ResponseWriter, r *http.Request) {
@@ -690,6 +731,7 @@ func animapHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 			return
 		}
+		config = normalizeAnimapConfig(config)
 
 		dir := filepath.Dir(animapPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {

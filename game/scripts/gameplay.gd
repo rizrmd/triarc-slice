@@ -7,10 +7,15 @@ extends Control
 @onready var reroll_button: TextureButton = $UIOverlay/RerollButton
 @onready var back_button: Button = $UIOverlay/BackButton
 @onready var fade_rect: ColorRect = $UIOverlay/FadeRect
+@onready var info_animap: AnimapPlayer = $InfoAnimap
+@onready var time_animap: AnimapPlayer = $TimeAnimap
 
 const HERO_SCENE = preload("res://scenes/hero.tscn")
 const ACTION_CARD_SCENE = preload("res://scenes/action_card.tscn")
 const HAND_REFLOW_DURATION := 0.22
+const PING_REQUEST_INTERVAL_MS := 3000
+const PING_TIMEOUT_MS := 10000
+const PING_SAMPLE_WINDOW := 4
 
 # Heroes
 var my_heroes: Dictionary = {}  # slot_index -> Hero node
@@ -37,11 +42,33 @@ var _dragging_card = null
 var _hovered_hero: Node = null
 var _hover_tween: Tween = null
 var _selected_hero: Hero = null
+var _dragging_info: bool = false
+var _info_drag_started: bool = false
+var _info_drag_offset: Vector2 = Vector2.ZERO
+var _info_press_position: Vector2 = Vector2.ZERO
+var _info_drag_start_pos: Vector2 = Vector2.ZERO
+var _info_hover_target: Control = null
+var _info_drag_virtual_pos: Vector2 = Vector2.ZERO
+
+const INFO_DRAG_THRESHOLD := 8.0
+
+# Time elapsed
+var _time_elapsed_sec: float = 0.0
+var _time_text_layer_id: String = ""
+var _server_match_started_at_ms: int = 0
+var _time_minutes_label: Label = null
+var _time_colon_label: Label = null
+var _time_seconds_label: Label = null
 
 # Dev panel
 var _dev_panel: PanelContainer = null
 var _dev_label: RichTextLabel = null
 var _dev_visible: bool = false
+var _ping_label: Label = null
+var _pending_ping_sent_at_ms: int = -1
+var _next_ping_probe_at_ms: int = 0
+var _ping_samples: Array[int] = []
+var _display_ping_ms: int = -1
 
 func _ready():
 	add_to_group("gameplay")
@@ -56,16 +83,24 @@ func _ready():
 	_refresh_layout_data()
 	_layout_ready = true
 	_apply_layout(false)
+	_create_ping_label()
 	_create_dev_panel()
+	_setup_info_animap()
+	_setup_time_animap()
 
 	# Request initial match state
 	if not GameState.current_match_id.is_empty():
+		_pending_ping_sent_at_ms = _now_ms()
+		_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
 		GameState.send_json({
 			"type": "get_match_state",
 			"match_id": GameState.current_match_id
 		})
 
 func _process(_delta):
+	_update_time_elapsed(_delta)
+	if _dragging_info:
+		_update_info_drag()
 	if _dragging_card:
 		_update_drag_hover()
 
@@ -74,6 +109,7 @@ func _process(_delta):
 		GameState.ws.poll()
 		var state = GameState.ws.get_ready_state()
 		if state == WebSocketPeer.STATE_OPEN:
+			_update_ping_probe()
 			while GameState.ws.get_available_packet_count() > 0:
 				var msg = GameState.ws.get_packet().get_string_from_utf8()
 				_on_ws_message(msg)
@@ -81,6 +117,29 @@ func _process(_delta):
 			print("[Gameplay] WebSocket disconnected")
 			GameState.ws = null
 			_on_disconnected()
+
+func _input(event: InputEvent):
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if _is_point_over_info_animap(event.position):
+				_dragging_info = true
+				_info_drag_started = false
+				_info_press_position = event.position
+				_info_drag_offset = event.position - info_animap.global_position
+				_info_drag_start_pos = info_animap.global_position
+				if info_animap.has_state("dragging"):
+					info_animap.set_state("dragging")
+				_clear_selected_hero()
+				get_viewport().set_input_as_handled()
+				return
+		elif _dragging_info:
+			_finish_info_drag()
+			get_viewport().set_input_as_handled()
+			return
+	if event is InputEventMouseMotion and _dragging_info:
+		_update_info_drag(event.position)
+		get_viewport().set_input_as_handled()
+		return
 
 func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -122,12 +181,18 @@ func _on_gameplay_aspect_changed(_aspect_key: String):
 	_apply_layout(false)
 
 func _update_game_state(data: Dictionary):
+	_resolve_ping_probe()
 	var match_data = data.get("match", {})
 	var heroes_data = data.get("heroes", [])
 	var team_states = data.get("team_states", [])
 	var hand_data = data.get("hand", [])
 	var casts = data.get("casts", [])
 	var statuses = data.get("statuses", [])
+
+	var match_started_at = int(match_data.get("started_at", 0))
+	if match_started_at > 0:
+		_server_match_started_at_ms = match_started_at
+		_update_time_elapsed(0.0)
 	
 	# Update team energy
 	for team_state in team_states:
@@ -415,6 +480,107 @@ func _update_drag_hover():
 		_hover_tween = create_tween()
 		_hover_tween.tween_property(_dragging_card, "modulate:a", 1.0, 0.15)
 
+func _update_info_drag(mouse_position: Vector2 = get_global_mouse_position()):
+	if not info_animap:
+		return
+	if not _info_drag_started and mouse_position.distance_to(_info_press_position) >= INFO_DRAG_THRESHOLD:
+		_info_drag_started = true
+		_info_drag_virtual_pos = _info_drag_start_pos
+		info_animap.z_index = 100
+		if info_animap.has_state("dragging"):
+			info_animap.set_state("dragging")
+		_set_info_drag_targets_dimmed()
+	if not _info_drag_started:
+		return
+	_info_drag_virtual_pos = mouse_position - _info_drag_offset
+	info_animap.global_position = _info_drag_virtual_pos
+	_update_info_drag_hover()
+
+func _finish_info_drag():
+	if not _dragging_info:
+		return
+	var valid_drop := _info_drag_started and _info_hover_target != null
+	_dragging_info = false
+	_info_drag_started = false
+	info_animap.z_index = 0
+	if info_animap and info_animap.get_state() == "dragging":
+		info_animap.set_state(AnimapLoader.DEFAULT_STATE_ID)
+	_clear_info_drag_visuals()
+	if info_animap:
+		info_animap.visible = true
+		if valid_drop:
+			info_animap.global_position = _info_drag_start_pos
+			_animate_info_reappear()
+		else:
+			_snap_info_back()
+	return
+
+func _snap_info_back():
+	if not info_animap:
+		return
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_BACK)
+	tween.tween_property(info_animap, "global_position", _info_drag_start_pos, 0.25)
+
+func _animate_info_reappear():
+	if not info_animap:
+		return
+	info_animap.pivot_offset = info_animap.size / 2.0
+	info_animap.scale = Vector2(0.82, 0.82)
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_BACK)
+	tween.tween_property(info_animap, "scale", Vector2(1.0, 1.0), 0.22)
+
+func _is_point_over_info_animap(point: Vector2) -> bool:
+	return info_animap != null and info_animap.visible and info_animap.get_global_rect().has_point(point)
+
+func _get_info_drag_targets() -> Array[Control]:
+	var targets: Array[Control] = []
+	for hero in my_heroes.values():
+		targets.append(hero)
+	for hero in enemy_heroes.values():
+		targets.append(hero)
+	for card in hand_cards:
+		targets.append(card)
+	return targets
+
+func _set_info_drag_targets_dimmed():
+	for target in _get_info_drag_targets():
+		_set_info_target_highlight(target, false)
+
+func _update_info_drag_hover():
+	var info_rect := Rect2(_info_drag_virtual_pos, info_animap.size)
+	var info_center := info_rect.get_center()
+	var best_dist := INF
+	var best_target: Control = null
+	for target in _get_info_drag_targets():
+		if info_rect.intersects(target.get_global_rect()):
+			var dist = info_center.distance_to(target.get_global_rect().get_center())
+			if dist < best_dist:
+				best_dist = dist
+				best_target = target
+	if best_target == _info_hover_target:
+		return
+	if _info_hover_target:
+		_set_info_target_highlight(_info_hover_target, false)
+	_info_hover_target = best_target
+	if _info_hover_target:
+		_set_info_target_highlight(_info_hover_target, true)
+
+func _clear_info_drag_visuals():
+	if _info_hover_target:
+		_info_hover_target = null
+	for target in _get_info_drag_targets():
+		_set_info_target_highlight(target, true)
+
+func _set_info_target_highlight(target: Control, highlighted: bool):
+	if target is Hero:
+		(target as Hero).set_drag_dimmed(not highlighted)
+	else:
+		target.modulate = Color(1.0, 1.0, 1.0, 1.0) if highlighted else Color(0.4, 0.4, 0.4, 1.0)
+
 func _clear_highlights():
 	for hero in my_heroes.values():
 		hero.set_char_brightness(1.0)
@@ -514,6 +680,10 @@ func _on_back_pressed():
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _on_disconnected():
+	_pending_ping_sent_at_ms = -1
+	_ping_samples.clear()
+	_display_ping_ms = -1
+	_refresh_ping_label()
 	GameState.current_match_id = ""
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
@@ -544,11 +714,23 @@ func _set_initial_positions():
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)
 		back_button.position = Vector2(r["x"], r["y"])
 		back_button.size = Vector2(r["width"], r["height"])
+	if _layout_boxes.has("info") and info_animap:
+		var r = GameState.resolve_box(_layout_boxes["info"], vp_size, _layout_aspect_key)
+		info_animap.position = Vector2(r["x"], r["y"])
+		info_animap.size = Vector2(r["width"], r["height"])
+	if _layout_boxes.has("time_elapsed") and time_animap:
+		var r = GameState.resolve_box(_layout_boxes["time_elapsed"], vp_size, _layout_aspect_key)
+		time_animap.position = Vector2(r["x"], r["y"])
+		time_animap.size = Vector2(r["width"], r["height"])
 	# Hide UI elements for entrance animation
 	if _is_first_state_update:
 		energy_bar.modulate.a = 0.0
 		reroll_button.modulate.a = 0.0
 		back_button.modulate.a = 0.0
+		if info_animap:
+			info_animap.modulate.a = 0.0
+		if time_animap:
+			time_animap.modulate.a = 0.0
 
 	_apply_background()
 
@@ -712,6 +894,12 @@ func _play_entrance_animation():
 	_animate_ui_element(energy_bar, 0.7, Vector2(0, 30))
 	_animate_ui_element(reroll_button, 0.8, Vector2(0, 30))
 	_animate_ui_element(back_button, 0.75, Vector2(0, -20))
+	if info_animap:
+		_animate_ui_element(info_animap, 0.68, Vector2(0, -20))
+	if time_animap:
+		_animate_ui_element(time_animap, 0.65, Vector2(0, -20))
+	if _ping_label:
+		_animate_ui_element(_ping_label, 0.72, Vector2(0, -20))
 
 func _animate_ui_element(element: Control, delay: float, offset: Vector2):
 	var final_pos = element.position
@@ -720,6 +908,104 @@ func _animate_ui_element(element: Control, delay: float, offset: Vector2):
 	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	tween.tween_property(element, "modulate:a", 1.0, 0.35).set_delay(delay)
 	tween.tween_property(element, "position", final_pos, 0.4).set_delay(delay)
+
+func _setup_info_animap():
+	if not info_animap:
+		return
+	info_animap.fit_mode = "contain"
+	var info_box: Dictionary = _layout_boxes.get("info", {})
+	var animap_slug := String(info_box.get("animapSlug", "info"))
+	info_animap.load_animap(animap_slug)
+
+# --- Time Elapsed ---
+
+func _setup_time_animap():
+	if not time_animap:
+		return
+	time_animap.fit_mode = "contain"
+	time_animap.load_animap("time")
+	# Find the text layer and build split labels so the colon never moves
+	for layer in time_animap.animap_data.get("layers", []):
+		if layer.get("type", "") == "text":
+			_time_text_layer_id = layer.get("id", "")
+			break
+	if _time_text_layer_id.is_empty():
+		return
+	# Hide the original text layer
+	var orig: Control = time_animap._layer_nodes.get(_time_text_layer_id)
+	if orig:
+		orig.visible = false
+	# Read font properties from the animap layer data
+	var text_layer: Dictionary = {}
+	for layer in time_animap.animap_data.get("layers", []):
+		if layer.get("id", "") == _time_text_layer_id:
+			text_layer = layer
+			break
+	var font: Font = AnimapPlayer.VOLKHOV_FONT
+	var font_size := int(text_layer.get("font_size", 96))
+	var color := Color.from_string(String(text_layer.get("color", "#ffffff")), Color.WHITE)
+	var lx := float(text_layer.get("x", 0))
+	var ly := float(text_layer.get("y", 0))
+	var lw := float(text_layer.get("width", 480))
+	var lh := float(text_layer.get("height", 160))
+	var lscale := float(text_layer.get("scale", 1.0))
+	# Measure colon width to split the area
+	var colon_w := font.get_string_size(":", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	var center_x := lw / 2.0
+	var half_colon := colon_w / 2.0
+	# Create colon label (fixed center)
+	_time_colon_label = _make_time_label(font, font_size, color, HORIZONTAL_ALIGNMENT_CENTER)
+	_time_colon_label.text = ":"
+	_time_colon_label.position = Vector2(lx + center_x - half_colon - lw * 0.05, ly - lh * 0.06)
+	_time_colon_label.size = Vector2(colon_w, lh)
+	_time_colon_label.scale = Vector2(lscale, lscale)
+	time_animap.layer_root.add_child(_time_colon_label)
+	# Minutes label (right-aligned, left of colon)
+	_time_minutes_label = _make_time_label(font, font_size, color, HORIZONTAL_ALIGNMENT_RIGHT)
+	_time_minutes_label.text = "00"
+	_time_minutes_label.position = Vector2(lx - lw * 0.02, ly)
+	_time_minutes_label.size = Vector2(center_x - half_colon, lh)
+	_time_minutes_label.scale = Vector2(lscale, lscale)
+	time_animap.layer_root.add_child(_time_minutes_label)
+	# Seconds label (left-aligned, right of colon)
+	_time_seconds_label = _make_time_label(font, font_size, color, HORIZONTAL_ALIGNMENT_LEFT)
+	_time_seconds_label.text = "00"
+	_time_seconds_label.position = Vector2(lx + center_x + half_colon - lw * 0.03, ly)
+	_time_seconds_label.size = Vector2(center_x - half_colon, lh)
+	_time_seconds_label.scale = Vector2(lscale, lscale)
+	time_animap.layer_root.add_child(_time_seconds_label)
+
+func _make_time_label(font: Font, font_size: int, color: Color, alignment: HorizontalAlignment) -> Label:
+	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.clip_contents = false
+	label.add_theme_font_override("font", font)
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", color)
+	label.horizontal_alignment = alignment
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return label
+
+func _update_time_elapsed(delta: float):
+	if _is_first_state_update:
+		return
+
+	if _server_match_started_at_ms > 0:
+		var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
+		_time_elapsed_sec = maxf(0.0, float(now_ms - _server_match_started_at_ms) / 1000.0)
+	else:
+		_time_elapsed_sec += delta
+
+	_update_time_text()
+
+func _update_time_text():
+	if not _time_minutes_label or not _time_seconds_label:
+		return
+	var total_sec := int(_time_elapsed_sec)
+	var minutes := total_sec / 60
+	var seconds := total_sec % 60
+	_time_minutes_label.text = "%02d" % minutes
+	_time_seconds_label.text = "%02d" % seconds
 
 # --- Dev Panel (desktop only, toggle with F3) ---
 
@@ -750,6 +1036,84 @@ func _create_dev_panel():
 	_dev_panel.add_child(_dev_label)
 
 	$UIOverlay.add_child(_dev_panel)
+
+func _create_ping_label():
+	if _ping_label:
+		return
+
+	_ping_label = Label.new()
+	_ping_label.name = "PingLabel"
+	_ping_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_ping_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ping_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ping_label.add_theme_font_size_override("font_size", 22)
+	_ping_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.75))
+	_ping_label.add_theme_constant_override("outline_size", 3)
+	_ping_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_ping_label.offset_left = -220
+	_ping_label.offset_top = 18
+	_ping_label.offset_right = -24
+	_ping_label.offset_bottom = 52
+	if _is_first_state_update:
+		_ping_label.modulate.a = 0.0
+	$UIOverlay.add_child(_ping_label)
+	_refresh_ping_label()
+
+func _update_ping_probe():
+	if GameState.current_match_id.is_empty():
+		return
+
+	var now_ms = _now_ms()
+	if _pending_ping_sent_at_ms >= 0:
+		if now_ms - _pending_ping_sent_at_ms > PING_TIMEOUT_MS:
+			_pending_ping_sent_at_ms = -1
+		return
+
+	if now_ms < _next_ping_probe_at_ms:
+		return
+
+	_pending_ping_sent_at_ms = now_ms
+	_next_ping_probe_at_ms = now_ms + PING_REQUEST_INTERVAL_MS
+	GameState.send_json({
+		"type": "get_match_state",
+		"match_id": GameState.current_match_id
+	})
+
+func _resolve_ping_probe():
+	if _pending_ping_sent_at_ms < 0:
+		return
+
+	var rtt_ms = max(0, _now_ms() - _pending_ping_sent_at_ms)
+	_pending_ping_sent_at_ms = -1
+	_ping_samples.append(rtt_ms)
+	if _ping_samples.size() > PING_SAMPLE_WINDOW:
+		_ping_samples.pop_front()
+
+	var total := 0
+	for sample in _ping_samples:
+		total += sample
+	_display_ping_ms = int(round(float(total) / float(_ping_samples.size())))
+	_refresh_ping_label()
+
+func _refresh_ping_label():
+	if not _ping_label:
+		return
+
+	if _display_ping_ms < 0:
+		_ping_label.text = "-- ms"
+		_ping_label.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+		return
+
+	_ping_label.text = "%d ms" % _display_ping_ms
+	var ping_color := Color(0.55, 0.96, 0.64)
+	if _display_ping_ms >= 160:
+		ping_color = Color(1.0, 0.82, 0.38)
+	if _display_ping_ms >= 280:
+		ping_color = Color(1.0, 0.48, 0.48)
+	_ping_label.add_theme_color_override("font_color", ping_color)
+
+func _now_ms() -> int:
+	return Time.get_ticks_msec()
 
 func _toggle_dev_panel():
 	if not _dev_panel:

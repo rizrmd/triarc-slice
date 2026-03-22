@@ -95,7 +95,7 @@ function AnimapThumbnail({ slug, config }: { slug: string; config: AnimapConfig 
     );
   }
 
-  const visibleLayers = config.layers.filter((layer) => layer.visible && layer.type !== 'mask' && layer.file);
+  const visibleLayers = config.layers.filter((layer) => layer.visible && layer.type !== 'mask' && (layer.type === 'text' || layer.file));
   const aspectRatio = `${config.width} / ${config.height}`;
 
   return (
@@ -136,6 +136,29 @@ function AnimapThumbnail({ slug, config }: { slug: string; config: AnimapConfig 
             return (
               <div key={layer.id} style={style}>
                 <VideoThumbnail src={fileUrl} alt={layer.name} />
+              </div>
+            );
+          }
+
+          if (layer.type === 'text') {
+            return (
+              <div
+                key={layer.id}
+                style={{
+                  ...style,
+                  color: layer.color ?? '#ffffff',
+                  fontSize: `${Math.max(12, layer.font_size ?? 96)}px`,
+                  fontFamily: '"Volkhov", serif',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  whiteSpace: 'pre-wrap',
+                  width: layer.width ?? 480,
+                  height: layer.height ?? 160,
+                  overflow: 'hidden',
+                  textAlign: layer.text_align ?? 'left',
+                }}
+              >
+                {layer.text || layer.name}
               </div>
             );
           }
@@ -294,6 +317,11 @@ export default function AnimapList() {
     if (!newName.trim()) return;
     setCreatingLoading(true);
     const slug = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) {
+      alert('Failed to create animap: name must contain at least one letter or number.');
+      setCreatingLoading(false);
+      return;
+    }
 
     const defaultConfig = {
       name: newName,
@@ -309,6 +337,17 @@ export default function AnimapList() {
         body: JSON.stringify(defaultConfig),
       });
       if (!res.ok) throw new Error('Failed to create animap');
+
+      if (activeCategory !== DEFAULT_CATEGORY) {
+        const updatedCategories: Categories = { ...categories };
+        for (const categoryName of Object.keys(updatedCategories)) {
+          updatedCategories[categoryName] = updatedCategories[categoryName].filter((existingSlug) => existingSlug !== slug);
+        }
+        if (!updatedCategories[activeCategory]) updatedCategories[activeCategory] = [];
+        updatedCategories[activeCategory] = [...updatedCategories[activeCategory], slug];
+        await saveCategories(updatedCategories);
+      }
+
       setNewName('');
       setIsCreating(false);
       const listRes = await fetch('/api/animaps');

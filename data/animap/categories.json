@@ -1,4 +1,8 @@
 {
+  "Gameplay": [
+    "time",
+    "info"
+  ],
   "Login": [
     "google-sign-in",
     "vg-logo"

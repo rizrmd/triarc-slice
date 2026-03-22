@@ -198,14 +198,20 @@ export type GameSceneSlug = 'startup' | 'login' | 'home' | 'gameplay' | 'postgam
 export interface AnimapLayer {
   id: string;
   name: string;
-  type: 'image' | 'video' | 'mask';
+  type: 'image' | 'video' | 'mask' | 'text';
   file: string;
   visible: boolean;
   locked?: boolean;
   opacity?: number;
   x?: number;
   y?: number;
+  width?: number;
+  height?: number;
   scale?: number;
+  text?: string;
+  font_size?: number;
+  color?: string;
+  text_align?: 'left' | 'center' | 'right';
   loop?: boolean;
   loop_start?: number;
   loop_end?: number;
@@ -223,7 +229,13 @@ export type AnimapLayerStateOverride = Partial<Pick<
   | 'opacity'
   | 'x'
   | 'y'
+  | 'width'
+  | 'height'
   | 'scale'
+  | 'text'
+  | 'font_size'
+  | 'color'
+  | 'text_align'
   | 'loop'
   | 'loop_start'
   | 'loop_end'
