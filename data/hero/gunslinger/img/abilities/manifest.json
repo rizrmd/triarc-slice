@@ -1,0 +1,12 @@
+{
+  "hero_slug": "gunslinger",
+  "hero_name": "Gunslinger",
+  "abilities": [
+    { "id": "quick-shot", "name": "Quick Shot", "type": "skill", "icon": "quick-shot.webp" },
+    { "id": "explosive-round", "name": "Explosive Round", "type": "skill", "icon": "explosive-round.webp" },
+    { "id": "fan-the-hammer", "name": "Fan the Hammer", "type": "skill", "icon": "fan-the-hammer.webp" },
+    { "id": "loaded-chamber", "name": "Loaded Chamber", "type": "passive", "icon": "loaded-chamber.webp" },
+    { "id": "quick-draw", "name": "Quick Draw", "type": "reaction", "icon": "quick-draw.webp" },
+    { "id": "dead-eye", "name": "Dead Eye", "type": "ultimate", "icon": "dead-eye.webp" }
+  ]
+}

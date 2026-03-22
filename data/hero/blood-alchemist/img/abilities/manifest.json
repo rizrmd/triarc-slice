@@ -1,0 +1,12 @@
+{
+  "hero_slug": "blood-alchemist",
+  "hero_name": "Blood Alchemist",
+  "abilities": [
+    { "id": "sanguine-lance", "name": "Sanguine Lance", "type": "skill", "icon": "sanguine-lance.webp" },
+    { "id": "crimson-siphon", "name": "Crimson Siphon", "type": "skill", "icon": "crimson-siphon.webp" },
+    { "id": "hemorrhage", "name": "Hemorrhage", "type": "skill", "icon": "hemorrhage.webp" },
+    { "id": "vital-transmutation", "name": "Vital Transmutation", "type": "passive", "icon": "vital-transmutation.webp" },
+    { "id": "coagulate", "name": "Coagulate", "type": "reaction", "icon": "coagulate.webp" },
+    { "id": "exsanguinate", "name": "Exsanguinate", "type": "ultimate", "icon": "exsanguinate.webp" }
+  ]
+}

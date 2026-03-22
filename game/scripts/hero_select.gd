@@ -51,6 +51,12 @@ void fragment() {
 	_populate_hero_grid()
 	_update_ui()
 
+func _set_mouse_filter_recursive(node: Node) -> void:
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_mouse_filter_recursive(child)
+
 func _load_hero_config(slug: String) -> Dictionary:
 	var path = "res://data/hero/%s/hero.json" % slug
 	var file = FileAccess.open(path, FileAccess.READ)
@@ -186,25 +192,40 @@ func _populate_hero_grid():
 		btn.custom_minimum_size = card_size
 		btn.toggle_mode = true
 		btn.button_pressed = GameState.is_hero_selected(slug)
+		btn.set_meta("hero_slug", slug)
 
 		var card = _create_hero_card(slug, card_size)
+		_set_mouse_filter_recursive(card)
 		btn.add_child(card)
 
 		btn.pressed.connect(_on_hero_pressed.bind(slug, btn))
 		hero_grid.add_child(btn)
 
 func _on_hero_pressed(slug: String, btn: Button):
-	var selected = GameState.select_hero(slug)
-	btn.button_pressed = GameState.is_hero_selected(slug)
+	var result := GameState.select_hero(slug)
+	var action := str(result.get("action", ""))
+	_sync_hero_buttons()
 
-	if not selected and not btn.button_pressed:
-		pass
-	elif not selected:
-		status_label.text = "Select exactly 3 heroes"
+	match action:
+		"added":
+			_update_ui()
+		"removed":
+			_update_ui()
+		"replaced":
+			var replaced_slug := str(result.get("replaced_slug", ""))
+			var replaced_name: String = str(GameState.get_hero_def(replaced_slug).get("name", replaced_slug))
+			var new_name: String = str(GameState.get_hero_def(slug).get("name", slug))
+			_update_ui("%s replaced %s" % [new_name, replaced_name])
+		_:
+			_update_ui("Select exactly 3 heroes")
 
-	_update_ui()
+func _sync_hero_buttons() -> void:
+	for child in hero_grid.get_children():
+		if child is Button:
+			var hero_slug := str(child.get_meta("hero_slug", ""))
+			child.button_pressed = GameState.is_hero_selected(hero_slug)
 
-func _update_ui():
+func _update_ui(status_override: String = ""):
 	for child in selected_container.get_children():
 		child.queue_free()
 
@@ -218,7 +239,9 @@ func _update_ui():
 
 	find_match_button.disabled = not GameState.can_queue()
 
-	if GameState.can_queue():
+	if not status_override.is_empty():
+		status_label.text = status_override
+	elif GameState.can_queue():
 		status_label.text = "Ready to find match!"
 	else:
 		status_label.text = "Select %d more hero(es)" % (3 - GameState.selected_heroes.size())

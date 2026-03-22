@@ -92,7 +92,8 @@ func _ready() -> void:
 			# Was authenticated but lost connection — reconnect silently
 			home_ui.get_node("TitleLabel").text = "Reconnecting..."
 			_connect_to_server()
-		_show_view("home", false)
+		var start_view := "hero_select" if GameState.should_return_to_hero_select() else "home"
+		_show_view(start_view, false)
 		var tween = create_tween()
 		tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
 		tween.tween_callback(func(): fade_rect.visible = false)

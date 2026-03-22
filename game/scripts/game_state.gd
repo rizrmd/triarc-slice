@@ -13,6 +13,7 @@ var current_match_id: String = ""
 var current_team: int = 0
 var match_state: Dictionary = {}
 var match_mode: String = "matchmaking" # "matchmaking" or "training"
+var return_to_hero_select_after_gameplay: bool = false
 
 # Hero selection
 var selected_heroes: Array[String] = []
@@ -375,16 +376,25 @@ func get_action_def(slug: String) -> Dictionary:
 func get_all_hero_slugs() -> Array:
 	return hero_defs.keys()
 
-func select_hero(slug: String) -> bool:
+func select_hero(slug: String) -> Dictionary:
 	if selected_heroes.has(slug):
 		selected_heroes.erase(slug)
 		_save_selected_heroes()
-		return false
+		return {"action": "removed"}
+	if match_mode == "training" and selected_heroes.size() >= MAX_HEROES:
+		var replaced_slug := selected_heroes[0]
+		selected_heroes.remove_at(0)
+		selected_heroes.append(slug)
+		_save_selected_heroes()
+		return {
+			"action": "replaced",
+			"replaced_slug": replaced_slug,
+		}
 	if selected_heroes.size() >= MAX_HEROES:
-		return false
+		return {"action": "full"}
 	selected_heroes.append(slug)
 	_save_selected_heroes()
-	return true
+	return {"action": "added"}
 
 func is_hero_selected(slug: String) -> bool:
 	return selected_heroes.has(slug)
@@ -395,6 +405,12 @@ func clear_selected_heroes():
 
 func can_queue() -> bool:
 	return selected_heroes.size() == MAX_HEROES
+
+func should_return_to_hero_select() -> bool:
+	if not return_to_hero_select_after_gameplay:
+		return false
+	return_to_hero_select_after_gameplay = false
+	return true
 
 func send_json(data: Dictionary) -> void:
 	if ws and ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
