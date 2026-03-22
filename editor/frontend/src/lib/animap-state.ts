@@ -13,7 +13,13 @@ const STATEFUL_LAYER_KEYS = [
   'opacity',
   'x',
   'y',
+  'width',
+  'height',
   'scale',
+  'text',
+  'font_size',
+  'color',
+  'text_align',
   'loop',
   'loop_start',
   'loop_end',
@@ -27,12 +33,29 @@ const STATEFUL_LAYER_KEYS = [
 
 type StatefulLayerKey = (typeof STATEFUL_LAYER_KEYS)[number];
 
+function normalizeAnimapLayer(layer: AnimapLayer): AnimapLayer {
+  if (layer.type !== 'text') {
+    return layer;
+  }
+
+  return {
+    ...layer,
+    text: layer.text ?? layer.name,
+    font_size: layer.font_size ?? 96,
+    color: layer.color ?? '#ffffff',
+    text_align: layer.text_align ?? 'left',
+    width: layer.width ?? 480,
+    height: layer.height ?? 160,
+  };
+}
+
 export function normalizeAnimapConfig(config: AnimapConfig): AnimapConfig {
   const states = config.states ?? [];
   const withoutDefault = states.filter((state) => state.id !== DEFAULT_STATE_ID);
 
   return {
     ...config,
+    layers: config.layers.map((layer) => normalizeAnimapLayer(layer)),
     states: [
       {
         id: DEFAULT_STATE_ID,

@@ -155,8 +155,8 @@
           "y": 319
         },
         "energy": {
-          "anchor_offset_x": -14,
-          "anchor_offset_y": -192,
+          "anchor_offset_x": 0,
+          "anchor_offset_y": -190,
           "height": 161,
           "height_percent": 8.4,
           "id": "energy",
@@ -166,12 +166,12 @@
           "screen_relative": true,
           "width": 336,
           "width_percent": 31.1,
-          "x": -14,
-          "y": 1648
+          "x": 0,
+          "y": 1650
         },
         "hero1": {
           "anchor_offset_x": -342,
-          "anchor_offset_y": -114,
+          "anchor_offset_y": -108,
           "cardSlug": "earth-warden",
           "height": 495,
           "height_percent": 25.8,
@@ -184,11 +184,11 @@
           "width": 324,
           "width_percent": 30,
           "x": 36,
-          "y": 846
+          "y": 852
         },
         "hero2": {
           "anchor_offset_x": 0,
-          "anchor_offset_y": -114,
+          "anchor_offset_y": -108,
           "cardSlug": "arcane-paladin",
           "height": 495,
           "height_percent": 25.8,
@@ -201,11 +201,11 @@
           "width": 324,
           "width_percent": 30,
           "x": 378,
-          "y": 846
+          "y": 852
         },
         "hero3": {
           "anchor_offset_x": 342,
-          "anchor_offset_y": -114,
+          "anchor_offset_y": -108,
           "cardSlug": "dawn-priest",
           "height": 495,
           "height_percent": 25.8,
@@ -218,11 +218,27 @@
           "width": 324,
           "width_percent": 30,
           "x": 720,
-          "y": 846
+          "y": 852
+        },
+        "info": {
+          "anchor_offset_x": -530,
+          "anchor_offset_y": 1716,
+          "animapSlug": "info",
+          "height": 146,
+          "height_percent": 7.6,
+          "id": "info",
+          "label": "Info Button",
+          "pivot": "top-left",
+          "screen_anchor": "top-right",
+          "screen_relative": true,
+          "width": 164,
+          "width_percent": 15.2,
+          "x": 550,
+          "y": 1716
         },
         "reroll": {
           "anchor_offset_x": -88,
-          "anchor_offset_y": -72,
+          "anchor_offset_y": -69,
           "height": 165,
           "height_percent": 8.6,
           "id": "reroll",
@@ -233,7 +249,7 @@
           "width": 170,
           "width_percent": 15.7,
           "x": 822,
-          "y": 1683
+          "y": 1686
         },
         "settings": {
           "anchor_offset_x": 20,
@@ -252,19 +268,20 @@
           "y": 12
         },
         "time_elapsed": {
-          "anchor_offset_x": -37,
-          "anchor_offset_y": -219,
-          "height": 92,
-          "height_percent": 4.8,
+          "anchor_offset_x": -138,
+          "anchor_offset_y": 0,
+          "animapSlug": "time",
+          "height": 108,
+          "height_percent": 5.6,
           "id": "time_elapsed",
           "label": "Time Elapsed",
           "pivot": "top-left",
-          "screen_anchor": "bottom-center",
+          "screen_anchor": "top-center",
           "screen_relative": true,
-          "width": 210,
-          "width_percent": 19.4,
-          "x": 503,
-          "y": 1701
+          "width": 273,
+          "width_percent": 25.3,
+          "x": 402,
+          "y": 0
         }
       }
     },

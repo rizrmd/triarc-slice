@@ -235,7 +235,7 @@ export function AnimapCanvas({
     // Layer dragging (skip if locked)
     if (e.button === 0 && selectedLayerId) {
       const layer = selectedLayer;
-      if (layer && !layer.locked && (layer.type === 'image' || layer.type === 'video')) {
+      if (layer && !layer.locked && (layer.type === 'image' || layer.type === 'video' || layer.type === 'text')) {
         isDragging.current = true;
         dragLayerId.current = selectedLayerId;
         const scale = canvasZoom / 100;
@@ -404,6 +404,52 @@ export function AnimapCanvas({
                 configHeight={config.height}
                 activeVideoRef={selectedLayerId === layer.id ? activeVideoRef : undefined}
               />
+            );
+          }
+
+          if (layer.type === 'text') {
+            const maskUrls = maskLookup[layer.id];
+            const maskStyle: React.CSSProperties = maskUrls?.length
+              ? {
+                  WebkitMaskImage: maskUrls.map((u) => `url(${u})`).join(', '),
+                  maskImage: maskUrls.map((u) => `url(${u})`).join(', '),
+                  WebkitMaskSize: '100% 100%',
+                  maskSize: '100% 100%',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskRepeat: 'no-repeat',
+                }
+              : {};
+            const hasMask = maskUrls?.length > 0;
+
+            return (
+              <div
+                key={layer.id}
+                style={{
+                  position: 'absolute',
+                  left: layer.x ?? 0,
+                  top: layer.y ?? 0,
+                  transform: `scale(${layer.scale ?? 1})`,
+                  transformOrigin: 'top left',
+                  opacity: layer.opacity ?? 1,
+                  filter: cssFilter,
+                  pointerEvents: isMaskMode ? 'none' : 'auto',
+                  cursor: layer.locked ? 'default' : 'move',
+                  outline: selectedLayerId === layer.id ? '2px solid #3b82f6' : 'none',
+                  color: layer.color ?? '#ffffff',
+                  fontSize: `${layer.font_size ?? 96}px`,
+                  fontFamily: '"Volkhov", serif',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  whiteSpace: 'pre-wrap',
+                  width: layer.width ?? 480,
+                  height: layer.height ?? 160,
+                  overflow: 'hidden',
+                  textAlign: layer.text_align ?? 'left',
+                  ...(hasMask ? maskStyle : {}),
+                }}
+              >
+                {layer.text || layer.name}
+              </div>
             );
           }
 

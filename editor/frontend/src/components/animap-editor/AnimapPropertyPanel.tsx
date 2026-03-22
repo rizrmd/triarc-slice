@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import type { AnimapConfig, AnimapLayer, AnimapLayerStateOverride, AnimapState, AnimapTransition } from '@/types';
 import {
   clearStateLayerOverride,
@@ -17,7 +18,7 @@ import {
   updateAnimapTransition,
   updateStateLayerOverride,
 } from '@/lib/animap-state';
-import { toKebabCase } from '@/lib/utils';
+import { ensureHexColor, toKebabCase } from '@/lib/utils';
 
 function PropertyRow({
   label,
@@ -676,72 +677,71 @@ export function AnimapPropertyPanel({
           />
         </div>
 
-        {/* File upload */}
-        <div className="space-y-1">
-          <Label className="text-xs">File</Label>
-          {convertProgress !== null ? (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{convertProgress >= 0 ? 'Converting...' : 'Processing...'}</span>
-                {convertProgress >= 0 && <span>{convertProgress}%</span>}
+        {selectedLayer.type !== 'text' && (
+          <div className="space-y-1">
+            <Label className="text-xs">File</Label>
+            {convertProgress !== null ? (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>{convertProgress >= 0 ? 'Converting...' : 'Processing...'}</span>
+                  {convertProgress >= 0 && <span>{convertProgress}%</span>}
+                </div>
+                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                  {convertProgress >= 0 ? (
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${convertProgress}%` }}
+                    />
+                  ) : (
+                    <div className="h-full w-full rounded-full bg-primary/50 animate-pulse" />
+                  )}
+                </div>
               </div>
-              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                {convertProgress >= 0 ? (
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-300"
-                    style={{ width: `${convertProgress}%` }}
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="mr-2 h-3 w-3" />
+                    Upload
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept={
+                      selectedLayer.type === 'video'
+                        ? 'video/*,.ogv'
+                        : 'image/*'
+                    }
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onUpload(selectedLayer.id, file);
+                      e.target.value = '';
+                    }}
                   />
-                ) : (
-                  <div className="h-full w-full rounded-full bg-primary/50 animate-pulse" />
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-3 w-3" />
-                  Upload
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  accept={
-                    selectedLayer.type === 'video'
-                      ? 'video/*,.ogv'
-                      : 'image/*'
-                  }
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) onUpload(selectedLayer.id, file);
-                    e.target.value = '';
-                  }}
-                />
-              </div>
-            </>
-          )}
-          {selectedLayer.file && (
-            <p className="text-xs text-muted-foreground truncate">{selectedLayer.file}</p>
-          )}
-          {/* Preview for images */}
-          {selectedLayer.file && selectedLayer.type === 'image' && (
-            <img
-              src={fileUrl}
-              alt={selectedLayer.name}
-              className="mt-2 w-full rounded border object-contain"
-              style={{ maxHeight: 120 }}
-            />
-          )}
-        </div>
+                </div>
+              </>
+            )}
+            {selectedLayer.file && (
+              <p className="text-xs text-muted-foreground truncate">{selectedLayer.file}</p>
+            )}
+            {selectedLayer.file && selectedLayer.type === 'image' && (
+              <img
+                src={fileUrl}
+                alt={selectedLayer.name}
+                className="mt-2 w-full rounded border object-contain"
+                style={{ maxHeight: 120 }}
+              />
+            )}
+          </div>
+        )}
 
-        {/* Position/opacity for image and video */}
-        {(selectedLayer.type === 'image' || selectedLayer.type === 'video') && (
+        {(selectedLayer.type === 'image' || selectedLayer.type === 'video' || selectedLayer.type === 'text') && (
           <>
             <PropertyRow
               label="X"
@@ -789,6 +789,81 @@ export function AnimapPropertyPanel({
               displayValue={((selectedLayer.opacity ?? 1) * 100).toFixed(0) + '%'}
               highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'opacity') !== undefined}
             />
+          </>
+        )}
+
+        {selectedLayer.type === 'text' && (
+          <>
+            <div className="space-y-1">
+              <Label className="text-xs">Text</Label>
+              <Textarea
+                value={selectedLayer.text ?? ''}
+                onChange={(e) => updateLayerStateKey(selectedLayer.id, 'text', e.target.value)}
+                className="min-h-24 text-sm"
+                placeholder="Enter text..."
+              />
+            </div>
+            <PropertyRow
+              label="Font Size"
+              value={selectedLayer.font_size ?? 96}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'font_size', Math.max(1, Math.round(v)))}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'font_size', selectedLayerBase?.font_size ?? 96)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 96 : (selectedLayerBase?.font_size ?? 96)}
+              step={1}
+              min={1}
+              max={512}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'font_size') !== undefined}
+            />
+            <PropertyRow
+              label="Width"
+              value={selectedLayer.width ?? 480}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'width', Math.max(1, Math.round(v)))}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'width', selectedLayerBase?.width ?? 480)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 480 : (selectedLayerBase?.width ?? 480)}
+              step={1}
+              min={1}
+              max={config.width * 4}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'width') !== undefined}
+            />
+            <PropertyRow
+              label="Height"
+              value={selectedLayer.height ?? 160}
+              onChange={(v) => updateLayerStateKey(selectedLayer.id, 'height', Math.max(1, Math.round(v)))}
+              onReset={() => resetLayerStateKey(selectedLayer.id, 'height', selectedLayerBase?.height ?? 160)}
+              resetValue={selectedStateId === DEFAULT_STATE_ID ? 160 : (selectedLayerBase?.height ?? 160)}
+              step={1}
+              min={1}
+              max={config.height * 4}
+              highlighted={getStateOverrideValue(config, selectedStateId, selectedLayer.id, 'height') !== undefined}
+            />
+            <div className="space-y-1">
+              <Label className="text-xs">Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  className="h-9 w-14 rounded border border-input bg-background p-1"
+                  value={ensureHexColor(selectedLayer.color ?? '#ffffff')}
+                  onChange={(e) => updateLayerStateKey(selectedLayer.id, 'color', e.target.value)}
+                />
+                <Input
+                  value={selectedLayer.color ?? '#ffffff'}
+                  onChange={(e) => updateLayerStateKey(selectedLayer.id, 'color', e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Align</Label>
+              <select
+                className="h-9 w-full rounded border border-input bg-background px-3 text-sm"
+                value={selectedLayer.text_align ?? 'left'}
+                onChange={(e) => updateLayerStateKey(selectedLayer.id, 'text_align', e.target.value as 'left' | 'center' | 'right')}
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
           </>
         )}
 
@@ -909,7 +984,7 @@ export function AnimapPropertyPanel({
           </>
         )}
         {/* Advanced section for image/video */}
-        {(selectedLayer.type === 'image' || selectedLayer.type === 'video') && (
+        {(selectedLayer.type === 'image' || selectedLayer.type === 'video' || selectedLayer.type === 'text') && (
           <AdvancedFilters
             layer={selectedLayer}
             updateLayerStateKey={updateLayerStateKey}

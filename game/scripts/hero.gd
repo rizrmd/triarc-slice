@@ -29,6 +29,7 @@ var _tween_selection: Tween = null
 var _current_brightness: float = 1.0
 var _is_selected: bool = false
 var _selection_strength: float = 0.0
+var _drag_dim_strength: float = 0.0
 var _frame_base_modulate: Color = Color.WHITE
 var _cast_pie: CastPie = null
 var _cast_action_label: Label = null
@@ -55,10 +56,12 @@ func _ready():
 	_mask_shader = Shader.new()
 	_mask_shader.code = """shader_type canvas_item;
 uniform sampler2D mask_tex;
+uniform float brightness : hint_range(0.0, 1.0) = 1.0;
 void fragment() {
 	vec4 col = texture(TEXTURE, UV);
 	vec4 mask = texture(mask_tex, UV);
 	col.a *= (1.0 - mask.a);
+	col.rgb *= brightness;
 	COLOR = col;
 }
 """
@@ -605,6 +608,13 @@ func set_char_brightness(value: float, duration: float = 0.2):
 	_tween_brightness.set_trans(Tween.TRANS_CUBIC)
 	_tween_brightness.tween_method(_apply_brightness, _current_brightness, value, duration)
 
+func set_drag_dimmed(dimmed: bool):
+	_drag_dim_strength = 1.0 if dimmed else 0.0
+	if is_enemy:
+		_refresh_selection_visuals()
+		return
+	_apply_brightness(0.4 if dimmed else 1.0)
+
 func _apply_brightness(value: float):
 	_current_brightness = value
 	_refresh_selection_visuals()
@@ -627,14 +637,26 @@ func _set_selection_strength(value: float):
 	_refresh_selection_visuals()
 
 func _refresh_selection_visuals():
-	var bg_brightness = _current_brightness * lerpf(1.0, 0.35, _selection_strength)
+	var combined_dim = max(_selection_strength, _drag_dim_strength)
+	var bg_brightness = _current_brightness * lerpf(1.0, 0.35, combined_dim)
 	if bg_sprite.material is ShaderMaterial:
 		(bg_sprite.material as ShaderMaterial).set_shader_parameter("brightness", bg_brightness)
 	if char_sprite.material is ShaderMaterial:
 		(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", _current_brightness)
-	if shadow_sprite.texture:
-		shadow_sprite.modulate = _frame_base_modulate * lerpf(1.0, 0.4, _selection_strength)
-	print("[Hero] refresh_visuals hero=", hero_slug, " selected=", _is_selected, " strength=", _selection_strength, " bg_brightness=", bg_brightness, " frame_modulate=", shadow_sprite.modulate)
+	if is_enemy:
+		var pose_factor: float = lerpf(1.0, 0.4, _drag_dim_strength)
+		if char_sprite.material is ShaderMaterial:
+			(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", pose_factor)
+		char_sprite.modulate = Color.WHITE
+		if shadow_sprite.texture:
+			shadow_sprite.modulate = Color(pose_factor, pose_factor, pose_factor, 1.0)
+	else:
+		if char_sprite.material is ShaderMaterial:
+			(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", _current_brightness)
+		char_sprite.modulate = Color.WHITE
+		if shadow_sprite.texture:
+			shadow_sprite.modulate = _frame_base_modulate * lerpf(1.0, 0.4, combined_dim)
+	print("[Hero] refresh_visuals hero=", hero_slug, " selected=", _is_selected, " selection_strength=", _selection_strength, " drag_dim_strength=", _drag_dim_strength, " bg_brightness=", bg_brightness, " frame_modulate=", shadow_sprite.modulate)
 
 func get_slot_index() -> int:
 	return slot_index

@@ -175,6 +175,7 @@ export default function AnimapEditor() {
       }
 
       // Save config
+      configToSave = normalizeAnimapConfig(configToSave);
       const res = await fetch(`/api/animap/${slug}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
