@@ -35,7 +35,7 @@ Recommended source asset layout if art files are kept in-repo later:
 
 - `/data/hero/<slug>/img/abilities/source/<ability-id>.<psd|svg|aseprite>`
 
-## Pollinations Workflow
+## NVIDIA Workflow
 
 Prompt definitions for these icons live in:
 
@@ -43,21 +43,22 @@ Prompt definitions for these icons live in:
 
 Batch generation script:
 
-- `/scripts/generate-ability-icons-pollinations.mjs`
+- `/scripts/generate-ability-icons-nvidia.mjs`
 
 Example usage:
 
 ```sh
-node scripts/generate-ability-icons-pollinations.mjs --hero=flame-warlock --dry-run
-node scripts/generate-ability-icons-pollinations.mjs --hero=flame-warlock --delay-ms=15000
-node scripts/generate-ability-icons-pollinations.mjs --hero=iron-knight --ability=shield-bash --overwrite
+NVIDIA_NIM_API_KEY=... node scripts/generate-ability-icons-nvidia.mjs --hero=flame-warlock --dry-run
+NVIDIA_NIM_API_KEY=... node scripts/generate-ability-icons-nvidia.mjs --hero=flame-warlock --delay-ms=5000
+NVIDIA_NIM_API_KEY=... node scripts/generate-ability-icons-nvidia.mjs --hero=iron-knight --ability=shield-bash --overwrite
 ```
 
 Notes:
 
-- The script paces requests because Pollinations may return `429 Too Many Requests`.
+- The script reads the API key from `NVIDIA_NIM_API_KEY`.
 - It normalizes downloads to `.webp` via local `cwebp`.
-- Model selection is resolved against the live `/models` endpoint unless overridden with `--model=...`.
+- It targets NVIDIA NIM `flux.1-dev`.
+- NVIDIA only accepts larger square sizes such as `1024x1024`, and the script preserves that generated resolution when converting to `.webp`.
 
 ## UI Notes
 
