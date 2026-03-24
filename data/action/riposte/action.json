@@ -15,7 +15,7 @@
   "tint": "#e66b6b",
   "description": "Punish an opening with a precise counterattack after absorbing or avoiding pressure.",
   "cost": 2,
-  "element": [],
+  "element": ["wind"],
   "target_rule": "self",
   "visible_layers": {
     "card": true,

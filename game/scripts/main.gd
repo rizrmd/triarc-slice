@@ -127,7 +127,7 @@ func _process(_delta: float) -> void:
 		_ws.poll()
 		var state = _ws.get_ready_state()
 		if state == WebSocketPeer.STATE_OPEN:
-			while _ws.get_available_packet_count() > 0:
+			while _ws and _ws.get_available_packet_count() > 0:
 				var msg = _ws.get_packet().get_string_from_utf8()
 				_on_ws_message(msg)
 		elif state == WebSocketPeer.STATE_CLOSED:
@@ -215,7 +215,7 @@ func _check_connection() -> void:
 		var auth_msg := {"type": "authenticate"}
 		if not _session_token.is_empty():
 			auth_msg["session_token"] = _session_token
-		if not _id_token.is_empty():
+		elif not _id_token.is_empty():
 			auth_msg["id_token"] = _id_token
 		_send_json(auth_msg)
 	elif state == WebSocketPeer.STATE_CONNECTING:

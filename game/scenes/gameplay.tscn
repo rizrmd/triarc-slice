@@ -160,7 +160,7 @@ offset_right = 810.0
 offset_bottom = 1760.0
 z_index = 10
 mouse_filter = 1
-color = Color(0.28, 0.28, 0.3, 0.95)
+color = Color(0.28, 0.28, 0.3, 1)
 
 [node name="PlaceholderLabel" type="Label" parent="UIOverlay/HeroDetailPlaceholder"]
 layout_mode = 1

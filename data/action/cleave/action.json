@@ -15,7 +15,7 @@
   "tint": "#f28d4a",
   "description": "Swing through the target with a broad brutal strike meant to overwhelm armor and posture.",
   "cost": 3,
-  "element": [],
+  "element": ["fire"],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

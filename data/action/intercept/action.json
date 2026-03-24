@@ -15,7 +15,7 @@
   "tint": "#b3c9ff",
   "description": "Step into harm's way and catch the attack line before it reaches a vulnerable ally.",
   "cost": 3,
-  "element": [],
+  "element": ["ice"],
   "target_rule": "ally_single",
   "visible_layers": {
     "card": true,

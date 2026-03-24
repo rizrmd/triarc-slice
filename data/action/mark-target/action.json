@@ -15,7 +15,7 @@
   "tint": "#f79f08",
   "description": "Expose a target's weak point, setting them up for heavier punishment.",
   "cost": 2,
-  "element": [],
+  "element": ["wind"],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

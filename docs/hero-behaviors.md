@@ -25,40 +25,79 @@ Heroes are not empty vessels — they are autonomous fighters with their own att
 
 ---
 
-## Ability Types
+## Ability Roles
+
+Ability `role` describes how the player understands the ability in the UI and fantasy. Activation is handled separately.
 
 ### Skill
-Active abilities on cooldowns (7-12s for basic attacks, up to 20s for powerful ones) that fire automatically when the cooldown is ready. Skills are the hero's bread and butter — consistent, reliable, impactful. Heroes may have multiple skills. Each hero has at least one basic attack skill that targets their primary target.
+An active combat move: strike, blink, volley, field pulse, team buff. Skills may be auto-timed, periodic, or manual.
 
 ### Passive
-Always-on effects that modify the hero's behavior or stats. No cooldown, no activation — they simply exist. Some passives trigger on specific events (e.g., "on damage dealt, apply burn") while others are constant modifiers (e.g., "+10% defense to adjacent allies").
+An always-on or condition-linked behavior that shapes the hero's kit without feeling like a featured cast.
 
 ### Reaction
-Abilities that trigger in response to game events. They don't have a regular cooldown cycle — instead they watch for specific conditions:
-- `on_damage_taken` — hero is hit
-- `on_damage_dealt` — hero deals damage
-- `on_kill` — hero kills an enemy
-- `on_ally_damaged` — a teammate takes damage
-- `on_ally_death` — a teammate dies
-- `on_hp_below_pct` — hero's HP drops below a threshold
-- `on_hp_above_pct` — hero's HP rises above a threshold
-- `on_status_received` — a status effect is applied to the hero
-- `on_cast_received` — player uses an action card on this hero
-- `on_enemy_cast` — an enemy begins casting
-
-Reactions may have a `chance` (probability of firing) and a `cooldown_ms` (minimum time between triggers). Some reactions are `once: true` — they fire exactly once per match.
+A response ability that watches combat events and fires when its activation conditions are met.
 
 ### Ultimate
-The hero's most powerful ability. Charges through a specific method:
-- `damage_dealt` — charges as the hero deals damage
-- `damage_taken` — charges as the hero takes hits
-- `ally_damage_taken` — charges when allies are hurt
-- `healing_done` — charges through healing
-- `kills` — charges on kills
-- `time` — charges passively over time
-- `casts_received` — charges when the player uses action cards on this hero
+The hero's defining high-impact move. Ultimates usually use charge-based activation, but the role is still separate from the activation mode.
 
-When the charge threshold is reached, the ultimate fires automatically. Ultimates are match-defining moments.
+---
+
+## Activation Model
+
+Every ability has an `activation` object. This is the source of truth for how it becomes available or fires.
+
+### Activation Modes
+
+- `auto_time` — regular cooldown skill; fires when its cadence is ready
+- `auto_interval` — periodic pulse or repeated behavior independent of the normal skill cadence
+- `reactive` — listens for an event and fires when conditions are met
+- `manual` — exposed as a direct player-pressed hero skill button
+- `action_linked` — tied to player action-card usage on, by, or around the hero
+- `charge_release` — accumulates charge from events, then releases when threshold is met
+
+### Activation Events
+
+Not every mode needs an event. `manual`, `auto_time`, and `auto_interval` can rely on `mode` plus cadence. Event-driven modes use one of:
+
+- `damage_taken`
+- `damage_dealt`
+- `attacked`
+- `action_used`
+- `action_received`
+- `skill_used`
+- `ally_damaged`
+- `ally_died`
+- `hp_threshold_crossed`
+- `status_received`
+- `time_elapsed`
+
+### Source Filters
+
+Source filters refine event meaning without exploding the enum list:
+
+- `actor_scope`: `enemy | ally | self | any`
+- `damage_sources`: `basic_attack | hero_skill | action_card | any`
+- `action_scope`: `played_by_player | received_by_self | received_by_ally | any`
+- `status_kinds`: specific statuses if the trigger only cares about some debuffs or buffs
+
+This is how the schema distinguishes:
+
+- "attacked by hero" -> `event: attacked` + `damage_sources: ["basic_attack"]`
+- "attacked by spell" -> `event: attacked` + `damage_sources: ["hero_skill"]`
+- "hit by action card" -> `event: action_received` or `event: attacked` + `damage_sources: ["action_card"]`
+
+### Thresholds and Limits
+
+- `threshold.kind`: `count | hp_pct | charge | none`
+- `threshold.value`: count, percent, or charge amount
+- `limit.cooldown_ms`: minimum delay between activations
+- `limit.once_per_match`: fire only once in the match
+
+`auto_time` and `auto_interval` both use `cadence_ms`, but they mean different things:
+
+- `auto_time` is a standard cast cadence for featured skills
+- `auto_interval` is a repeating tick or pulse that should feel ambient or persistent
 
 ---
 
@@ -114,19 +153,29 @@ Ability icon planning for the current hero docs lives in `docs/heroes/skill-icon
     {
       "id": "string",
       "name": "Display Name",
-      "type": "skill | passive | reaction | ultimate",
+      "role": "skill | passive | reaction | ultimate",
       "description": "Flavor text shown to player.",
       "element": "fire | ice | earth | wind | light | shadow",
-      "cooldown_ms": 3000,
       "target": "primary | secondary | self | attacker | all_enemies | all_allies | lowest_hp_ally | random_enemy",
-      "trigger": "on_damage_dealt | on_damage_taken | on_kill | ...",
-      "trigger_value": 20,
-      "chance": 0.25,
-      "once": false,
-      "charge": {
-        "method": "damage_dealt | damage_taken | time | kills | ...",
-        "threshold": 1000
+      "activation": {
+        "mode": "auto_time | auto_interval | reactive | manual | action_linked | charge_release",
+        "event": "damage_taken | attacked | action_received | skill_used | ...",
+        "cadence_ms": 3000,
+        "source_filters": {
+          "actor_scope": "enemy | ally | self | any",
+          "damage_sources": ["basic_attack | hero_skill | action_card | any"],
+          "action_scope": "played_by_player | received_by_self | received_by_ally | any"
+        },
+        "threshold": {
+          "kind": "count | hp_pct | charge | none",
+          "value": 20
+        },
+        "limit": {
+          "cooldown_ms": 3000,
+          "once_per_match": false
+        }
       },
+      "chance": 0.25,
       "visibility": {
         "condition": "always | charge_above_pct | hp_below_pct | hidden_until_triggered",
         "value": 50
@@ -142,6 +191,8 @@ Ability icon planning for the current hero docs lives in `docs/heroes/skill-icon
   ]
 }
 ```
+
+Canonical rule: `activation` is the only activation API. Legacy top-level fields such as `trigger`, `trigger_value`, `cooldown_ms`, `once`, and `charge` should not be used in new hero definitions.
 
 ---
 

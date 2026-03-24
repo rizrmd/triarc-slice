@@ -15,7 +15,7 @@
   "tint": "#5c5c5c",
   "description": "Deliver a ruthless finishing blow designed to punish weakened enemies.",
   "cost": 4,
-  "element": [],
+  "element": ["shadow"],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

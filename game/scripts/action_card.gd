@@ -136,12 +136,37 @@ func _build_card_visual(config: Dictionary):
 			frame_rect.modulate = Color(tint_str)
 		container.add_child(frame_rect)
 
+	# --- Element icons (above name) ---
+	var elements: Array = config.get("element", [])
+	var name_cfg = config.get("name_pos", {"x": 0, "y": 500})
+	var name_scale_val = float(config.get("name_scale", 122))
+	var font_size = int(name_scale_val * sy)
+	var label_h = font_size * 1.5
+	var name_y = cy + float(name_cfg.get("y", 0)) * sy - label_h / 2.0
+
+	if elements.size() > 0:
+		var icon_size = card_size.x * 0.30
+		var icon_gap = icon_size * 0.15
+		var total_w = elements.size() * icon_size + (elements.size() - 1) * icon_gap
+		var start_x = card_size.x - total_w
+		var icon_y = card_size.y + icon_gap - 10
+		for i in elements.size():
+			var el_name: String = elements[i]
+			var icon_path = "res://assets/ui/elements/%s.webp" % el_name
+			if ResourceLoader.exists(icon_path):
+				var icon_tex: Texture2D = load(icon_path)
+				var icon_rect = TextureRect.new()
+				icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				icon_rect.position = Vector2(start_x + i * (icon_size + icon_gap), icon_y)
+				icon_rect.size = Vector2(icon_size, icon_size)
+				icon_rect.texture = icon_tex
+				icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				container.add_child(icon_rect)
+
 	# --- Name label ---
 	var full_name = config.get("full_name", action_name)
 	if full_name:
-		var name_cfg = config.get("name_pos", {"x": 0, "y": 500})
-		var name_scale_val = float(config.get("name_scale", 122))
-		var font_size = int(name_scale_val * sy)
 		var shadow_size = int(max(1, float(config.get("text_shadow_size", 3)) * sy))
 
 		var name_lbl = Label.new()
@@ -167,10 +192,9 @@ func _build_card_visual(config: Dictionary):
 		name_lbl.add_theme_color_override("font_outline_color", shadow_color)
 		name_lbl.add_theme_constant_override("outline_size", shadow_size)
 		name_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var label_h = font_size * 1.5
 		name_lbl.position = Vector2(
 			float(name_cfg.get("x", 0)) * sx,
-			cy + float(name_cfg.get("y", 0)) * sy - label_h / 2.0
+			name_y
 		)
 		name_lbl.size = Vector2(card_size.x, label_h)
 		container.add_child(name_lbl)
