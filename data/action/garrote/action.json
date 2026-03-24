@@ -15,7 +15,7 @@
   "tint": "#d62b00",
   "description": "Slip into range and constrict the target with a lethal wire for precise physical damage.",
   "cost": 3,
-  "element": [],
+  "element": ["shadow"],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,

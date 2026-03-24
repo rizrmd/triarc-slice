@@ -15,7 +15,7 @@
   "tint": "#fe9286",
   "description": "Provoke the enemy into focusing attention on the caster.",
   "cost": 2,
-  "element": [],
+  "element": ["fire"],
   "target_rule": "self",
   "visible_layers": {
     "card": true,

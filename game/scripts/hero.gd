@@ -49,6 +49,7 @@ var _name_label: Label
 
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	hp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cast_indicator.visible = false
 	_build_cast_indicator()
 	_build_hp_bar()
@@ -322,12 +323,14 @@ void fragment() {
 	_bar_bg.texture = bar_bg_tex
 	_bar_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_bar_bg.stretch_mode = TextureRect.STRETCH_SCALE
+	_bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hp_bar.add_child(_bar_bg)
 
 	_bar_fg = TextureRect.new()
 	_bar_fg.texture = bar_fg_tex
 	_bar_fg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_bar_fg.stretch_mode = TextureRect.STRETCH_SCALE
+	_bar_fg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fg_mat = ShaderMaterial.new()
 	fg_mat.shader = _bar_fill_shader
 	fg_mat.set_shader_parameter("fill", 1.0)
@@ -339,11 +342,13 @@ void fragment() {
 	_bar_frame.texture = bar_frame_tex
 	_bar_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_bar_frame.stretch_mode = TextureRect.STRETCH_SCALE
+	_bar_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hp_bar.add_child(_bar_frame)
 
 	_bar_label = Label.new()
 	_bar_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_bar_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_bar_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bar_label.add_theme_color_override("font_color", Color.WHITE)
 	_bar_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	_bar_label.add_theme_constant_override("shadow_offset_y", 1)
@@ -353,6 +358,7 @@ void fragment() {
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_name_label.add_theme_color_override("font_color", Color.WHITE)
 	_name_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
 	_name_label.add_theme_constant_override("shadow_offset_x", 3)

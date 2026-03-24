@@ -16,7 +16,7 @@
   "tint": "#6b1802",
   "description": "Lash the target with a heavy chain, dealing blunt physical damage and disrupting momentum.",
   "cost": 2,
-  "element": [],
+  "element": ["ice"],
   "target_rule": "enemy_single",
   "targeting": {
     "side": "enemy",
