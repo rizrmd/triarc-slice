@@ -4,6 +4,7 @@ Static Charge akan bertambah saat:
 
 Kaelen terkena serangan
 Kaelen menggunakan card action
+
 Pemain lalu bisa memilih satu skill di hero pane Kaelen. Skill itu akan menunggu sampai jumlah Static Charge yang dibutuhkan terpenuhi. Setelah cukup, skill akan aktif otomatis, lalu semua Static Charge habis.
 
 Berikut penjelasan skill Kaelen beserta charge yang dibutuhkan:
