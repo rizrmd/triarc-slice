@@ -7,3 +7,5 @@ screenshots
 build/
 android/
 *_backup.*
+assets/
+data/

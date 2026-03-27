@@ -163,6 +163,16 @@ func apply_gameplay_window_aspect():
 	var target_size := get_gameplay_window_size()
 	if target_size == Vector2i.ZERO:
 		return
+	
+	# Limit window size to available screen size (accounting for DPI scaling)
+	var screen_size := DisplayServer.screen_get_size()
+	if target_size.y > screen_size.y:
+		var scale := float(screen_size.y) / float(target_size.y)
+		target_size = Vector2i(int(target_size.x * scale), screen_size.y)
+	if target_size.x > screen_size.x:
+		var scale := float(screen_size.x) / float(target_size.x)
+		target_size = Vector2i(screen_size.x, int(target_size.y * scale))
+	
 	window.min_size = get_gameplay_min_window_size()
 	window.max_size = Vector2i.ZERO
 	window.unresizable = false
@@ -187,6 +197,16 @@ func enforce_gameplay_window_aspect_ratio():
 	var adjusted_size := current_size
 	adjusted_size.y = max(window.min_size.y, current_size.y)
 	adjusted_size.x = max(window.min_size.x, int(round(float(adjusted_size.y) * target_ratio)))
+	
+	# Limit to available screen size
+	var screen_size := DisplayServer.screen_get_size()
+	if adjusted_size.y > screen_size.y:
+		adjusted_size.y = screen_size.y
+		adjusted_size.x = int(round(float(adjusted_size.y) * target_ratio))
+	if adjusted_size.x > screen_size.x:
+		adjusted_size.x = screen_size.x
+		adjusted_size.y = int(round(float(adjusted_size.x) / target_ratio))
+	
 	if adjusted_size != current_size:
 		_set_window_size(window, adjusted_size)
 	else:
