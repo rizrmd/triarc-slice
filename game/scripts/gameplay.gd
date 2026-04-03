@@ -281,6 +281,12 @@ func _on_gameplay_aspect_changed(_aspect_key: String):
 	_apply_layout(false)
 
 func _update_game_state(data: Dictionary):
+	# CRITICAL: Disable ALL HP updates in mock mode to prevent random hits
+	if _local_mock_mode:
+		print("[Gameplay] Mock mode: BLOCKING state_update - no HP changes allowed")
+		return
+	
+	# Normal online mode - process state update
 	_resolve_ping_probe()
 	var match_data = data.get("match", {})
 	var heroes_data = data.get("heroes", [])
