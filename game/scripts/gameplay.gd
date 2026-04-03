@@ -168,6 +168,22 @@ func _input(event: InputEvent):
 	if _local_mock_mode and _dragging_card and event is InputEventMouseMotion:
 		_update_mock_drag_hover()
 	
+	# Handle target selection - check enemy click BEFORE it reaches Hero._gui_input
+	if _selecting_target and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var mouse_pos = get_global_mouse_position()
+		print("[Gameplay] _input: Checking enemy click at ", mouse_pos)
+		var enemy_hero = _get_enemy_hero_at_point(mouse_pos)
+		if enemy_hero and not enemy_hero.is_dead():
+			print("[Gameplay] Enemy clicked during target selection: ", enemy_hero.hero_slug)
+			_on_enemy_selected(enemy_hero)
+			get_viewport().set_input_as_handled()
+			return
+		else:
+			print("[Gameplay] Target selection cancelled - no enemy at point")
+			_cancel_target_selection()
+			get_viewport().set_input_as_handled()
+			return
+	
 	# Normal input handling
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
