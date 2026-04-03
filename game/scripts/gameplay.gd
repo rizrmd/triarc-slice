@@ -138,7 +138,7 @@ func _ready():
 			})
 
 func _process(delta):
-	_update_time_elapsed(_delta)
+	_update_time_elapsed(delta)
 	if _dragging_info:
 		_update_info_drag()
 	if _dragging_card:
@@ -474,6 +474,11 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 		if hero.hero_instance_id == instance_id:
 			return hero
 	return null
+
+## Show casting indicator on hero (wrapper for hero._show_casting)
+func _show_casting_indicator(hero: Hero, action_slug: String):
+	var cast_duration_ms = 1500  # 1.5 detik cast time
+	hero._show_casting("cast_%s_%d" % [action_slug, Time.get_ticks_msec()], cast_duration_ms, action_slug)
 
 func _on_card_drag_started(_card):
 	if _local_mock_mode:
