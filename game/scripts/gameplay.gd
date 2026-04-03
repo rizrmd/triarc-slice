@@ -157,6 +157,8 @@ func _process(delta):
 			_update_ping_probe()
 			while GameState.ws.get_available_packet_count() > 0:
 				var msg = GameState.ws.get_packet().get_string_from_utf8()
+				# Log WebSocket messages to debug random hits
+				print("[Gameplay] WS message: ", msg.substr(0, min(200, msg.length())))
 				_on_ws_message(msg)
 		elif state == WebSocketPeer.STATE_CLOSED:
 			print("[Gameplay] WebSocket disconnected")
@@ -1723,8 +1725,11 @@ func _process_mock_mode(delta: float):
 			current_energy = min(current_energy + 1, max_energy)
 			_update_energy_display()
 	
-	# Process DoT ticks
-	_process_mock_dot_ticks(delta)
+	# DISABLED: Process DoT ticks - fix random hit issue first
+	# _process_mock_dot_ticks(delta)
+	
+	# IMPORTANT: Skip WebSocket processing in mock mode to prevent random server hits
+	# WebSocket is handled in normal _process(), but we return early in mock mode
 
 func _process_mock_dot_ticks(delta: float):
 	_mock_dot_tick_timer += delta
@@ -1892,7 +1897,12 @@ func _on_enemy_selected_mock(enemy_hero: Hero):
 		_update_energy_display()
 		
 		if card.action_slug == "poison-strike":
-			_cast_poison_strike_mock(caster_hero, enemy_hero)
+			# DISABLED: Poison Strike DoT effect for now - fix random hit issue
+			# _cast_poison_strike_mock(caster_hero, enemy_hero)
+			# For now, just show cast indicator without damage
+			print("[Gameplay] Poison Strike cast (DoT disabled for debugging)")
+			_show_casting_indicator(caster_hero, card.action_slug)
+			# TODO: Fix random hit issue before enabling damage
 		else:
 			_show_casting_indicator(caster_hero, card.action_slug)
 		
