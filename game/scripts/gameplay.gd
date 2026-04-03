@@ -201,9 +201,11 @@ func _unhandled_input(event: InputEvent):
 			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var mouse_pos = get_global_mouse_position()
+		print("[Gameplay] _unhandled_input: mouse_pos=", mouse_pos, " _selecting_target=", _selecting_target)
 		
 		# Check if in target selection mode - click on enemy hero
 		if _selecting_target:
+			print("[Gameplay] In target selection mode, checking enemy click...")
 			var enemy_hero = _get_enemy_hero_at_point(mouse_pos)
 			if enemy_hero and not enemy_hero.is_dead():
 				print("[Gameplay] Clicked enemy during target selection: ", enemy_hero.hero_slug)
