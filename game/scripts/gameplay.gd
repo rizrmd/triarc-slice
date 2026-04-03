@@ -53,6 +53,11 @@ var _info_drag_virtual_pos: Vector2 = Vector2.ZERO
 
 const INFO_DRAG_THRESHOLD := 8.0
 
+# Target selection state (for manual targeting cards like Poison Strike)
+var _selecting_target: bool = false
+var _pending_card_data: Dictionary = {}  # {card, caster_hero, action_slug, slot_index, card_index_in_hand}
+var _target_selection_label: Label = null
+
 # Time elapsed
 var _time_elapsed_sec: float = 0.0
 var _time_text_layer_id: String = ""
@@ -147,8 +152,27 @@ func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F3:
 			_toggle_dev_panel()
+		# F12 disabled dari gameplay untuk mencegah konflik state dengan mockup mode
+		# Gunakan main menu untuk akses mockup mode
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var mouse_pos = get_global_mouse_position()
+		
+		# Check if in target selection mode - click on enemy hero
+		if _selecting_target:
+			var enemy_hero = _get_enemy_hero_at_point(mouse_pos)
+			if enemy_hero and not enemy_hero.is_dead():
+				print("[Gameplay] Clicked enemy during target selection: ", enemy_hero.hero_slug)
+				_on_enemy_selected(enemy_hero)
+				get_viewport().set_input_as_handled()
+				return
+			# Clicked elsewhere - cancel target selection
+			elif not _is_point_over_info_animap(event.position):
+				print("[Gameplay] Target selection cancelled - clicked outside enemy")
+				_cancel_target_selection()
+				get_viewport().set_input_as_handled()
+				return
+		
+		# Normal gameplay - click on ally hero
 		var clicked_hero = _get_my_hero_at_point(mouse_pos)
 		print("[Gameplay] global click pos=", mouse_pos, " clicked_hero=", clicked_hero.hero_slug if clicked_hero else "none")
 		if clicked_hero:
@@ -420,6 +444,15 @@ func _on_card_drag_ended(card, dropped_on_target):
 		_hover_tween.kill()
 	_clear_highlights()
 	if dropped_on_target:
+		# Check if this card requires manual target selection
+		var needs_manual_target = _card_needs_manual_target(card.action_slug)
+		
+		if needs_manual_target:
+			# Enter target selection mode - hide card but don't remove yet
+			card.visible = false
+			_start_target_selection(card, dropped_on_target)
+			return
+		
 		# Track the used card so state_update won't recreate it
 		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
 		# Remove the used card from hand
@@ -439,6 +472,166 @@ func _on_card_drag_ended(card, dropped_on_target):
 func _highlight_valid_targets(_target_rule: String):
 	for hero in my_heroes.values():
 		hero.set_char_brightness(0.4)
+
+## Check if a card requires manual target selection
+func _card_needs_manual_target(action_slug: String) -> bool:
+	# Load action config to check targeting.selection
+	var normalized = action_slug.replace("_", "-")
+	var path = "res://data/action/%s/action.json" % normalized
+	var file = FileAccess.open(path, FileAccess.READ)
+	if not file:
+		return false
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		return false
+	var targeting = json.data.get("targeting", {})
+	var selection = targeting.get("selection", "auto")
+	return selection == "manual"
+
+## Start target selection mode - show indicator and wait for enemy selection
+func _start_target_selection(card: Control, caster_hero: Hero):
+	_selecting_target = true
+	
+	# Find card index in hand for restoration
+	var card_index = hand_cards.find(card)
+	
+	_pending_card_data = {
+		"card": card,
+		"caster_hero": caster_hero,
+		"action_slug": card.action_slug,
+		"slot_index": card.slot_index,
+		"card_index": card_index
+	}
+	
+	# Create or show target selection label
+	_create_target_selection_label()
+	
+	# Highlight all enemy heroes as valid targets
+	_highlight_enemy_targets(true)
+	
+	print("[Gameplay] Target selection mode STARTED - action=", card.action_slug, " select enemy target")
+
+## Create the "Select enemy to attack" label
+func _create_target_selection_label():
+	if _target_selection_label:
+		_target_selection_label.queue_free()
+	
+	_target_selection_label = Label.new()
+	_target_selection_label.name = "TargetSelectionLabel"
+	_target_selection_label.text = "SELECT ENEMY TO ATTACK"
+	_target_selection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_target_selection_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_target_selection_label.add_theme_font_size_override("font_size", 48)
+	_target_selection_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3, 1.0))
+	_target_selection_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_target_selection_label.add_theme_constant_override("outline_size", 4)
+	_target_selection_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Position at top center of screen
+	var vp_size = get_viewport().get_visible_rect().size
+	_target_selection_label.position = Vector2(0, vp_size.y * 0.35)
+	_target_selection_label.size = Vector2(vp_size.x, 100)
+	
+	add_child(_target_selection_label)
+	
+	# Simple fade in animation (no looping to avoid infinite loop error)
+	_target_selection_label.modulate.a = 0.0
+	var tween = create_tween()
+	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(_target_selection_label, "modulate:a", 1.0, 0.3)
+
+## Highlight enemy heroes as valid targets
+func _highlight_enemy_targets(highlight: bool):
+	for hero in enemy_heroes.values():
+		if not hero.is_dead():
+			hero.set_drag_dimmed(not highlight)  # dimmed=false means highlighted
+
+## Handle enemy selection during target selection mode
+func _on_enemy_selected(enemy_hero: Hero):
+	if not _selecting_target:
+		return
+	
+	print("[Gameplay] Enemy selected: ", enemy_hero.hero_slug, " slot=", enemy_hero.slot_index)
+	
+	# Exit target selection mode
+	_exit_target_selection()
+	
+	# Now cast the action with the selected enemy as target
+	var card = _pending_card_data.get("card")
+	var caster_hero = _pending_card_data.get("caster_hero")
+	
+	if card and caster_hero:
+		# Track the used card
+		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
+		
+		# Remove card from hand
+		hand_cards.erase(card)
+		_layout_hand_cards(true)
+		
+		# Send cast action - server will resolve target based on selection
+		_cast_action_with_target(caster_hero, card.slot_index, enemy_hero.slot_index)
+		
+		card.queue_free()
+		
+		# Auto-reroll when all cards are used
+		if hand_cards.is_empty():
+			_reroll_entrance_pending = true
+			_used_hand_keys.clear()
+			_prev_server_keys.clear()
+			GameState.send_json({
+				"type": "reroll_hand",
+				"match_id": GameState.current_match_id
+			})
+
+## Exit target selection mode
+func _exit_target_selection():
+	_selecting_target = false
+	
+	# Remove selection label
+	if _target_selection_label:
+		_target_selection_label.queue_free()
+		_target_selection_label = null
+	
+	# Remove enemy highlights
+	_highlight_enemy_targets(false)
+	
+	print("[Gameplay] Target selection mode ENDED")
+
+## Cancel target selection and restore card to hand
+func _cancel_target_selection():
+	var card = _pending_card_data.get("card")
+	var card_index = _pending_card_data.get("card_index", -1)
+	
+	_exit_target_selection()
+	_pending_card_data.clear()
+	
+	if card and card_index >= 0:
+		# Card was hidden, restore it
+		card.visible = true
+		card.scale = Vector2(1.0, 1.0)
+		card.modulate.a = 1.0
+		
+		# Snap card back to original position in hand
+		var vp_size = get_viewport().get_visible_rect().size
+		var key = "action%d" % (card_index + 1)  # Layout uses 1-indexed
+		if _layout_boxes.has(key):
+			var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+			var tween = create_tween()
+			tween.set_ease(Tween.EASE_OUT)
+			tween.set_trans(Tween.TRANS_BACK)
+			tween.tween_property(card, "position", Vector2(r["x"], r["y"]), 0.3)
+		
+		print("[Gameplay] Target selection cancelled - card restored to slot ", card_index)
+
+## Send cast action with explicit target slot
+func _cast_action_with_target(caster: Hero, hand_slot: int, target_slot: int):
+	GameState.send_json({
+		"type": "cast_action",
+		"match_id": GameState.current_match_id,
+		"caster_slot": caster.slot_index,
+		"hand_slot_index": hand_slot,
+		"target_slot": target_slot  # Explicit target slot for manual targeting
+	})
 
 func _update_drag_hover():
 	var mouse_pos = get_global_mouse_position()
@@ -673,6 +866,13 @@ func _get_my_hero_at_point(point: Vector2) -> Hero:
 			return hero
 	return null
 
+func _get_enemy_hero_at_point(point: Vector2) -> Hero:
+	for hero in enemy_heroes.values():
+		if hero.get_global_rect().has_point(point):
+			print("[Gameplay] point over enemy=", hero.hero_slug, " slot=", hero.slot_index)
+			return hero
+	return null
+
 func _layout_hand_cards(animated: bool):
 	var vp_size = get_viewport().get_visible_rect().size
 	for i in range(hand_cards.size()):
@@ -736,6 +936,19 @@ func _on_back_pressed():
 	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+func _exit_to_mockup_mode():
+	print("[Gameplay] F12 pressed - entering mockup mode")
+	# Fade out
+	if fade_rect:
+		fade_rect.visible = true
+		fade_rect.color.a = 0.0
+		var tween = create_tween()
+		tween.tween_property(fade_rect, "color:a", 1.0, 0.3)
+		tween.tween_callback(func():
+			# Change to mockup scene
+			get_tree().change_scene_to_file("res://scenes/mockup_gameplay.tscn")
+		)
 
 func _on_disconnected():
 	_pending_ping_sent_at_ms = -1
