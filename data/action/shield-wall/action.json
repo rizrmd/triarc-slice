@@ -24,8 +24,7 @@
     "side": "ally",
     "scope": "single",
     "selection": "manual",
-    "allow_self": true,
-    "allow_dead": false
+    "allow_self": true
   },
   "visible_layers": {
     "card": true,
@@ -39,13 +38,5 @@
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
-  },
-  "gameplay": {
-    "casting_time_ms": 1200,
-    "effect_kind": "status",
-    "base_power": 0,
-    "status_kind": "shield",
-    "status_duration_ms": 6000,
-    "status_value": 20
   }
 }

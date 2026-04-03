@@ -348,6 +348,8 @@ func _is_valid_target(target: Control) -> bool:
 	if not target_hero:
 		return false
 	# Only your own alive, non-casting heroes are valid drop targets
+	# Note: Energy check is handled server-side or in mock mode
+	# Don't block here based on energy to allow visual feedback
 	return not target_hero.is_enemy and not target_hero.is_dead() and not target_hero.is_casting()
 
 func _cast_action(caster: Hero):
