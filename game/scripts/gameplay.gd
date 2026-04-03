@@ -584,6 +584,10 @@ func _start_target_selection(card: Control, caster_hero: Hero):
 	_highlight_enemy_targets(true)
 	
 	print("[Gameplay] Target selection mode STARTED - action=", card.action_slug, " select enemy target")
+	print("[Gameplay]   enemy_heroes count: ", enemy_heroes.size(), " my_heroes count: ", my_heroes.size())
+	for slot in enemy_heroes.keys():
+		var hero = enemy_heroes[slot]
+		print("[Gameplay]   Enemy ", slot, ": ", hero.hero_slug, " alive=", hero.is_alive)
 
 ## Create the "Select enemy to attack" label
 func _create_target_selection_label():
@@ -945,10 +949,14 @@ func _get_my_hero_at_point(point: Vector2) -> Hero:
 	return null
 
 func _get_enemy_hero_at_point(point: Vector2) -> Hero:
-	for hero in enemy_heroes.values():
+	print("[Gameplay] Checking enemy at point ", point, " enemy_heroes count: ", enemy_heroes.size())
+	for slot in enemy_heroes.keys():
+		var hero = enemy_heroes[slot]
+		print("[Gameplay]   Enemy slot ", slot, ": ", hero.hero_slug, " rect=", hero.get_global_rect(), " has_point=", hero.get_global_rect().has_point(point))
 		if hero.get_global_rect().has_point(point):
-			print("[Gameplay] point over enemy=", hero.hero_slug, " slot=", hero.slot_index)
+			print("[Gameplay]   FOUND enemy: ", hero.hero_slug)
 			return hero
+	print("[Gameplay]   No enemy found at point")
 	return null
 
 func _layout_hand_cards(animated: bool):
