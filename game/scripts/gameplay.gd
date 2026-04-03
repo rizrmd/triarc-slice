@@ -250,12 +250,20 @@ func _notification(what: int):
 		_apply_layout(false)
 
 func _on_ws_message(msg: String):
+	# DEBUG: Log all WebSocket messages
+	print("[Gameplay] _on_ws_message received: ", msg.substr(0, min(300, msg.length())))
+	
 	var json = JSON.new()
 	if json.parse(msg) != OK:
 		return
 	
 	var data: Dictionary = json.data
 	var msg_type: String = data.get("type", "")
+	
+	# IMPORTANT: Ignore state_update in mock mode to prevent random hits
+	if _local_mock_mode and msg_type == "state_update":
+		print("[Gameplay] IGNORING state_update in mock mode to prevent random hits")
+		return
 	
 	match msg_type:
 		"state_update":
