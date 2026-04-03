@@ -503,16 +503,22 @@ func _on_card_drag_ended(card, dropped_on_target):
 	if _hover_tween and _hover_tween.is_valid():
 		_hover_tween.kill()
 	_clear_highlights()
+	
 	if dropped_on_target:
+		print("[Gameplay] Card dropped on target: ", card.action_slug, " target=", dropped_on_target.hero_slug if dropped_on_target else "null")
+		
 		# Check if this card requires manual target selection
 		var needs_manual_target = _card_needs_manual_target(card.action_slug)
 		
 		if needs_manual_target:
+			print("[Gameplay] ENTERING TARGET SELECTION MODE for ", card.action_slug)
 			# Enter target selection mode - hide card but don't remove yet
 			card.visible = false
 			_start_target_selection(card, dropped_on_target)
 			return
 		
+		# Auto-target cards (normal flow)
+		print("[Gameplay] Auto-target card, sending cast_action")
 		# Track the used card so state_update won't recreate it
 		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
 		# Remove the used card from hand
@@ -540,12 +546,16 @@ func _card_needs_manual_target(action_slug: String) -> bool:
 	var path = "res://data/action/%s/action.json" % normalized
 	var file = FileAccess.open(path, FileAccess.READ)
 	if not file:
+		print("[Gameplay] WARNING: action.json not found for ", action_slug)
 		return false
 	var json = JSON.new()
-	if json.parse(file.get_as_text()) != OK:
+	var parse_result = json.parse(file.get_as_text())
+	if parse_result != OK:
+		print("[Gameplay] WARNING: Failed to parse action.json for ", action_slug, " error: ", parse_result)
 		return false
 	var targeting = json.data.get("targeting", {})
 	var selection = targeting.get("selection", "auto")
+	print("[Gameplay] Card ", action_slug, " targeting.selection = ", selection)
 	return selection == "manual"
 
 ## Start target selection mode - show indicator and wait for enemy selection
