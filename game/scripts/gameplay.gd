@@ -125,11 +125,12 @@ func _ready():
 	_update_hero_detail_placeholder()
 
 	# Check if local mock mode is enabled (F12 toggle)
+	# Note: _local_mock_mode persists through scene reload because it's a script variable
 	if _local_mock_mode:
 		_init_mock_mode()
 	else:
 		# Request initial match state (normal online mode)
-		if not GameState.current_match_id.is_empty():
+		if not GameState.current_match_id.is_empty() and GameState.ws:
 			_pending_ping_sent_at_ms = _now_ms()
 			_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
 			GameState.send_json({
@@ -1569,8 +1570,9 @@ func _toggle_local_mock_mode():
 			GameState.ws.close()
 			GameState.ws = null
 		
-		# Reload scene to initialize mock mode
-		get_tree().reload_current_scene()
+		# Initialize mock mode directly without reloading scene
+		# This preserves _local_mock_mode state
+		_init_mock_mode()
 	else:
 		# Return to main menu to switch to online mode
 		GameState.current_match_id = ""
