@@ -2,7 +2,7 @@ extends Button
 ## ActionCard - Draggable action card rendered like the editor preview
 
 signal card_drag_started(card: Button)
-signal card_drag_ended(card: Button, dropped_on_target: bool)
+signal card_drag_ended(card: Button, dropped_on_hero: Hero)
 
 var action_slug: String = ""
 var action_name: String = ""
@@ -314,17 +314,18 @@ func _end_drag():
 	var dropped_on = _get_drop_target()
 	var valid_drop = _is_valid_target(dropped_on)
 
-	if valid_drop:
+	if valid_drop and dropped_on:
 		# Hide immediately — before any property resets that could flash
 		visible = false
-		_cast_action(dropped_on)
-		card_drag_ended.emit(self, true)
+		# Emit signal to let gameplay handle casting (for target selection support)
+		# Pass the Hero object, not boolean
+		card_drag_ended.emit(self, dropped_on)
 	else:
 		scale = Vector2(1.0, 1.0)
 		modulate.a = 1.0
 		z_index = 1
 		_snap_back()
-		card_drag_ended.emit(self, false)
+		card_drag_ended.emit(self, null)
 
 func _get_drop_target() -> Control:
 	var card_rect = get_global_rect()
