@@ -76,6 +76,10 @@ var _next_ping_probe_at_ms: int = 0
 var _ping_samples: Array[int] = []
 var _display_ping_ms: int = -1
 
+# HP change filtering to prevent random/small damage ticks
+var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
+const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
+
 # Local mock mode for testing without server (integrated from mockup_gameplay.gd)
 var _local_mock_mode: bool = false
 var _mock_energy_regen_timer: float = 0.0
@@ -287,11 +291,25 @@ func _update_game_state(data: Dictionary):
 			_tween_energy(team_state.get("energy", 0))
 			max_energy = team_state.get("energy_max", 10)
 	
-	# Update heroes
+	# Update heroes - with HP filtering to prevent random small damage
 	for hero_data in heroes_data:
 		var slot = hero_data.get("slot_index", 0)
 		var team = hero_data.get("team", 0)
 		var is_enemy = (team != GameState.current_team)
+		var hero_id = hero_data.get("hero_instance_id", "")
+		
+		# Filter: Skip small HP changes that are likely DoT ticks or sync noise
+		if _last_known_hp.has(hero_id):
+			var old_hp = _last_known_hp[hero_id]
+			var new_hp = hero_data.get("hp_current", old_hp)
+			var delta = old_hp - new_hp
+			
+			# Ignore small damage (< 10) - likely DoT or server sync noise
+			if delta > 0 and delta < MIN_DAMAGE_THRESHOLD:
+				print("[Gameplay] Filtering small HP change: ", hero_data.get("hero_slug", ""), " delta=", delta, " (keeping ", old_hp, ")")
+				hero_data["hp_current"] = old_hp  # Keep old HP
+		
+		_last_known_hp[hero_id] = hero_data.get("hp_current", 0)
 		
 		var hero_node = _get_or_create_hero(slot, is_enemy, hero_data)
 		hero_node.update_state(hero_data)
