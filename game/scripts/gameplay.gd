@@ -517,13 +517,17 @@ func _on_card_drag_ended(card, dropped_on_target):
 			_start_target_selection(card, dropped_on_target)
 			return
 		
-		# Auto-target cards (normal flow)
-		print("[Gameplay] Auto-target card, sending cast_action")
+		# Auto-target cards (normal flow) - card already hidden, now cast
+		print("[Gameplay] Auto-target card, casting immediately: ", card.action_slug)
 		# Track the used card so state_update won't recreate it
 		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
 		# Remove the used card from hand
 		hand_cards.erase(card)
 		_layout_hand_cards(true)
+		
+		# Cast the action (send to server)
+		card._cast_action(dropped_on_target)
+		
 		card.queue_free()
 		# Auto-reroll when all cards are used (server grants free reroll)
 		if hand_cards.is_empty():

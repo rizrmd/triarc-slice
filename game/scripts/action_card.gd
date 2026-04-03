@@ -314,10 +314,10 @@ func _end_drag():
 	var dropped_on = _get_drop_target()
 	var valid_drop = _is_valid_target(dropped_on)
 
-	if valid_drop:
+	if valid_drop and dropped_on:
 		# Hide immediately — before any property resets that could flash
 		visible = false
-		_cast_action(dropped_on)
+		# Emit signal to let gameplay handle casting (for target selection support)
 		card_drag_ended.emit(self, true)
 	else:
 		scale = Vector2(1.0, 1.0)
