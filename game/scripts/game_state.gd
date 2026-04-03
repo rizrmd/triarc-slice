@@ -22,6 +22,9 @@ const MAX_HEROES: int = 3
 # WebSocket reference (set by main.gd)
 var ws: WebSocketPeer = null
 
+# Local mock mode for testing without server
+var local_mock_mode: bool = false
+
 # Hero definitions cache
 var hero_defs: Dictionary = {}
 var action_defs: Dictionary = {}
@@ -433,8 +436,45 @@ func should_return_to_hero_select() -> bool:
 	return true
 
 func send_json(data: Dictionary) -> void:
+	if local_mock_mode:
+		# Handle mock mode locally
+		_handle_mock_message(data)
+		return
 	if ws and ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		ws.send_text(JSON.stringify(data))
+
+func _handle_mock_message(data: Dictionary) -> void:
+	# Route mock messages to appropriate handlers
+	var msg_type = data.get("type", "")
+	match msg_type:
+		"cast_action":
+			_handle_mock_cast_action(data)
+		"reroll_hand":
+			_handle_mock_reroll_hand(data)
+		"get_match_state":
+			_handle_mock_get_state(data)
+		"leave_match":
+			_handle_mock_leave_match(data)
+
+func _handle_mock_cast_action(data: Dictionary) -> void:
+	# Forward to gameplay node for local resolution
+	var gameplay = get_tree().get_first_node_in_group("gameplay")
+	if gameplay and gameplay.has_method("_on_mock_cast_action"):
+		gameplay._on_mock_cast_action(data)
+
+func _handle_mock_reroll_hand(data: Dictionary) -> void:
+	var gameplay = get_tree().get_first_node_in_group("gameplay")
+	if gameplay and gameplay.has_method("_on_mock_reroll_hand"):
+		gameplay._on_mock_reroll_hand(data)
+
+func _handle_mock_get_state(data: Dictionary) -> void:
+	# In mock mode, gameplay manages its own state
+	pass
+
+func _handle_mock_leave_match(data: Dictionary) -> void:
+	var gameplay = get_tree().get_first_node_in_group("gameplay")
+	if gameplay and gameplay.has_method("_on_back_pressed"):
+		gameplay._on_back_pressed()
 
 # --- Hero selection persistence ---
 

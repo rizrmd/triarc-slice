@@ -138,6 +138,26 @@ func _process(_delta: float) -> void:
 			GameState.ws = null
 			_on_ws_disconnected()
 
+# --- Mockup Mode Toggle (F12) ---
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_F12:
+		_toggle_mockup_mode()
+
+func _toggle_mockup_mode() -> void:
+	print("[Main] F12 pressed - toggling mockup mode")
+	# Fade out
+	var fade_rect: ColorRect = $FadeRect
+	if fade_rect:
+		fade_rect.visible = true
+		fade_rect.color.a = 0.0
+		var tween = create_tween()
+		tween.tween_property(fade_rect, "color:a", 1.0, 0.3)
+		tween.tween_callback(func():
+			# Change to mockup scene
+			get_tree().change_scene_to_file("res://scenes/mockup_gameplay.tscn")
+		)
+
 func _on_ws_disconnected() -> void:
 	match _current_view:
 		"find_match":
