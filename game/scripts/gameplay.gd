@@ -491,10 +491,10 @@ func _on_card_drag_started(_card):
 	_hovered_hero = null
 	_highlight_valid_targets(_card.target_rule)
 
-func _on_card_drag_ended(card, dropped_on_target):
+func _on_card_drag_ended(card, dropped_on_hero):
 	# Mock mode handling
 	if _local_mock_mode:
-		_on_card_drag_ended_mock(card, dropped_on_target)
+		_on_card_drag_ended_mock(card, dropped_on_hero != null)
 		return
 	
 	# Normal online mode
@@ -504,8 +504,8 @@ func _on_card_drag_ended(card, dropped_on_target):
 		_hover_tween.kill()
 	_clear_highlights()
 	
-	if dropped_on_target:
-		print("[Gameplay] Card dropped on target: ", card.action_slug, " target=", dropped_on_target.hero_slug if dropped_on_target else "null")
+	if dropped_on_hero:
+		print("[Gameplay] Card dropped on hero: ", card.action_slug, " target=", dropped_on_hero.hero_slug)
 		
 		# Check if this card requires manual target selection
 		var needs_manual_target = _card_needs_manual_target(card.action_slug)
@@ -514,7 +514,7 @@ func _on_card_drag_ended(card, dropped_on_target):
 			print("[Gameplay] ENTERING TARGET SELECTION MODE for ", card.action_slug)
 			# Enter target selection mode - hide card but don't remove yet
 			card.visible = false
-			_start_target_selection(card, dropped_on_target)
+			_start_target_selection(card, dropped_on_hero)
 			return
 		
 		# Auto-target cards (normal flow) - card already hidden, now cast
@@ -526,7 +526,7 @@ func _on_card_drag_ended(card, dropped_on_target):
 		_layout_hand_cards(true)
 		
 		# Cast the action (send to server)
-		card._cast_action(dropped_on_target)
+		card._cast_action(dropped_on_hero)
 		
 		card.queue_free()
 		# Auto-reroll when all cards are used (server grants free reroll)
