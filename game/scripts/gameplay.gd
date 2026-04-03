@@ -1563,6 +1563,12 @@ func _toggle_local_mock_mode():
 	print("[Gameplay] Local mock mode: ", "ON" if _local_mock_mode else "OFF")
 	
 	if _local_mock_mode:
+		# Disconnect WebSocket to prevent server state updates during mock mode
+		if GameState.ws:
+			print("[Gameplay] Mock mode: Disconnecting WebSocket to prevent server interference")
+			GameState.ws.close()
+			GameState.ws = null
+		
 		# Reload scene to initialize mock mode
 		get_tree().reload_current_scene()
 	else:
