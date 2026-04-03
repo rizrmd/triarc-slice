@@ -76,6 +76,35 @@ var _next_ping_probe_at_ms: int = 0
 var _ping_samples: Array[int] = []
 var _display_ping_ms: int = -1
 
+# Local mock mode for testing without server (integrated from mockup_gameplay.gd)
+var _local_mock_mode: bool = false
+var _mock_energy_regen_timer: float = 0.0
+var _mock_dot_tick_timer: float = 0.0
+var _mock_active_dot_effects: Dictionary = {}  # enemy_instance_id -> {damage_per_tick, ticks_remaining, stacks, hero}
+const MOCK_DOT_TICK_INTERVAL: float = 1.0
+const MOCK_DOT_MAX_STACKS: int = 3
+
+# Mock data for testing
+var _mock_ally_heroes: Array[Dictionary] = [
+	{"slug": "night-venom", "hp": 2500, "max_hp": 2500, "slot": 0},
+	{"slug": "arcane-paladin", "hp": 3200, "max_hp": 3200, "slot": 1},
+	{"slug": "tyrant-overlord", "hp": 3800, "max_hp": 3800, "slot": 2},
+]
+
+var _mock_enemy_heroes: Array[Dictionary] = [
+	{"slug": "earth-warden", "hp": 3600, "max_hp": 3600, "slot": 0},
+	{"slug": "dawn-priest", "hp": 2800, "max_hp": 2800, "slot": 1},
+	{"slug": "flame-warlock", "hp": 2314, "max_hp": 2400, "slot": 2},
+]
+
+var _mock_hand: Array[Dictionary] = [
+	{"action": "poison-strike", "cost": 3, "slot": 0},
+	{"action": "flame-lance", "cost": 3, "slot": 1},
+	{"action": "stand-firm", "cost": 2, "slot": 2},
+	{"action": "shadowstep", "cost": 3, "slot": 3},
+	{"action": "taunt", "cost": 2, "slot": 4},
+]
+
 func _ready():
 	add_to_group("gameplay")
 
@@ -95,23 +124,32 @@ func _ready():
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
 
-	# Request initial match state
-	if not GameState.current_match_id.is_empty():
-		_pending_ping_sent_at_ms = _now_ms()
-		_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
-		GameState.send_json({
-			"type": "get_match_state",
-			"match_id": GameState.current_match_id
-		})
+	# Check if local mock mode is enabled (F12 toggle)
+	if _local_mock_mode:
+		_init_mock_mode()
+	else:
+		# Request initial match state (normal online mode)
+		if not GameState.current_match_id.is_empty():
+			_pending_ping_sent_at_ms = _now_ms()
+			_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
+			GameState.send_json({
+				"type": "get_match_state",
+				"match_id": GameState.current_match_id
+			})
 
-func _process(_delta):
+func _process(delta):
 	_update_time_elapsed(_delta)
 	if _dragging_info:
 		_update_info_drag()
 	if _dragging_card:
 		_update_drag_hover()
 
-	# Poll and process WebSocket messages
+	# Local mock mode processing
+	if _local_mock_mode:
+		_process_mock_mode(delta)
+		return
+
+	# Normal online mode - Poll WebSocket messages
 	if GameState.ws:
 		GameState.ws.poll()
 		var state = GameState.ws.get_ready_state()
@@ -126,6 +164,11 @@ func _process(_delta):
 			_on_disconnected()
 
 func _input(event: InputEvent):
+	# Handle drag hover tracking for mock mode
+	if _local_mock_mode and _dragging_card and event is InputEventMouseMotion:
+		_update_mock_drag_hover()
+	
+	# Normal input handling
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			if _is_point_over_info_animap(event.position):
@@ -152,8 +195,10 @@ func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F3:
 			_toggle_dev_panel()
-		# F12 disabled dari gameplay untuk mencegah konflik state dengan mockup mode
-		# Gunakan main menu untuk akses mockup mode
+		# F12 - Toggle local mock mode for testing without server
+		if event.keycode == KEY_F12:
+			_toggle_local_mock_mode()
+			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var mouse_pos = get_global_mouse_position()
 		
@@ -431,6 +476,10 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 	return null
 
 func _on_card_drag_started(_card):
+	if _local_mock_mode:
+		_on_card_drag_started_mock(_card)
+		return
+	
 	print("[Gameplay] drag started action=", _card.action_slug, " slot=", _card.slot_index, " clearing selection")
 	_clear_selected_hero()
 	_dragging_card = _card
@@ -438,6 +487,12 @@ func _on_card_drag_started(_card):
 	_highlight_valid_targets(_card.target_rule)
 
 func _on_card_drag_ended(card, dropped_on_target):
+	# Mock mode handling
+	if _local_mock_mode:
+		_on_card_drag_ended_mock(card, dropped_on_target)
+		return
+	
+	# Normal online mode
 	_dragging_card = null
 	_hovered_hero = null
 	if _hover_tween and _hover_tween.is_valid():
@@ -548,6 +603,10 @@ func _highlight_enemy_targets(highlight: bool):
 
 ## Handle enemy selection during target selection mode
 func _on_enemy_selected(enemy_hero: Hero):
+	if _local_mock_mode:
+		_on_enemy_selected_mock(enemy_hero)
+		return
+	
 	if not _selecting_target:
 		return
 	
@@ -914,6 +973,10 @@ func _get_hand_card_key(slot_index: int, action_slug: String) -> String:
 	return "%s::%s" % [slot_index, action_slug]
 
 func _on_reroll_pressed():
+	if _local_mock_mode:
+		_on_reroll_pressed_mock()
+		return
+	
 	if _rerolling or _reroll_animating:
 		return
 	_rerolling = true
@@ -1435,3 +1498,404 @@ func _update_dev_panel():
 	lines.append("")
 	lines.append("[color=gray]Press F3 to close[/color]")
 	_dev_label.text = "\n".join(lines)
+
+# ============================================================================
+# LOCAL MOCK MODE - Integrated from mockup_gameplay.gd for testing without server
+# ============================================================================
+
+func _toggle_local_mock_mode():
+	_local_mock_mode = not _local_mock_mode
+	print("[Gameplay] Local mock mode: ", "ON" if _local_mock_mode else "OFF")
+	
+	if _local_mock_mode:
+		# Reload scene to initialize mock mode
+		get_tree().reload_current_scene()
+	else:
+		# Return to main menu to switch to online mode
+		GameState.current_match_id = ""
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+func _init_mock_mode():
+	print("[Gameplay] Initializing LOCAL MOCK MODE - testing without server")
+	
+	# Set initial energy
+	current_energy = 10
+	max_energy = 10
+	_update_energy_display()
+	
+	# Spawn mock heroes
+	_spawn_mock_heroes()
+	
+	# Spawn mock hand
+	_spawn_mock_hand()
+	
+	# Play entrance animation
+	_play_mock_entrance_animation()
+	
+	# Set initial time
+	_time_elapsed_sec = 125.0  # 2:05
+	_update_time_text()
+
+func _spawn_mock_heroes():
+	var vp_size = get_viewport().get_visible_rect().size
+	
+	# Spawn enemy heroes
+	for hero_data in _mock_enemy_heroes:
+		var slot = hero_data["slot"]
+		var key = "enemy%d" % (slot + 1)
+		if not _layout_boxes.has(key):
+			continue
+		
+		var hero = HERO_SCENE.instantiate()
+		heroes_container.add_child(hero)
+		enemy_heroes[slot] = hero
+		
+		var box = _layout_boxes[key]
+		var r = GameState.resolve_box(box, vp_size, _layout_aspect_key)
+		
+		hero.position = Vector2(r["x"], r["y"])
+		hero.size = Vector2(r["width"], r["height"])
+		
+		var setup_data = {
+			"hero_instance_id": "mock_enemy_%d" % slot,
+			"hero_slug": hero_data["slug"],
+			"team": 2,
+			"slot_index": slot,
+			"hp_current": hero_data["hp"],
+			"hp_max": hero_data["max_hp"],
+			"alive": true
+		}
+		hero.setup(setup_data, true)
+		hero.apply_layout_size(Vector2(r["width"], r["height"]))
+		hero.modulate.a = 0.0
+		hero.scale = Vector2(0.5, 0.5)
+	
+	# Spawn ally heroes
+	for hero_data in _mock_ally_heroes:
+		var slot = hero_data["slot"]
+		var key = "hero%d" % (slot + 1)
+		if not _layout_boxes.has(key):
+			continue
+		
+		var hero = HERO_SCENE.instantiate()
+		heroes_container.add_child(hero)
+		my_heroes[slot] = hero
+		
+		var box = _layout_boxes[key]
+		var r = GameState.resolve_box(box, vp_size, _layout_aspect_key)
+		
+		hero.position = Vector2(r["x"], r["y"])
+		hero.size = Vector2(r["width"], r["height"])
+		
+		var setup_data = {
+			"hero_instance_id": "mock_ally_%d" % slot,
+			"hero_slug": hero_data["slug"],
+			"team": 1,
+			"slot_index": slot,
+			"hp_current": hero_data["hp"],
+			"hp_max": hero_data["max_hp"],
+			"alive": true
+		}
+		hero.setup(setup_data, false)
+		hero.apply_layout_size(Vector2(r["width"], r["height"]))
+		hero.modulate.a = 0.0
+		hero.scale = Vector2(0.5, 0.5)
+	
+	print("[Gameplay] Mock mode: Spawned ", enemy_heroes.size(), " enemy heroes and ", my_heroes.size(), " ally heroes")
+
+func _spawn_mock_hand():
+	var vp_size = get_viewport().get_visible_rect().size
+	
+	for i in range(_mock_hand.size()):
+		var key = "action%d" % (i + 1)
+		if not _layout_boxes.has(key):
+			continue
+		
+		var card = ACTION_CARD_SCENE.instantiate()
+		hand_container.add_child(card)
+		
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+		var target_pos = Vector2(r["x"], r["y"])
+		
+		card.position = Vector2(target_pos.x + 300, target_pos.y)
+		card.size = Vector2(r["width"], r["height"])
+		
+		var setup_data = {
+			"action_slug": _mock_hand[i]["action"],
+			"slot_index": _mock_hand[i]["slot"],
+			"action_name": _mock_hand[i]["action"].capitalize(),
+			"energy_cost": _mock_hand[i]["cost"],
+			"target_rule": "enemy"
+		}
+		card.setup(setup_data)
+		card.card_drag_started.connect(_on_card_drag_started)
+		card.card_drag_ended.connect(_on_card_drag_ended)
+		card.modulate.a = 0.0
+		
+		hand_cards.append(card)
+	
+	print("[Gameplay] Mock mode: Spawned ", hand_cards.size(), " cards")
+
+func _play_mock_entrance_animation():
+	var fade_tween = create_tween()
+	fade_tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+	
+	var hero_delay = 0.3
+	for hero in heroes_container.get_children():
+		var tween = create_tween().set_parallel(true)
+		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(hero, "modulate:a", 1.0, 0.4).set_delay(hero_delay)
+		tween.tween_property(hero, "scale", Vector2(1.0, 1.0), 0.4).set_delay(hero_delay)
+		hero_delay += 0.1
+	
+	var card_delay = 0.6
+	for card in hand_container.get_children():
+		var target_x = card.position.x - 300
+		var tween = create_tween().set_parallel(true)
+		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tween.tween_property(card, "modulate:a", 1.0, 0.35).set_delay(card_delay)
+		tween.tween_property(card, "position:x", target_x, 0.45).set_delay(card_delay)
+		card_delay += 0.08
+	
+	_animate_ui_element(energy_bar, 0.7, Vector2(0, 30))
+	_animate_ui_element(reroll_button, 0.8, Vector2(0, 30))
+	_animate_ui_element(back_button, 0.75, Vector2(0, -20))
+	if time_animap:
+		_animate_ui_element(time_animap, 0.68, Vector2(0, -20))
+	if info_animap:
+		_animate_ui_element(info_animap, 0.65, Vector2(0, -20))
+
+func _animate_ui_element(element: Control, delay: float, offset: Vector2):
+	var final_pos = element.position
+	element.position += offset
+	var tween = create_tween().set_parallel(true)
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(element, "modulate:a", 1.0, 0.35).set_delay(delay)
+	tween.tween_property(element, "position", final_pos, 0.4).set_delay(delay)
+
+func _process_mock_mode(delta: float):
+	# Time elapsed
+	_time_elapsed_sec += delta
+	_update_time_text()
+	
+	# Energy regeneration (1 per second)
+	if current_energy < max_energy:
+		_mock_energy_regen_timer += delta
+		if _mock_energy_regen_timer >= 1.0:
+			_mock_energy_regen_timer = 0.0
+			current_energy = min(current_energy + 1, max_energy)
+			_update_energy_display()
+	
+	# Process DoT ticks
+	_process_mock_dot_ticks(delta)
+
+func _process_mock_dot_ticks(delta: float):
+	_mock_dot_tick_timer += delta
+	
+	if _mock_dot_tick_timer >= MOCK_DOT_TICK_INTERVAL:
+		_mock_dot_tick_timer = 0.0
+		
+		var enemies_to_remove: Array = []
+		
+		for enemy_id in _mock_active_dot_effects.keys():
+			var dot = _mock_active_dot_effects[enemy_id]
+			var hero: Hero = dot.get("hero")
+			
+			if not is_instance_valid(hero) or hero.is_dead():
+				enemies_to_remove.append(enemy_id)
+				continue
+			
+			var total_dot_damage = dot["damage_per_tick"] * dot.get("stacks", 1)
+			hero.take_damage(total_dot_damage)
+			
+			print("[Gameplay] Mock DoT tick on ", hero.hero_slug, ": -", total_dot_damage, " HP (stacks: ", dot.get("stacks", 1), ")")
+			
+			dot["ticks_remaining"] -= 1
+			
+			if dot["ticks_remaining"] <= 0:
+				enemies_to_remove.append(enemy_id)
+				print("[Gameplay] Mock DoT expired on ", hero.hero_slug)
+		
+		for enemy_id in enemies_to_remove:
+			_mock_active_dot_effects.erase(enemy_id)
+
+func _cast_poison_strike_mock(caster: Hero, target: Hero):
+	var base_power = 80
+	var caster_def = GameState.get_hero_def(caster.hero_slug)
+	var caster_atk = caster_def.get("attack", 100)
+	var caster_earth_affinity = caster_def.get("element_affinity", {}).get("earth", 0)
+	var caster_shadow_affinity = caster_def.get("element_affinity", {}).get("shadow", 0)
+	
+	var target_def = GameState.get_hero_def(target.hero_slug)
+	var target_defense = target_def.get("defense", 50)
+	var target_earth_affinity = target_def.get("element_affinity", {}).get("earth", 0)
+	var target_shadow_affinity = target_def.get("element_affinity", {}).get("shadow", 0)
+	
+	var caster_affinity = max(caster_earth_affinity, caster_shadow_affinity)
+	var target_affinity = min(target_earth_affinity, target_shadow_affinity)
+	
+	var damage = int(
+		(float(base_power) * float(caster_atk) / 100.0)
+		* (1.0 + float(caster_affinity) / 100.0)
+		* (100.0 / (100.0 + float(target_defense)))
+		* (1.0 - float(target_affinity) / 100.0)
+	)
+	damage = max(1, damage)
+	
+	print("[Gameplay] Mock Poison Strike damage: ", damage)
+	
+	_show_casting_indicator(caster, "poison-strike")
+	
+	await get_tree().create_timer(1.5).timeout
+	
+	target.take_damage(damage)
+	
+	var dot_damage = int(damage * 0.4)
+	var dot_ticks = 3
+	_apply_mock_dot_effect(target, dot_damage, dot_ticks, "poison")
+	
+	print("[Gameplay] Mock Poison DoT applied: ", dot_damage, "/tick for ", dot_ticks, " ticks")
+
+func _apply_mock_dot_effect(target_hero: Hero, damage_per_tick: int, ticks: int, dot_type: String):
+	var enemy_id = target_hero.hero_instance_id
+	
+	if _mock_active_dot_effects.has(enemy_id):
+		var existing = _mock_active_dot_effects[enemy_id]
+		if existing.get("stacks", 0) < MOCK_DOT_MAX_STACKS:
+			existing["stacks"] = existing.get("stacks", 0) + 1
+			existing["damage_per_tick"] = max(existing["damage_per_tick"], damage_per_tick)
+			existing["ticks_remaining"] = min(existing["ticks_remaining"] + ticks, 10)
+			print("[Gameplay] Mock DoT stacked! Stacks: ", existing["stacks"])
+	else:
+		_mock_active_dot_effects[enemy_id] = {
+			"hero": target_hero,
+			"damage_per_tick": damage_per_tick,
+			"ticks_remaining": ticks,
+			"stacks": 1,
+			"type": dot_type
+		}
+	
+	target_hero.show_dot_applied(dot_type, damage_per_tick, ticks)
+
+func _on_reroll_pressed_mock():
+	if current_energy < 2:
+		print("[Gameplay] Mock reroll: Not enough energy!")
+		return
+	
+	current_energy -= 2
+	_update_energy_display()
+	
+	hand_cards.clear()
+	for child in hand_container.get_children():
+		child.queue_free()
+	
+	await get_tree().create_timer(0.1).timeout
+	
+	_spawn_mock_hand()
+	_play_mock_reroll_entrance()
+
+func _play_mock_reroll_entrance():
+	var card_delay = 0.0
+	for card in hand_container.get_children():
+		if card is Button:
+			var tween = create_tween().set_parallel(true)
+			tween.tween_property(card, "modulate:a", 1.0, 0.35).set_delay(card_delay)
+			tween.tween_property(card, "position:x", card.position.x - 300, 0.55).set_delay(card_delay)
+			card_delay += 0.12
+
+func _update_energy_display():
+	if energy_bar:
+		var current_lbl = energy_bar.get_node_or_null("CurrentLabel")
+		var max_lbl = energy_bar.get_node_or_null("MaxLabel")
+		if current_lbl:
+			current_lbl.text = str(current_energy)
+		if max_lbl:
+			max_lbl.text = str(max_energy)
+		
+		var energy_full = energy_bar.get_node_or_null("EnergyFull")
+		if energy_full and energy_full.material is ShaderMaterial:
+			var ratio = float(current_energy) / float(max_energy)
+			(energy_full.material as ShaderMaterial).set_shader_parameter("fill_amount", ratio)
+	
+	for card in hand_cards:
+		if card.has_method("can_afford"):
+			card.set_enabled(card.can_afford(current_energy))
+
+func _on_card_drag_ended_mock(card, valid_drop: bool):
+	if valid_drop and _current_drag_target and _current_drag_target is Hero:
+		if _card_needs_manual_target(card.action_slug):
+			card.visible = false
+			_start_target_selection(card, _current_drag_target)
+			return
+		
+		current_energy = max(0, current_energy - card.energy_cost)
+		_update_energy_display()
+		_show_casting_indicator(_current_drag_target, card.action_slug)
+		
+		var card_index = hand_cards.find(card)
+		if card_index >= 0:
+			hand_cards.remove_at(card_index)
+		card.queue_free()
+		_reindex_hand_cards()
+	
+	_dragging_card = null
+	_current_drag_target = null
+
+func _on_enemy_selected_mock(enemy_hero: Hero):
+	if not _selecting_target:
+		return
+	
+	_exit_target_selection()
+	
+	var card = _pending_card_data.get("card")
+	var caster_hero = _pending_card_data.get("caster_hero")
+	
+	if card and caster_hero:
+		current_energy = max(0, current_energy - card.energy_cost)
+		_update_energy_display()
+		
+		if card.action_slug == "poison-strike":
+			_cast_poison_strike_mock(caster_hero, enemy_hero)
+		else:
+			_show_casting_indicator(caster_hero, card.action_slug)
+		
+		var card_index = hand_cards.find(card)
+		if card_index >= 0:
+			hand_cards.remove_at(card_index)
+		card.queue_free()
+		_reindex_hand_cards()
+	
+	_pending_card_data.clear()
+
+func _reindex_hand_cards():
+	var vp_size = get_viewport().get_visible_rect().size
+	
+	for i in range(hand_cards.size()):
+		var key = "action%d" % (i + 1)
+		if not _layout_boxes.has(key):
+			continue
+		
+		var card = hand_cards[i]
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+		
+		var tween = create_tween()
+		tween.set_ease(Tween.EASE_OUT)
+		tween.set_trans(Tween.TRANS_CUBIC)
+		tween.tween_property(card, "position", Vector2(r["x"], r["y"]), 0.22)
+
+# Override handlers for mock mode
+var _current_drag_target: Control = null
+
+func _on_card_drag_started_mock(card):
+	_dragging_card = card
+	_current_drag_target = null
+
+func _update_mock_drag_hover():
+	if not _dragging_card:
+		return
+	var mouse_pos = get_global_mouse_position()
+	for hero in get_heroes():
+		if hero.get_global_rect().has_point(mouse_pos) and not hero.is_enemy and not hero.is_dead():
+			_current_drag_target = hero
+			return
+	_current_drag_target = null
