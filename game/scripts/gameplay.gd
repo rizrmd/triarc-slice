@@ -1665,14 +1665,6 @@ func _play_mock_entrance_animation():
 	if info_animap:
 		_animate_ui_element(info_animap, 0.65, Vector2(0, -20))
 
-func _animate_ui_element(element: Control, delay: float, offset: Vector2):
-	var final_pos = element.position
-	element.position += offset
-	var tween = create_tween().set_parallel(true)
-	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tween.tween_property(element, "modulate:a", 1.0, 0.35).set_delay(delay)
-	tween.tween_property(element, "position", final_pos, 0.4).set_delay(delay)
-
 func _process_mock_mode(delta: float):
 	# Time elapsed
 	_time_elapsed_sec += delta
