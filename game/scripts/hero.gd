@@ -521,6 +521,29 @@ func _show_floating_text(amount: int):
 	else:
 		text.show_damage(abs(amount))
 
+## Take damage - reduces HP and shows floating text
+func take_damage(amount: int):
+	if is_dead():
+		return
+	
+	current_hp = max(0, current_hp - amount)
+	_update_hp_display()
+	_show_floating_text(-amount)
+	
+	# Check for death
+	if current_hp <= 0:
+		is_alive = false
+		_set_dead_visuals()
+		print("[Hero] ", hero_slug, " died!")
+
+## Show DoT applied indicator
+func show_dot_applied(dot_type: String, damage_per_tick: int, ticks: int):
+	# Show floating text for DoT application
+	var dot_text = FloatingText.new()
+	dot_text.position = floating_text_origin.position
+	add_child(dot_text)
+	dot_text.show_dot_damage(dot_type, damage_per_tick, ticks)
+
 func _build_cast_indicator():
 	# Pie chart with action image background
 	_cast_pie = CastPie.new()
@@ -734,8 +757,33 @@ class FloatingText:
 		modulate = Color.GREEN
 		_animate()
 	
+	func show_dot_damage(dot_type: String, damage_per_tick: int, ticks: int):
+		# Show DoT application text - purple for poison
+		match dot_type:
+			"poison":
+				modulate = Color(0.6, 0.2, 0.8, 1.0)  # Purple
+				text = "☠️ POISON\n-%d/tick (%d)" % [damage_per_tick, ticks]
+			"burn":
+				modulate = Color(1.0, 0.4, 0.0, 1.0)  # Orange
+				text = "🔥 BURN\n-%d/tick (%d)" % [damage_per_tick, ticks]
+			"bleed":
+				modulate = Color(0.8, 0.0, 0.0, 1.0)  # Red
+				text = "🩸 BLEED\n-%d/tick (%d)" % [damage_per_tick, ticks]
+			_:
+				modulate = Color.PURPLE
+				text = "DoT\n-%d/tick (%d)" % [damage_per_tick, ticks]
+		
+		add_theme_font_size_override("font_size", 28)
+		_animate_dot()
+	
 	func _animate():
 		var tween = create_tween()
 		tween.parallel().tween_property(self, "position:y", position.y - 100, 1.0)
 		tween.parallel().tween_property(self, "modulate:a", 0.0, 1.0)
+		tween.tween_callback(queue_free)
+	
+	func _animate_dot():
+		var tween = create_tween()
+		tween.parallel().tween_property(self, "position:y", position.y - 80, 1.2)
+		tween.parallel().tween_property(self, "modulate:a", 0.0, 1.2)
 		tween.tween_callback(queue_free)
