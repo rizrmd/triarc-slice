@@ -47,6 +47,12 @@ var _hp_bar_hue: float = 0.0
 var _hp_bar_font_size: float = 31.0
 var _name_label: Label
 
+# Target indicator for pre-targeting system
+var _target_indicator: Control = null
+var _target_tween: Tween = null
+var _target_info_panel: PanelContainer = null
+var _target_name_label: Label = null
+
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	hp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -193,6 +199,8 @@ func apply_layout_size(layout_size: Vector2):
 			0 + float(name_pos_cfg.get("x", 0)) * ref_sx,
 			center.y + float(name_pos_cfg.get("y", 0)) * ref_sy - _name_label.size.y / 2.0
 		)
+	# Position target UI elements
+	_position_target_ui(layout_size)
 
 func _apply_pose_layout(layout_size: Vector2, center: Vector2):
 	if _hero_config == null:
@@ -543,6 +551,112 @@ func show_dot_applied(dot_type: String, damage_per_tick: int, ticks: int):
 	dot_text.position = floating_text_origin.position
 	add_child(dot_text)
 	dot_text.show_dot_damage(dot_type, damage_per_tick, ticks)
+
+## Show/hide target marker (red circle/arrow above hero)
+func show_target_marker(show: bool, is_primary: bool = true):
+	if not show:
+		if _target_indicator:
+			_target_indicator.visible = false
+		return
+	
+	# Create indicator if needed
+	if not _target_indicator:
+		_target_indicator = _create_target_indicator()
+	
+	_target_indicator.visible = true
+	
+	# Pulse animation
+	if _target_tween and _target_tween.is_valid():
+		_target_tween.kill()
+	_target_tween = create_tween().set_loops()
+	_target_tween.set_trans(Tween.TRANS_SINE)
+	_target_tween.set_ease(Tween.EASE_IN_OUT)
+	_target_tween.tween_property(_target_indicator, "scale", Vector2(1.1, 1.1), 0.3)
+	_target_tween.tween_property(_target_indicator, "scale", Vector2(1.0, 1.0), 0.3)
+
+## Show/hide target info panel with enemy name
+func show_target_info(show: bool, enemy_name: String = ""):
+	if not show:
+		if _target_info_panel:
+			_target_info_panel.visible = false
+		return
+	
+	# Create panel if needed
+	if not _target_info_panel:
+		_target_info_panel = _create_target_info_panel()
+	
+	_target_info_panel.visible = true
+	if enemy_name != "":
+		_target_name_label.text = "-> " + enemy_name
+
+## Create target indicator visual (red circle above hero)
+func _create_target_indicator() -> Control:
+	var indicator = Control.new()
+	indicator.name = "TargetIndicator"
+	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	# Red circle using a TextureRect with a circle texture or a simple shape
+	var circle = ColorRect.new()
+	circle.name = "Circle"
+	circle.color = Color(1.0, 0.2, 0.2, 0.8)  # Red with some transparency
+	circle.size = Vector2(60, 60)
+	circle.position = Vector2(-30, -70)
+	
+	# Add an exclamation mark or arrow using a Label
+	var arrow = Label.new()
+	arrow.name = "Arrow"
+	arrow.text = "!"
+	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	arrow.position = Vector2(-30, -70)
+	arrow.size = Vector2(60, 60)
+	arrow.add_theme_font_size_override("font_size", 36)
+	arrow.add_theme_color_override("font_color", Color.WHITE)
+	arrow.add_theme_color_override("font_outline_color", Color(0.5, 0, 0, 1))
+	arrow.add_theme_constant_override("outline_size", 3)
+	
+	indicator.add_child(circle)
+	indicator.add_child(arrow)
+	add_child(indicator)
+	
+	return indicator
+
+## Create target info panel showing the targeted enemy name
+func _create_target_info_panel() -> PanelContainer:
+	var panel = PanelContainer.new()
+	panel.name = "TargetInfoPanel"
+	panel.visible = false
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.2, 0.1, 0.1, 0.85)  # Dark red background
+	style.set_corner_radius_all(6)
+	style.set_content_margin_all(8)
+	panel.add_theme_stylebox_override("panel", style)
+	
+	_target_name_label = Label.new()
+	_target_name_label.name = "TargetNameLabel"
+	_target_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_target_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_target_name_label.add_theme_font_size_override("font_size", 22)
+	_target_name_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.7, 1.0))
+	panel.add_child(_target_name_label)
+	
+	add_child(panel)
+	
+	return panel
+
+## Position target UI elements based on hero layout size
+func _position_target_ui(layout_size: Vector2):
+	if _target_indicator:
+		var indicator_size = Vector2(60, 60)
+		_target_indicator.position = Vector2((layout_size.x - indicator_size.x) / 2, -indicator_size.y - 10)
+	
+	# Position target info panel at bottom center of hero
+	if _target_info_panel:
+		var panel_width = 200.0
+		var panel_height = 40.0
+		_target_info_panel.position = Vector2((layout_size.x - panel_width) / 2, layout_size.y - panel_height - 10)
+		_target_info_panel.size = Vector2(panel_width, panel_height)
 
 func _build_cast_indicator():
 	# Pie chart with action image background

@@ -2,7 +2,7 @@ extends Button
 ## ActionCard - Draggable action card rendered like the editor preview
 
 signal card_drag_started(card: Button)
-signal card_drag_ended(card: Button, dropped_on_hero: Hero)
+signal card_drag_ended(card: Button, dropped_on_hero: Control)
 
 var action_slug: String = ""
 var action_name: String = ""
