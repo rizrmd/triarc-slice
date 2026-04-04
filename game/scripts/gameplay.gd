@@ -53,10 +53,9 @@ var _info_drag_virtual_pos: Vector2 = Vector2.ZERO
 
 const INFO_DRAG_THRESHOLD := 8.0
 
-# Target selection state (for manual targeting cards like Poison Strike)
-var _selecting_target: bool = false
-var _pending_card_data: Dictionary = {}  # {card, caster_hero, action_slug, slot_index, card_index_in_hand}
-var _target_selection_label: Label = null
+# Pre-targeting system - hero slot -> enemy slot mapping
+var _hero_targets: Dictionary = {}  # hero slot index -> enemy slot index
+var _default_targets: Dictionary = {0: 0, 1: 1, 2: 2}  # default: hero slot N targets enemy slot N
 
 # Time elapsed
 var _time_elapsed_sec: float = 0.0
@@ -79,36 +78,6 @@ var _display_ping_ms: int = -1
 # HP change filtering to prevent random/small damage ticks
 var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
 const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
-
-# Local mock mode for testing without server (integrated from mockup_gameplay.gd)
-var _local_mock_mode: bool = false
-var _mock_energy_regen_timer: float = 0.0
-var _mock_dot_tick_timer: float = 0.0
-var _mock_active_dot_effects: Dictionary = {}  # enemy_instance_id -> {damage_per_tick, ticks_remaining, stacks, hero}
-const MOCK_DOT_TICK_INTERVAL: float = 1.0
-const MOCK_DOT_MAX_STACKS: int = 3
-
-# Mock data for testing
-var _mock_ally_heroes: Array[Dictionary] = [
-	{"slug": "night-venom", "hp": 2500, "max_hp": 2500, "slot": 0},
-	{"slug": "arcane-paladin", "hp": 3200, "max_hp": 3200, "slot": 1},
-	{"slug": "tyrant-overlord", "hp": 3800, "max_hp": 3800, "slot": 2},
-]
-
-var _mock_enemy_heroes: Array[Dictionary] = [
-	{"slug": "earth-warden", "hp": 3600, "max_hp": 3600, "slot": 0},
-	{"slug": "dawn-priest", "hp": 2800, "max_hp": 2800, "slot": 1},
-	{"slug": "flame-warlock", "hp": 2314, "max_hp": 2400, "slot": 2},
-]
-
-var _mock_hand: Array[Dictionary] = [
-	{"action": "poison-strike", "cost": 3, "slot": 0},
-	{"action": "flame-lance", "cost": 3, "slot": 1},
-	{"action": "stand-firm", "cost": 2, "slot": 2},
-	{"action": "shadowstep", "cost": 3, "slot": 3},
-	{"action": "taunt", "cost": 2, "slot": 4},
-]
-
 func _ready():
 	add_to_group("gameplay")
 
@@ -128,18 +97,14 @@ func _ready():
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
 
-	# Check if local mock mode is enabled (F12 toggle)
-	if _local_mock_mode:
-		_init_mock_mode()
-	else:
-		# Request initial match state (normal online mode)
-		if not GameState.current_match_id.is_empty():
-			_pending_ping_sent_at_ms = _now_ms()
-			_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
-			GameState.send_json({
-				"type": "get_match_state",
-				"match_id": GameState.current_match_id
-			})
+	# Request initial match state (normal online mode)
+	if not GameState.current_match_id.is_empty():
+		_pending_ping_sent_at_ms = _now_ms()
+		_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
+		GameState.send_json({
+			"type": "get_match_state",
+			"match_id": GameState.current_match_id
+		})
 
 func _process(delta):
 	_update_time_elapsed(delta)
@@ -147,11 +112,6 @@ func _process(delta):
 		_update_info_drag()
 	if _dragging_card:
 		_update_drag_hover()
-
-	# Local mock mode processing
-	if _local_mock_mode:
-		_process_mock_mode(delta)
-		return
 
 	# Normal online mode - Poll WebSocket messages
 	if GameState.ws:
@@ -168,26 +128,6 @@ func _process(delta):
 			_on_disconnected()
 
 func _input(event: InputEvent):
-	# Handle drag hover tracking for mock mode
-	if _local_mock_mode and _dragging_card and event is InputEventMouseMotion:
-		_update_mock_drag_hover()
-	
-	# Handle target selection - check enemy click BEFORE it reaches Hero._gui_input
-	if _selecting_target and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var mouse_pos = get_global_mouse_position()
-		print("[Gameplay] _input: Checking enemy click at ", mouse_pos)
-		var enemy_hero = _get_enemy_hero_at_point(mouse_pos)
-		if enemy_hero and not enemy_hero.is_dead():
-			print("[Gameplay] Enemy clicked during target selection: ", enemy_hero.hero_slug)
-			_on_enemy_selected(enemy_hero)
-			get_viewport().set_input_as_handled()
-			return
-		else:
-			print("[Gameplay] Target selection cancelled - no enemy at point")
-			_cancel_target_selection()
-			get_viewport().set_input_as_handled()
-			return
-	
 	# Normal input handling
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -215,27 +155,15 @@ func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F3:
 			_toggle_dev_panel()
-		# F12 - Toggle local mock mode for testing without server
-		if event.keycode == KEY_F12:
-			_toggle_local_mock_mode()
-			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var mouse_pos = get_global_mouse_position()
 		
-		# Check if in target selection mode - click on enemy hero
-		if _selecting_target:
-			var enemy_hero = _get_enemy_hero_at_point(mouse_pos)
-			if enemy_hero and not enemy_hero.is_dead():
-				print("[Gameplay] Clicked enemy during target selection: ", enemy_hero.hero_slug)
-				_on_enemy_selected(enemy_hero)
-				get_viewport().set_input_as_handled()
-				return
-			# Clicked elsewhere - cancel target selection
-			elif not _is_point_over_info_animap(event.position):
-				print("[Gameplay] Target selection cancelled - clicked outside enemy")
-				_cancel_target_selection()
-				get_viewport().set_input_as_handled()
-				return
+		# Check if clicked on enemy hero - override target for selected hero
+		var clicked_enemy = _get_enemy_hero_at_point(mouse_pos)
+		if clicked_enemy and not clicked_enemy.is_dead() and _selected_hero:
+			print("[Gameplay] Override target: hero ", _selected_hero.slot_index, " -> enemy ", clicked_enemy.slot_index)
+			_set_hero_target(_selected_hero.slot_index, clicked_enemy.slot_index)
+			return
 		
 		# Normal gameplay - click on ally hero
 		var clicked_hero = _get_my_hero_at_point(mouse_pos)
@@ -515,10 +443,6 @@ func _show_casting_indicator(hero: Hero, action_slug: String):
 	hero._show_casting("cast_%s_%d" % [action_slug, Time.get_ticks_msec()], cast_duration_ms, action_slug)
 
 func _on_card_drag_started(_card):
-	if _local_mock_mode:
-		_on_card_drag_started_mock(_card)
-		return
-	
 	print("[Gameplay] drag started action=", _card.action_slug, " slot=", _card.slot_index, " clearing selection")
 	_clear_selected_hero()
 	_dragging_card = _card
@@ -526,210 +450,54 @@ func _on_card_drag_started(_card):
 	_highlight_valid_targets(_card.target_rule)
 
 func _on_card_drag_ended(card, dropped_on_target):
-	# Mock mode handling
-	if _local_mock_mode:
-		_on_card_drag_ended_mock(card, dropped_on_target)
-		return
-	
-	# Normal online mode
 	_dragging_card = null
 	_hovered_hero = null
 	if _hover_tween and _hover_tween.is_valid():
 		_hover_tween.kill()
 	_clear_highlights()
 	if dropped_on_target:
-		# Check if this card requires manual target selection
-		var needs_manual_target = _card_needs_manual_target(card.action_slug)
-		
-		if needs_manual_target:
-			# Enter target selection mode - hide card but don't remove yet
-			card.visible = false
-			_start_target_selection(card, dropped_on_target)
-			return
-		
-		# Track the used card so state_update won't recreate it
-		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
-		# Remove the used card from hand
-		hand_cards.erase(card)
-		_layout_hand_cards(true)
-		card.queue_free()
-		# Auto-reroll when all cards are used (server grants free reroll)
-		if hand_cards.is_empty():
-			_reroll_entrance_pending = true
-			_used_hand_keys.clear()
-			_prev_server_keys.clear()
-			GameState.send_json({
-				"type": "reroll_hand",
-				"match_id": GameState.current_match_id
-			})
+		# Cast action using pre-targeting system (preset target from hero selection)
+		_cast_action_with_preset_target(dropped_on_target, card)
 
 func _highlight_valid_targets(_target_rule: String):
 	for hero in my_heroes.values():
 		hero.set_char_brightness(0.4)
 
-## Check if a card requires manual target selection
-func _card_needs_manual_target(action_slug: String) -> bool:
-	# Load action config to check targeting.selection
-	var normalized = action_slug.replace("_", "-")
-	var path = "res://data/action/%s/action.json" % normalized
-	var file = FileAccess.open(path, FileAccess.READ)
-	if not file:
-		return false
-	var json = JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		return false
-	var targeting = json.data.get("targeting", {})
-	var selection = targeting.get("selection", "auto")
-	return selection == "manual"
-
-## Start target selection mode - show indicator and wait for enemy selection
-func _start_target_selection(card: Control, caster_hero: Hero):
-	_selecting_target = true
+## Cast action using pre-targeting system (preset target from hero selection)
+func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
+	var target_slot = _get_hero_target(caster_hero.slot_index)
+	print("[Gameplay] Casting with preset target: hero ", caster_hero.slot_index, " -> enemy ", target_slot)
 	
-	# Find card index in hand for restoration
-	var card_index = hand_cards.find(card)
+	# Show casting indicator on the caster hero
+	_show_casting_indicator(caster_hero, card.action_slug)
 	
-	_pending_card_data = {
-		"card": card,
-		"caster_hero": caster_hero,
-		"action_slug": card.action_slug,
-		"slot_index": card.slot_index,
-		"card_index": card_index
-	}
+	# Track the used card so state_update won't recreate it
+	_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
 	
-	# Create or show target selection label
-	_create_target_selection_label()
+	# Remove card from hand
+	hand_cards.erase(card)
+	_layout_hand_cards(true)
 	
-	# Highlight all enemy heroes as valid targets
-	_highlight_enemy_targets(true)
-	
-	print("[Gameplay] Target selection mode STARTED - action=", card.action_slug, " select enemy target")
-
-## Create the "Select enemy to attack" label
-func _create_target_selection_label():
-	if _target_selection_label:
-		_target_selection_label.queue_free()
-	
-	_target_selection_label = Label.new()
-	_target_selection_label.name = "TargetSelectionLabel"
-	_target_selection_label.text = "SELECT ENEMY TO ATTACK"
-	_target_selection_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_target_selection_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_target_selection_label.add_theme_font_size_override("font_size", 48)
-	_target_selection_label.add_theme_color_override("font_color", Color(1, 0.3, 0.3, 1.0))
-	_target_selection_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	_target_selection_label.add_theme_constant_override("outline_size", 4)
-	_target_selection_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	
-	# Position at top center of screen
-	var vp_size = get_viewport().get_visible_rect().size
-	_target_selection_label.position = Vector2(0, vp_size.y * 0.35)
-	_target_selection_label.size = Vector2(vp_size.x, 100)
-	
-	add_child(_target_selection_label)
-	
-	# Simple fade in animation (no looping to avoid infinite loop error)
-	_target_selection_label.modulate.a = 0.0
-	var tween = create_tween()
-	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(_target_selection_label, "modulate:a", 1.0, 0.3)
-
-## Highlight enemy heroes as valid targets
-func _highlight_enemy_targets(highlight: bool):
-	for hero in enemy_heroes.values():
-		if not hero.is_dead():
-			hero.set_drag_dimmed(not highlight)  # dimmed=false means highlighted
-
-## Handle enemy selection during target selection mode
-func _on_enemy_selected(enemy_hero: Hero):
-	if _local_mock_mode:
-		_on_enemy_selected_mock(enemy_hero)
-		return
-	
-	if not _selecting_target:
-		return
-	
-	print("[Gameplay] Enemy selected: ", enemy_hero.hero_slug, " slot=", enemy_hero.slot_index)
-	
-	# Exit target selection mode
-	_exit_target_selection()
-	
-	# Now cast the action with the selected enemy as target
-	var card = _pending_card_data.get("card")
-	var caster_hero = _pending_card_data.get("caster_hero")
-	
-	if card and caster_hero:
-		# Track the used card
-		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
-		
-		# Remove card from hand
-		hand_cards.erase(card)
-		_layout_hand_cards(true)
-		
-		# Send cast action - server will resolve target based on selection
-		_cast_action_with_target(caster_hero, card.slot_index, enemy_hero.slot_index)
-		
-		card.queue_free()
-		
-		# Auto-reroll when all cards are used
-		if hand_cards.is_empty():
-			_reroll_entrance_pending = true
-			_used_hand_keys.clear()
-			_prev_server_keys.clear()
-			GameState.send_json({
-				"type": "reroll_hand",
-				"match_id": GameState.current_match_id
-			})
-
-## Exit target selection mode
-func _exit_target_selection():
-	_selecting_target = false
-	
-	# Remove selection label
-	if _target_selection_label:
-		_target_selection_label.queue_free()
-		_target_selection_label = null
-	
-	# Remove enemy highlights
-	_highlight_enemy_targets(false)
-	
-	print("[Gameplay] Target selection mode ENDED")
-
-## Cancel target selection and restore card to hand
-func _cancel_target_selection():
-	var card = _pending_card_data.get("card")
-	var card_index = _pending_card_data.get("card_index", -1)
-	
-	_exit_target_selection()
-	_pending_card_data.clear()
-	
-	if card and card_index >= 0:
-		# Card was hidden, restore it
-		card.visible = true
-		card.scale = Vector2(1.0, 1.0)
-		card.modulate.a = 1.0
-		
-		# Snap card back to original position in hand
-		var vp_size = get_viewport().get_visible_rect().size
-		var key = "action%d" % (card_index + 1)  # Layout uses 1-indexed
-		if _layout_boxes.has(key):
-			var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-			var tween = create_tween()
-			tween.set_ease(Tween.EASE_OUT)
-			tween.set_trans(Tween.TRANS_BACK)
-			tween.tween_property(card, "position", Vector2(r["x"], r["y"]), 0.3)
-		
-		print("[Gameplay] Target selection cancelled - card restored to slot ", card_index)
-
-## Send cast action with explicit target slot
-func _cast_action_with_target(caster: Hero, hand_slot: int, target_slot: int):
+	# Send cast action with preset target
 	GameState.send_json({
 		"type": "cast_action",
 		"match_id": GameState.current_match_id,
-		"caster_slot": caster.slot_index,
-		"hand_slot_index": hand_slot,
-		"target_slot": target_slot  # Explicit target slot for manual targeting
+		"caster_slot": caster_hero.slot_index,
+		"hand_slot_index": card.slot_index,
+		"target_slot": target_slot
 	})
+	
+	card.queue_free()
+	
+	# Auto-reroll when all cards are used (server grants free reroll)
+	if hand_cards.is_empty():
+		_reroll_entrance_pending = true
+		_used_hand_keys.clear()
+		_prev_server_keys.clear()
+		GameState.send_json({
+			"type": "reroll_hand",
+			"match_id": GameState.current_match_id
+		})
 
 func _update_drag_hover():
 	var mouse_pos = get_global_mouse_position()
@@ -878,6 +646,31 @@ func _clear_highlights():
 	for hero in my_heroes.values():
 		hero.set_char_brightness(1.0)
 
+## Get current target for a hero slot
+func _get_hero_target(hero_slot: int) -> int:
+	return _hero_targets.get(hero_slot, _default_targets.get(hero_slot, hero_slot))
+
+## Set target for a hero slot
+func _set_hero_target(hero_slot: int, enemy_slot: int):
+	print("[Gameplay] Set target: hero slot ", hero_slot, " -> enemy slot ", enemy_slot)
+	_hero_targets[hero_slot] = enemy_slot
+	_update_target_indicators()
+
+## Update target indicators on all enemy heroes - only show target for selected hero
+func _update_target_indicators():
+	# First, hide all target indicators on all enemies
+	for hero in enemy_heroes.values():
+		hero.show_target_marker(false)
+		hero.show_target_info(false)
+	
+	# Only show target for the currently selected hero
+	if _selected_hero and not _selected_hero.is_dead() and _hero_targets.has(_selected_hero.slot_index):
+		var target_slot = _hero_targets[_selected_hero.slot_index]
+		if enemy_heroes.has(target_slot):
+			var target_enemy = enemy_heroes[target_slot]
+			target_enemy.show_target_marker(true, true)
+			target_enemy.show_target_info(true, _selected_hero.hero_name + " -> " + target_enemy.hero_name)
+
 func _on_hero_clicked(hero: Hero):
 	print("[Gameplay] hero_clicked hero=", hero.hero_slug, " slot=", hero.slot_index, " enemy=", hero.is_enemy, " dead=", hero.is_dead())
 	if hero == null or hero.is_enemy or hero.is_dead():
@@ -893,16 +686,24 @@ func _set_selected_hero(hero: Hero):
 	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero != hero:
 		print("[Gameplay] deselect previous hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
+		# Hide target info on previous hero (marker persists)
+		_selected_hero.show_target_info(false)
 	_selected_hero = hero
 	if _selected_hero and is_instance_valid(_selected_hero):
 		print("[Gameplay] select hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(true)
+		# Set default target if not already set
+		if not _hero_targets.has(_selected_hero.slot_index):
+			_set_hero_target(_selected_hero.slot_index, _default_targets.get(_selected_hero.slot_index, _selected_hero.slot_index))
+		# Always update target indicators when changing selection
+		_update_target_indicators()
 	_update_hero_detail_placeholder()
 
 func _clear_selected_hero():
 	if _selected_hero and is_instance_valid(_selected_hero):
 		print("[Gameplay] clear selected hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
+		# NOTE: Do NOT hide target markers here - they persist even when hero is deselected
 	else:
 		print("[Gameplay] clear selected hero=noop")
 	_selected_hero = null
@@ -1012,10 +813,6 @@ func _get_hand_card_key(slot_index: int, action_slug: String) -> String:
 	return "%s::%s" % [slot_index, action_slug]
 
 func _on_reroll_pressed():
-	if _local_mock_mode:
-		_on_reroll_pressed_mock()
-		return
-	
 	if _rerolling or _reroll_animating:
 		return
 	_rerolling = true
@@ -1038,19 +835,6 @@ func _on_back_pressed():
 	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
-
-func _exit_to_mockup_mode():
-	print("[Gameplay] F12 pressed - entering mockup mode")
-	# Fade out
-	if fade_rect:
-		fade_rect.visible = true
-		fade_rect.color.a = 0.0
-		var tween = create_tween()
-		tween.tween_property(fade_rect, "color:a", 1.0, 0.3)
-		tween.tween_callback(func():
-			# Change to mockup scene
-			get_tree().change_scene_to_file("res://scenes/mockup_gameplay.tscn")
-		)
 
 func _on_disconnected():
 	_pending_ping_sent_at_ms = -1
@@ -1537,396 +1321,3 @@ func _update_dev_panel():
 	lines.append("")
 	lines.append("[color=gray]Press F3 to close[/color]")
 	_dev_label.text = "\n".join(lines)
-
-# ============================================================================
-# LOCAL MOCK MODE - Integrated from mockup_gameplay.gd for testing without server
-# ============================================================================
-
-func _toggle_local_mock_mode():
-	_local_mock_mode = not _local_mock_mode
-	print("[Gameplay] Local mock mode: ", "ON" if _local_mock_mode else "OFF")
-	
-	if _local_mock_mode:
-		# Reload scene to initialize mock mode
-		get_tree().reload_current_scene()
-	else:
-		# Return to main menu to switch to online mode
-		GameState.current_match_id = ""
-		get_tree().change_scene_to_file("res://scenes/main.tscn")
-
-func _init_mock_mode():
-	print("[Gameplay] Initializing LOCAL MOCK MODE - testing without server")
-	
-	# Set initial energy
-	current_energy = 10
-	max_energy = 10
-	_update_energy_display()
-	
-	# Spawn mock heroes
-	_spawn_mock_heroes()
-	
-	# Spawn mock hand
-	_spawn_mock_hand()
-	
-	# Play entrance animation
-	_play_mock_entrance_animation()
-	
-	# Set initial time
-	_time_elapsed_sec = 125.0  # 2:05
-	_update_time_text()
-
-func _spawn_mock_heroes():
-	var vp_size = get_viewport().get_visible_rect().size
-	
-	# Spawn enemy heroes
-	for hero_data in _mock_enemy_heroes:
-		var slot = hero_data["slot"]
-		var key = "enemy%d" % (slot + 1)
-		if not _layout_boxes.has(key):
-			continue
-		
-		var hero = HERO_SCENE.instantiate()
-		heroes_container.add_child(hero)
-		enemy_heroes[slot] = hero
-		
-		var box = _layout_boxes[key]
-		var r = GameState.resolve_box(box, vp_size, _layout_aspect_key)
-		
-		hero.position = Vector2(r["x"], r["y"])
-		hero.size = Vector2(r["width"], r["height"])
-		
-		var setup_data = {
-			"hero_instance_id": "mock_enemy_%d" % slot,
-			"hero_slug": hero_data["slug"],
-			"team": 2,
-			"slot_index": slot,
-			"hp_current": hero_data["hp"],
-			"hp_max": hero_data["max_hp"],
-			"alive": true
-		}
-		hero.setup(setup_data, true)
-		hero.apply_layout_size(Vector2(r["width"], r["height"]))
-		hero.modulate.a = 0.0
-		hero.scale = Vector2(0.5, 0.5)
-	
-	# Spawn ally heroes
-	for hero_data in _mock_ally_heroes:
-		var slot = hero_data["slot"]
-		var key = "hero%d" % (slot + 1)
-		if not _layout_boxes.has(key):
-			continue
-		
-		var hero = HERO_SCENE.instantiate()
-		heroes_container.add_child(hero)
-		my_heroes[slot] = hero
-		
-		var box = _layout_boxes[key]
-		var r = GameState.resolve_box(box, vp_size, _layout_aspect_key)
-		
-		hero.position = Vector2(r["x"], r["y"])
-		hero.size = Vector2(r["width"], r["height"])
-		
-		var setup_data = {
-			"hero_instance_id": "mock_ally_%d" % slot,
-			"hero_slug": hero_data["slug"],
-			"team": 1,
-			"slot_index": slot,
-			"hp_current": hero_data["hp"],
-			"hp_max": hero_data["max_hp"],
-			"alive": true
-		}
-		hero.setup(setup_data, false)
-		hero.apply_layout_size(Vector2(r["width"], r["height"]))
-		hero.modulate.a = 0.0
-		hero.scale = Vector2(0.5, 0.5)
-	
-	print("[Gameplay] Mock mode: Spawned ", enemy_heroes.size(), " enemy heroes and ", my_heroes.size(), " ally heroes")
-
-func _spawn_mock_hand():
-	var vp_size = get_viewport().get_visible_rect().size
-	
-	for i in range(_mock_hand.size()):
-		var key = "action%d" % (i + 1)
-		if not _layout_boxes.has(key):
-			continue
-		
-		var card = ACTION_CARD_SCENE.instantiate()
-		hand_container.add_child(card)
-		
-		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-		var target_pos = Vector2(r["x"], r["y"])
-		
-		card.position = Vector2(target_pos.x + 300, target_pos.y)
-		card.size = Vector2(r["width"], r["height"])
-		
-		var setup_data = {
-			"action_slug": _mock_hand[i]["action"],
-			"slot_index": _mock_hand[i]["slot"],
-			"action_name": _mock_hand[i]["action"].capitalize(),
-			"energy_cost": _mock_hand[i]["cost"],
-			"target_rule": "enemy"
-		}
-		card.setup(setup_data)
-		card.card_drag_started.connect(_on_card_drag_started)
-		card.card_drag_ended.connect(_on_card_drag_ended)
-		card.modulate.a = 0.0
-		
-		hand_cards.append(card)
-	
-	print("[Gameplay] Mock mode: Spawned ", hand_cards.size(), " cards")
-
-func _play_mock_entrance_animation():
-	var fade_tween = create_tween()
-	fade_tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
-	
-	var hero_delay = 0.3
-	for hero in heroes_container.get_children():
-		var tween = create_tween().set_parallel(true)
-		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-		tween.tween_property(hero, "modulate:a", 1.0, 0.4).set_delay(hero_delay)
-		tween.tween_property(hero, "scale", Vector2(1.0, 1.0), 0.4).set_delay(hero_delay)
-		hero_delay += 0.1
-	
-	var card_delay = 0.6
-	for card in hand_container.get_children():
-		var target_x = card.position.x - 300
-		var tween = create_tween().set_parallel(true)
-		tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-		tween.tween_property(card, "modulate:a", 1.0, 0.35).set_delay(card_delay)
-		tween.tween_property(card, "position:x", target_x, 0.45).set_delay(card_delay)
-		card_delay += 0.08
-	
-	_animate_ui_element(energy_bar, 0.7, Vector2(0, 30))
-	_animate_ui_element(reroll_button, 0.8, Vector2(0, 30))
-	_animate_ui_element(back_button, 0.75, Vector2(0, -20))
-	if time_animap:
-		_animate_ui_element(time_animap, 0.68, Vector2(0, -20))
-	if info_animap:
-		_animate_ui_element(info_animap, 0.65, Vector2(0, -20))
-
-func _process_mock_mode(delta: float):
-	# Time elapsed
-	_time_elapsed_sec += delta
-	_update_time_text()
-	
-	# Energy regeneration (1 per second)
-	if current_energy < max_energy:
-		_mock_energy_regen_timer += delta
-		if _mock_energy_regen_timer >= 1.0:
-			_mock_energy_regen_timer = 0.0
-			current_energy = min(current_energy + 1, max_energy)
-			_update_energy_display()
-	
-	# Process DoT ticks
-	_process_mock_dot_ticks(delta)
-
-func _process_mock_dot_ticks(delta: float):
-	_mock_dot_tick_timer += delta
-	
-	if _mock_dot_tick_timer >= MOCK_DOT_TICK_INTERVAL:
-		_mock_dot_tick_timer = 0.0
-		
-		var enemies_to_remove: Array = []
-		
-		for enemy_id in _mock_active_dot_effects.keys():
-			var dot = _mock_active_dot_effects[enemy_id]
-			var hero: Hero = dot.get("hero")
-			
-			if not is_instance_valid(hero) or hero.is_dead():
-				enemies_to_remove.append(enemy_id)
-				continue
-			
-			var total_dot_damage = dot["damage_per_tick"] * dot.get("stacks", 1)
-			hero.take_damage(total_dot_damage)
-			
-			print("[Gameplay] Mock DoT tick on ", hero.hero_slug, ": -", total_dot_damage, " HP (stacks: ", dot.get("stacks", 1), ")")
-			
-			dot["ticks_remaining"] -= 1
-			
-			if dot["ticks_remaining"] <= 0:
-				enemies_to_remove.append(enemy_id)
-				print("[Gameplay] Mock DoT expired on ", hero.hero_slug)
-		
-		for enemy_id in enemies_to_remove:
-			_mock_active_dot_effects.erase(enemy_id)
-
-func _cast_poison_strike_mock(caster: Hero, target: Hero):
-	var base_power = 80
-	var caster_def = GameState.get_hero_def(caster.hero_slug)
-	var caster_atk = caster_def.get("attack", 100)
-	var caster_earth_affinity = caster_def.get("element_affinity", {}).get("earth", 0)
-	var caster_shadow_affinity = caster_def.get("element_affinity", {}).get("shadow", 0)
-	
-	var target_def = GameState.get_hero_def(target.hero_slug)
-	var target_defense = target_def.get("defense", 50)
-	var target_earth_affinity = target_def.get("element_affinity", {}).get("earth", 0)
-	var target_shadow_affinity = target_def.get("element_affinity", {}).get("shadow", 0)
-	
-	var caster_affinity = max(caster_earth_affinity, caster_shadow_affinity)
-	var target_affinity = min(target_earth_affinity, target_shadow_affinity)
-	
-	var damage = int(
-		(float(base_power) * float(caster_atk) / 100.0)
-		* (1.0 + float(caster_affinity) / 100.0)
-		* (100.0 / (100.0 + float(target_defense)))
-		* (1.0 - float(target_affinity) / 100.0)
-	)
-	damage = max(1, damage)
-	
-	print("[Gameplay] Mock Poison Strike damage: ", damage)
-	
-	_show_casting_indicator(caster, "poison-strike")
-	
-	await get_tree().create_timer(1.5).timeout
-	
-	target.take_damage(damage)
-	
-	var dot_damage = int(damage * 0.4)
-	var dot_ticks = 3
-	_apply_mock_dot_effect(target, dot_damage, dot_ticks, "poison")
-	
-	print("[Gameplay] Mock Poison DoT applied: ", dot_damage, "/tick for ", dot_ticks, " ticks")
-
-func _apply_mock_dot_effect(target_hero: Hero, damage_per_tick: int, ticks: int, dot_type: String):
-	var enemy_id = target_hero.hero_instance_id
-	
-	if _mock_active_dot_effects.has(enemy_id):
-		var existing = _mock_active_dot_effects[enemy_id]
-		if existing.get("stacks", 0) < MOCK_DOT_MAX_STACKS:
-			existing["stacks"] = existing.get("stacks", 0) + 1
-			existing["damage_per_tick"] = max(existing["damage_per_tick"], damage_per_tick)
-			existing["ticks_remaining"] = min(existing["ticks_remaining"] + ticks, 10)
-			print("[Gameplay] Mock DoT stacked! Stacks: ", existing["stacks"])
-	else:
-		_mock_active_dot_effects[enemy_id] = {
-			"hero": target_hero,
-			"damage_per_tick": damage_per_tick,
-			"ticks_remaining": ticks,
-			"stacks": 1,
-			"type": dot_type
-		}
-	
-	target_hero.show_dot_applied(dot_type, damage_per_tick, ticks)
-
-func _on_reroll_pressed_mock():
-	if current_energy < 2:
-		print("[Gameplay] Mock reroll: Not enough energy!")
-		return
-	
-	current_energy -= 2
-	_update_energy_display()
-	
-	hand_cards.clear()
-	for child in hand_container.get_children():
-		child.queue_free()
-	
-	await get_tree().create_timer(0.1).timeout
-	
-	_spawn_mock_hand()
-	_play_mock_reroll_entrance()
-
-func _play_mock_reroll_entrance():
-	var card_delay = 0.0
-	for card in hand_container.get_children():
-		if card is Button:
-			var tween = create_tween().set_parallel(true)
-			tween.tween_property(card, "modulate:a", 1.0, 0.35).set_delay(card_delay)
-			tween.tween_property(card, "position:x", card.position.x - 300, 0.55).set_delay(card_delay)
-			card_delay += 0.12
-
-func _update_energy_display():
-	if energy_bar:
-		var current_lbl = energy_bar.get_node_or_null("CurrentLabel")
-		var max_lbl = energy_bar.get_node_or_null("MaxLabel")
-		if current_lbl:
-			current_lbl.text = str(current_energy)
-		if max_lbl:
-			max_lbl.text = str(max_energy)
-		
-		var energy_full = energy_bar.get_node_or_null("EnergyFull")
-		if energy_full and energy_full.material is ShaderMaterial:
-			var ratio = float(current_energy) / float(max_energy)
-			(energy_full.material as ShaderMaterial).set_shader_parameter("fill_amount", ratio)
-	
-	for card in hand_cards:
-		if card.has_method("can_afford"):
-			card.set_enabled(card.can_afford(current_energy))
-
-func _on_card_drag_ended_mock(card, valid_drop: bool):
-	if valid_drop and _current_drag_target and _current_drag_target is Hero:
-		if _card_needs_manual_target(card.action_slug):
-			card.visible = false
-			_start_target_selection(card, _current_drag_target)
-			return
-		
-		current_energy = max(0, current_energy - card.energy_cost)
-		_update_energy_display()
-		_show_casting_indicator(_current_drag_target, card.action_slug)
-		
-		var card_index = hand_cards.find(card)
-		if card_index >= 0:
-			hand_cards.remove_at(card_index)
-		card.queue_free()
-		_reindex_hand_cards()
-	
-	_dragging_card = null
-	_current_drag_target = null
-
-func _on_enemy_selected_mock(enemy_hero: Hero):
-	if not _selecting_target:
-		return
-	
-	_exit_target_selection()
-	
-	var card = _pending_card_data.get("card")
-	var caster_hero = _pending_card_data.get("caster_hero")
-	
-	if card and caster_hero:
-		current_energy = max(0, current_energy - card.energy_cost)
-		_update_energy_display()
-		
-		if card.action_slug == "poison-strike":
-			_cast_poison_strike_mock(caster_hero, enemy_hero)
-		else:
-			_show_casting_indicator(caster_hero, card.action_slug)
-		
-		var card_index = hand_cards.find(card)
-		if card_index >= 0:
-			hand_cards.remove_at(card_index)
-		card.queue_free()
-		_reindex_hand_cards()
-	
-	_pending_card_data.clear()
-
-func _reindex_hand_cards():
-	var vp_size = get_viewport().get_visible_rect().size
-	
-	for i in range(hand_cards.size()):
-		var key = "action%d" % (i + 1)
-		if not _layout_boxes.has(key):
-			continue
-		
-		var card = hand_cards[i]
-		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-		
-		var tween = create_tween()
-		tween.set_ease(Tween.EASE_OUT)
-		tween.set_trans(Tween.TRANS_CUBIC)
-		tween.tween_property(card, "position", Vector2(r["x"], r["y"]), 0.22)
-
-# Override handlers for mock mode
-var _current_drag_target: Control = null
-
-func _on_card_drag_started_mock(card):
-	_dragging_card = card
-	_current_drag_target = null
-
-func _update_mock_drag_hover():
-	if not _dragging_card:
-		return
-	var mouse_pos = get_global_mouse_position()
-	for hero in get_heroes():
-		if hero.get_global_rect().has_point(mouse_pos) and not hero.is_enemy and not hero.is_dead():
-			_current_drag_target = hero
-			return
-	_current_drag_target = null
