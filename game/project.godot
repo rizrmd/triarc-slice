@@ -39,5 +39,6 @@ theme/custom_font="res://fonts/Volkhov-Regular.ttf"
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
+textures/canvas_textures/default_texture_filter=2
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
