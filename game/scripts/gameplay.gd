@@ -266,7 +266,7 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 	hero.setup(hero_data, is_enemy)
 	hero.hero_clicked.connect(_on_hero_clicked)
 
-	# Position and scale based on layout from game-layout.json
+	# Position and scale based on layout from data/scene/gameplay/layout.json
 	var vp_size = get_viewport().get_visible_rect().size
 	var key = "enemy%d" % slot if is_enemy else "hero%d" % slot
 	if _layout_boxes.has(key):

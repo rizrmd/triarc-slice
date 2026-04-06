@@ -44,7 +44,7 @@ import { Slider } from '@/components/ui/slider';
 import { CardPreview } from '@/components/CardPreview';
 import { HeroPosePreview } from '@/components/HeroPosePreview';
 import { ASPECT_PRESETS, getViewportForAspect } from '@/lib/godot';
-import type { Box, GameLayout, GameLayoutFile, AnimapConfig } from '@/types';
+import type { Box, GameLayout, AnimapConfig } from '@/types';
 import { GAME_SCENES } from '@/types';
 
 type ScreenAnchor =
@@ -287,26 +287,6 @@ function migrateBackgrounds(backgrounds: Record<string, string>): Record<string,
 
 // Extract a GameLayout for a given scene from the full file data.
 // Handles old flat format, old per-aspect format, and new multi-scene format.
-function extractSceneLayout(data: any, sceneSlug: string): GameLayout {
-  // New multi-scene format: { scenes: { gameplay: { backgrounds, boxes }, ... } }
-  if (data.scenes) {
-    const sceneData = data.scenes[sceneSlug];
-    if (sceneData) {
-      return migrateLayout(sceneData);
-    }
-    return { background: '', boxes: {} };
-  }
-  // Legacy format — treat as gameplay scene
-  return migrateLayout(data);
-}
-
-// Merge updated scene back into full file data.
-function buildFullLayout(fullData: any, sceneSlug: string, sceneLayout: GameLayout): GameLayoutFile {
-  const scenes = fullData?.scenes ? { ...fullData.scenes } : { gameplay: fullData ?? {} };
-  scenes[sceneSlug] = sceneLayout;
-  return { scenes };
-}
-
 // Migrate old flat format { boxes: { enemy1: {...}, ... } }
 // to new per-aspect format { boxes: { "9-16": { enemy1: {...}, ... } } }
 function getSourceBoxes(data: any): Record<string, Box> {
@@ -377,10 +357,6 @@ export default function GameLayoutEditor() {
   useEffect(() => {
     localStorage.setItem('gameLayoutLast', `${sceneSlug}/${aspectSlug}`);
   }, [sceneSlug, aspectSlug]);
-
-  // Holds the full file data so we can merge scene back in on save
-  const fullLayoutDataRef = useRef<any>(null);
-
 
   const preset = useMemo(
     () => getViewportForAspect(aspectSlug),
@@ -995,12 +971,11 @@ export default function GameLayoutEditor() {
     initialSyncDoneRef.current = false;
     cancelAnimationFrame(syncRafRef.current);
 
-    // Fetch layout
-    fetch('/api/game-layout')
+    // Fetch layout for this scene
+    fetch(`/api/scene/${sceneSlug}/layout`)
       .then(res => res.json())
       .then(data => {
-        fullLayoutDataRef.current = data;
-        const migrated = extractSceneLayout(data, sceneSlug);
+        const migrated = migrateLayout(data);
 
         migrated.boxes = mergeWithDefaults(
           Object.keys(migrated.boxes).length > 0 ? migrated.boxes : makeDefaultBoxes(sceneSlug),
@@ -1075,12 +1050,10 @@ export default function GameLayoutEditor() {
 
     const timer = setTimeout(() => {
       setSaving(true);
-      const fullData = buildFullLayout(fullLayoutDataRef.current, sceneSlug, JSON.parse(currentString));
-      fullLayoutDataRef.current = fullData;
-      fetch('/api/game-layout', {
+      fetch(`/api/scene/${sceneSlug}/layout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fullData),
+        body: currentString,
       })
         .then((response) => {
           if (!response.ok) {

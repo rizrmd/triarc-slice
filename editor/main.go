@@ -521,7 +521,7 @@ func main() {
 	http.HandleFunc("/api/animap-layer/", animapLayerHandler)
 	http.HandleFunc("/api/animap-convert-status/", convertStatusHandler)
 	http.HandleFunc("/api/animap-preview/", animapPreviewHandler)
-	http.HandleFunc("/api/game-layout", gameLayoutHandler)
+	http.HandleFunc("/api/scene/", sceneLayoutHandler)
 	http.HandleFunc("/api/assets/", assetsListHandler)
 	assetsDir := resolvePath("./assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
@@ -925,6 +925,11 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		oldFiles, _ := filepath.Glob(filepath.Join(animapDir, layerId+".*"))
 		for _, f := range oldFiles {
+			os.Remove(f)
+		}
+		// Also remove preview files (e.g. name.preview.webm)
+		previewFiles, _ := filepath.Glob(filepath.Join(animapDir, layerId+".preview.*"))
+		for _, f := range previewFiles {
 			os.Remove(f)
 		}
 		w.WriteHeader(http.StatusOK)
@@ -1508,17 +1513,25 @@ func heroAudioHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func gameLayoutHandler(w http.ResponseWriter, r *http.Request) {
-	layoutPath := filepath.Join(resolvePath("./data"), "game-layout.json")
+// sceneLayoutHandler handles /api/scene/{slug}/layout — per-scene layout files.
+func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
+	// Parse: /api/scene/{slug}/layout
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/scene/")
+	parts := strings.SplitN(trimmed, "/", 2)
+	if len(parts) != 2 || parts[1] != "layout" || parts[0] == "" {
+		http.Error(w, "Expected /api/scene/{slug}/layout", http.StatusBadRequest)
+		return
+	}
+	slug := parts[0]
+	layoutPath := filepath.Join(resolvePath("./data"), "scene", slug, "layout.json")
 
 	switch r.Method {
 	case http.MethodGet:
 		data, err := os.ReadFile(layoutPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				// Return default layout if not found
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte("{}"))
+				w.Write([]byte(`{"background":"","boxes":{}}`))
 				return
 			}
 			http.Error(w, "Failed to read layout data", http.StatusInternalServerError)
@@ -1534,7 +1547,6 @@ func gameLayoutHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Ensure directory exists
 		if err := os.MkdirAll(filepath.Dir(layoutPath), 0755); err != nil {
 			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
 			return

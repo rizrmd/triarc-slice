@@ -1,0 +1,23 @@
+{
+  "background": "",
+  "boxes": {
+    "logo": {
+      "anchor_offset_x": 0,
+      "anchor_offset_y": 0,
+      "asset": "/assets/ui/logo.ogv",
+      "fill": "cover",
+      "height": 1920,
+      "height_percent": 100,
+      "id": "logo",
+      "label": "Logo",
+      "nx": 0.5,
+      "ny": 0.5,
+      "pivot": "center",
+      "screen_anchor": "center",
+      "width": 1080,
+      "width_percent": 100,
+      "x": 0,
+      "y": 0
+    }
+  }
+}
