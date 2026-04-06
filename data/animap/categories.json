@@ -3,6 +3,7 @@
     "time",
     "info"
   ],
+  "Home": [],
   "Login": [
     "google-sign-in",
     "vg-logo"

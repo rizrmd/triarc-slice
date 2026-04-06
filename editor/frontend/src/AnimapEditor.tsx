@@ -282,6 +282,7 @@ export default function AnimapEditor() {
     fd.append('file', file);
     if (layer?.name) fd.append('name', layer.name);
     if (layer?.file) fd.append('old_file', layer.file);
+    console.log('[upload] starting', { layerId, fileName: file.name, size: file.size, type: file.type, layerName: layer?.name, oldFile: layer?.file });
     try {
       setConvertProgress(-1);
       const res = await fetch(`/api/animap-layer/${slug}/${layerId}`, {
@@ -290,6 +291,7 @@ export default function AnimapEditor() {
       });
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
+      console.log('[upload] response', data);
 
       if (data.status === 'converting' && data.task) {
         // Poll for conversion progress
@@ -300,15 +302,18 @@ export default function AnimapEditor() {
             const statusRes = await fetch(`/api/animap-convert-status/${data.task}`);
             if (!statusRes.ok) throw new Error('Conversion status check failed');
             const status = await statusRes.json();
+            console.log('[upload] poll', status);
             setConvertProgress(status.progress);
             if (status.done) {
               if (status.error) throw new Error(status.error);
+              console.log('[upload] conversion done, file:', status.file);
               return status.file;
             }
           }
         };
         const fileName = await pollProgress();
         setConvertProgress(null);
+        console.log('[upload] setting layer file to:', fileName);
         commitConfig((prev) => ({
           ...prev,
           layers: prev.layers.map((l) =>
@@ -317,6 +322,7 @@ export default function AnimapEditor() {
         }));
       } else {
         setConvertProgress(null);
+        console.log('[upload] saved directly, file:', data.file);
         commitConfig((prev) => ({
           ...prev,
           layers: prev.layers.map((l) =>
@@ -325,7 +331,9 @@ export default function AnimapEditor() {
         }));
       }
       setFileVersion((v) => v + 1);
+      console.log('[upload] fileVersion bumped');
     } catch (err) {
+      console.error('[upload] failed', err);
       setConvertProgress(null);
       alert('Upload failed: ' + (err instanceof Error ? err.message : String(err)));
     }
@@ -483,6 +491,7 @@ export default function AnimapEditor() {
         {/* Left: Layer Panel */}
         <div className="w-64 flex-shrink-0 overflow-y-auto border-r">
           <AnimapLayerPanel
+            slug={slug || ''}
             config={config}
             selectedLayerId={selectedLayerId}
             selectedStateId={selectedStateId}

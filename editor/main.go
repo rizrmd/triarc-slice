@@ -360,23 +360,93 @@ func convertVideoToOGV(taskID, ffmpegBin, srcPath, dstPath string) {
 
 	// Generate preview .webm in background so it's cached for future requests
 	go func() {
-		webmPath := dstPath[:len(dstPath)-4] + ".preview.webm"
-		if _, alreadyRunning := previewInFlight.LoadOrStore(webmPath, true); alreadyRunning {
-			return
+		generateWebMPreview("", dstPath)
+	}()
+}
+
+// generateWebMPreview generates a .preview.webm file from an .ogv file.
+// If taskID is non-empty, progress is tracked via convertTasks.
+func generateWebMPreview(taskID, ogvPath string) {
+	webmPath := ogvPath[:len(ogvPath)-4] + ".preview.webm"
+	if _, alreadyRunning := previewInFlight.LoadOrStore(webmPath, true); alreadyRunning {
+		if taskID != "" {
+			convertTasks.Store(taskID, &convertTask{Done: true, File: filepath.Base(ogvPath)})
 		}
-		defer previewInFlight.Delete(webmPath)
-		if previewBin, err := getFFmpegPath(); err == nil {
-			previewCmd := exec.Command(previewBin, "-y", "-i", dstPath,
-				"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
-				"-an",
-				webmPath)
-			if output, err := previewCmd.CombinedOutput(); err != nil {
-				log.Printf("Preview generation failed: %v\n%s", err, output)
-			} else {
-				log.Printf("Preview generated: %s", webmPath)
+		return
+	}
+	defer previewInFlight.Delete(webmPath)
+
+	ffmpegBin, err := getFFmpegPath()
+	if err != nil {
+		if taskID != "" {
+			convertTasks.Store(taskID, &convertTask{Done: true, Error: "ffmpeg not available"})
+		}
+		return
+	}
+
+	if taskID == "" {
+		// Fire-and-forget mode (no progress tracking)
+		cmd := exec.Command(ffmpegBin, "-y", "-i", ogvPath,
+			"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+			"-an",
+			webmPath)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("Preview generation failed: %v\n%s", err, output)
+		} else {
+			log.Printf("Preview generated: %s", webmPath)
+		}
+		return
+	}
+
+	// Tracked mode with progress
+	duration := getVideoDuration(ffmpegBin, ogvPath)
+
+	cmd := exec.Command(ffmpegBin, "-y", "-i", ogvPath,
+		"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+		"-an",
+		"-progress", "pipe:1",
+		webmPath)
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		convertTasks.Store(taskID, &convertTask{Done: true, Error: "Failed to start preview generation"})
+		return
+	}
+
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
+	if err := cmd.Start(); err != nil {
+		convertTasks.Store(taskID, &convertTask{Done: true, Error: "Failed to start ffmpeg"})
+		return
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "out_time_us=") {
+			timeUs, _ := strconv.ParseFloat(strings.TrimPrefix(line, "out_time_us="), 64)
+			if duration > 0 {
+				pct := int(timeUs / (duration * 1_000_000) * 100)
+				if pct > 99 {
+					pct = 99
+				}
+				if pct < 0 {
+					pct = 0
+				}
+				convertTasks.Store(taskID, &convertTask{Progress: pct})
 			}
 		}
-	}()
+	}
+
+	if err := cmd.Wait(); err != nil {
+		log.Printf("WebM preview generation failed: %s\nstderr: %s", err, stderrBuf.String())
+		convertTasks.Store(taskID, &convertTask{Done: true, Error: fmt.Sprintf("Preview generation failed: %s", stderrBuf.String())})
+		return
+	}
+
+	log.Printf("Preview generated: %s", webmPath)
+	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: filepath.Base(ogvPath)})
 }
 
 func convertStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -908,8 +978,12 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "Failed to save video", http.StatusInternalServerError)
 					return
 				}
+				// Generate WebM preview with progress tracking
+				taskID := fmt.Sprintf("%d", time.Now().UnixNano())
+				convertTasks.Store(taskID, &convertTask{Progress: 0})
+				go generateWebMPreview(taskID, target)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".ogv"})
+				json.NewEncoder(w).Encode(map[string]string{"status": "converting", "task": taskID})
 			}
 		} else {
 			// Image/mask — convert to webp

@@ -189,10 +189,14 @@ function VideoTimeline({
     const video = document.createElement('video');
     video.preload = 'auto';
     video.crossOrigin = 'anonymous';
-    video.src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
+    const src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
+    console.log('[timeline] loading video', src);
+    video.src = src;
     video.onloadedmetadata = () => {
+      console.log('[timeline] loadedmetadata', src, 'duration:', video.duration, 'size:', video.videoWidth, 'x', video.videoHeight);
       setDuration(video.duration);
     };
+    video.onerror = () => console.error('[timeline] error loading', src, video.error?.message, video.error?.code);
     videoRef.current = video;
     return () => { videoRef.current = null; };
   }, [file, slug, fileVersion]);
@@ -950,36 +954,39 @@ export function AnimapPropertyPanel({
                   Erase
                 </Button>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Size: {brushSize}px</Label>
-                <Slider
-                  value={[brushSize]}
-                  onValueChange={([v]) => setBrushSize(v)}
-                  min={1}
-                  max={200}
-                  step={1}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Opacity: {(brushOpacity * 100).toFixed(0)}%</Label>
-                <Slider
-                  value={[brushOpacity]}
-                  onValueChange={([v]) => setBrushOpacity(v)}
-                  min={0.01}
-                  max={1}
-                  step={0.01}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Hardness: {(brushHardness * 100).toFixed(0)}%</Label>
-                <Slider
-                  value={[brushHardness]}
-                  onValueChange={([v]) => setBrushHardness(v)}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                />
-              </div>
+              <PropertyRow
+                label="Size"
+                value={brushSize}
+                onChange={setBrushSize}
+                onReset={() => setBrushSize(40)}
+                resetValue={40}
+                min={1}
+                max={200}
+                step={1}
+                displayValue={`${brushSize}px`}
+              />
+              <PropertyRow
+                label="Opacity"
+                value={brushOpacity}
+                onChange={setBrushOpacity}
+                onReset={() => setBrushOpacity(1)}
+                resetValue={1}
+                min={0.01}
+                max={1}
+                step={0.01}
+                displayValue={`${(brushOpacity * 100).toFixed(0)}%`}
+              />
+              <PropertyRow
+                label="Hardness"
+                value={brushHardness}
+                onChange={setBrushHardness}
+                onReset={() => setBrushHardness(0.8)}
+                resetValue={0.8}
+                min={0}
+                max={1}
+                step={0.01}
+                displayValue={`${(brushHardness * 100).toFixed(0)}%`}
+              />
             </div>
           </>
         )}
