@@ -74,15 +74,18 @@ func _apply_display_aspect_policy() -> void:
 # --- Layout utilities ---
 
 func _load_game_layout() -> void:
-	var file = FileAccess.open("res://data/game-layout.json", FileAccess.READ)
-	if not file:
-		push_warning("game-layout.json not found")
-		return
-	var json = JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_warning("Failed to parse game-layout.json")
-		return
-	_layout_data = json.data
+	var scenes := {}
+	for slug in ["startup", "login", "home", "gameplay", "postgame"]:
+		var path := "res://data/scene/%s/layout.json" % slug
+		var file = FileAccess.open(path, FileAccess.READ)
+		if not file:
+			continue
+		var json = JSON.new()
+		if json.parse(file.get_as_text()) == OK:
+			scenes[slug] = json.data
+		else:
+			push_warning("Failed to parse %s" % path)
+	_layout_data = {"scenes": scenes}
 
 ## Find the aspect-ratio key in `boxes` closest to the device's current aspect.
 func find_best_aspect(boxes: Dictionary) -> String:

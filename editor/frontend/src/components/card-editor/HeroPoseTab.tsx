@@ -107,7 +107,7 @@ export function HeroPoseTab({
   const [layout, setLayout] = useState<GameLayout | null>(null);
   
   useEffect(() => {
-    fetch('/api/game-layout')
+    fetch('/api/scene/gameplay/layout')
       .then(res => res.json())
       .then(setLayout)
       .catch(err => console.error("Failed to fetch game layout", err));
