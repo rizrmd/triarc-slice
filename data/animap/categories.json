@@ -3,7 +3,9 @@
     "time",
     "info"
   ],
-  "Home": [],
+  "Home": [
+    "contoh"
+  ],
   "Login": [
     "google-sign-in",
     "vg-logo"
