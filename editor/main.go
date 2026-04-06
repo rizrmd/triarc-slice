@@ -281,6 +281,7 @@ type convertTask struct {
 }
 
 var convertTasks sync.Map
+var previewInFlight sync.Map // tracks WebM preview generation in progress (key = webmPath)
 
 func getVideoDuration(ffmpegBin, filePath string) float64 {
 	cmd := exec.Command(ffmpegBin, "-i", filePath)
@@ -353,23 +354,29 @@ func convertVideoToOGV(taskID, ffmpegBin, srcPath, dstPath string) {
 		return
 	}
 
-	// Generate preview .webm before marking done so it's cached when the frontend requests it
-	convertTasks.Store(taskID, &convertTask{Progress: 99})
-	if previewBin, err := getFFmpegPath(); err == nil {
-		webmPath := dstPath[:len(dstPath)-4] + ".preview.webm"
-		previewCmd := exec.Command(previewBin, "-y", "-i", dstPath,
-			"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
-			"-an",
-			webmPath)
-		if output, err := previewCmd.CombinedOutput(); err != nil {
-			log.Printf("Preview generation failed: %v\n%s", err, output)
-		} else {
-			log.Printf("Preview generated: %s", webmPath)
-		}
-	}
-
+	// Mark conversion done immediately; preview WebM will be generated on first request
 	file := filepath.Base(dstPath)
 	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: file})
+
+	// Generate preview .webm in background so it's cached for future requests
+	go func() {
+		webmPath := dstPath[:len(dstPath)-4] + ".preview.webm"
+		if _, alreadyRunning := previewInFlight.LoadOrStore(webmPath, true); alreadyRunning {
+			return
+		}
+		defer previewInFlight.Delete(webmPath)
+		if previewBin, err := getFFmpegPath(); err == nil {
+			previewCmd := exec.Command(previewBin, "-y", "-i", dstPath,
+				"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+				"-an",
+				webmPath)
+			if output, err := previewCmd.CombinedOutput(); err != nil {
+				log.Printf("Preview generation failed: %v\n%s", err, output)
+			} else {
+				log.Printf("Preview generated: %s", webmPath)
+			}
+		}
+	}()
 }
 
 func convertStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -432,25 +439,29 @@ func animapPreviewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Transcode .ogv -> .webm
-	ffmpegBin, err := getFFmpegPath()
-	if err != nil {
-		http.Error(w, "ffmpeg not available", http.StatusInternalServerError)
-		return
+	// Start background WebM generation if not already in progress
+	if _, alreadyRunning := previewInFlight.LoadOrStore(webmPath, true); !alreadyRunning {
+		go func() {
+			defer previewInFlight.Delete(webmPath)
+			ffmpegBin, err := getFFmpegPath()
+			if err != nil {
+				log.Printf("Preview generation skipped (no ffmpeg): %v", err)
+				return
+			}
+			cmd := exec.Command(ffmpegBin, "-y", "-i", srcPath,
+				"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+				"-an",
+				webmPath)
+			if output, err := cmd.CombinedOutput(); err != nil {
+				log.Printf("Preview transcode failed: %v\n%s", err, output)
+			} else {
+				log.Printf("Preview generated: %s", webmPath)
+			}
+		}()
 	}
 
-	cmd := exec.Command(ffmpegBin, "-y", "-i", srcPath,
-		"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
-		"-an",
-		webmPath)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("Preview transcode failed: %v\n%s", err, output)
-		http.Error(w, "Transcode failed", http.StatusInternalServerError)
-		return
-	}
-
-	http.ServeFile(w, r, webmPath)
+	// Serve OGV directly while WebM is being generated
+	http.ServeFile(w, r, srcPath)
 }
 
 func resolvePath(path string) string {

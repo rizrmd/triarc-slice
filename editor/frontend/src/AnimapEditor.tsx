@@ -316,6 +316,7 @@ export default function AnimapEditor() {
           ),
         }));
       } else {
+        setConvertProgress(null);
         commitConfig((prev) => ({
           ...prev,
           layers: prev.layers.map((l) =>
