@@ -18,8 +18,8 @@
       "y": 86
     },
     "sign_in_button": {
-      "anchor_offset_x": 3,
-      "anchor_offset_y": -68,
+      "anchor_offset_x": 28,
+      "anchor_offset_y": 574,
       "animapSlug": "google-sign-in",
       "height": 173,
       "height_percent": 9,
@@ -30,8 +30,8 @@
       "screen_relative": true,
       "width": 631,
       "width_percent": 58.4,
-      "x": 227,
-      "y": 805
+      "x": 252,
+      "y": 1447
     },
     "status_label": {
       "anchor_offset_x": 12,
