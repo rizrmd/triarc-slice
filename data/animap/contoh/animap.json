@@ -1,0 +1,12 @@
+{
+  "name": "contoh",
+  "width": 1080,
+  "height": 1920,
+  "layers": [],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    }
+  ]
+}
