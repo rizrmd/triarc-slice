@@ -594,10 +594,15 @@ function VideoLayer({
   useEffect(() => {
     const video = videoARef.current;
     if (!video) return;
-    const tryPlay = () => { video.play().catch(() => {}); };
+    console.log('[video] loading', fileUrl, 'readyState:', video.readyState);
+    const onError = () => console.error('[video] error loading', fileUrl, video.error?.message, video.error?.code);
+    const onLoaded = () => console.log('[video] loadedmetadata', fileUrl, video.videoWidth, 'x', video.videoHeight, 'duration:', video.duration);
+    const tryPlay = () => { console.log('[video] canplay, attempting play', fileUrl); video.play().catch((e) => console.error('[video] play failed', e)); };
+    video.addEventListener('error', onError);
+    video.addEventListener('loadedmetadata', onLoaded);
     video.addEventListener('canplay', tryPlay);
     if (video.readyState >= 3) tryPlay();
-    return () => { video.removeEventListener('canplay', tryPlay); };
+    return () => { video.removeEventListener('error', onError); video.removeEventListener('loadedmetadata', onLoaded); video.removeEventListener('canplay', tryPlay); };
   }, [fileUrl]);
 
   // Draw video frames to canvas, apply mask if present, handle loop boundaries

@@ -9,6 +9,7 @@ import { addAnimapState, DEFAULT_STATE_ID, deleteAnimapState, normalizeAnimapCon
 import { toKebabCase } from '@/lib/utils';
 
 interface AnimapLayerPanelProps {
+  slug: string;
   config: AnimapConfig;
   selectedLayerId: string | null;
   selectedStateId: string;
@@ -28,6 +29,7 @@ const typeIcons = {
 };
 
 export function AnimapLayerPanel({
+  slug,
   config,
   selectedLayerId,
   selectedStateId,
@@ -70,6 +72,11 @@ export function AnimapLayerPanel({
   };
 
   const deleteLayer = (id: string) => {
+    const layer = config.layers.find((l) => l.id === id);
+    if (layer?.file && slug) {
+      const baseName = layer.file.replace(/\.[^.]+$/, '');
+      fetch(`/api/animap-layer/${slug}/${baseName}`, { method: 'DELETE' }).catch(() => {});
+    }
     commitConfig((prev) => ({
       ...prev,
       layers: prev.layers.filter((l) => l.id !== id),
