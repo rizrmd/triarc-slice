@@ -82,12 +82,17 @@ var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
 const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
 func _ready():
 	add_to_group("gameplay")
+	print("[Gameplay] _ready() called, match_id: ", GameState.current_match_id)
 
 	reroll_button.pressed.connect(_on_reroll_pressed)
 	reroll_button.button_down.connect(func(): reroll_button.modulate = Color(0.8, 0.8, 0.8, 1.0))
 	reroll_button.button_up.connect(func(): reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0))
 	back_button.pressed.connect(_on_back_pressed)
 	GameState.gameplay_aspect_changed.connect(_on_gameplay_aspect_changed)
+
+	# Connect to GameState WebSocket messages
+	GameState.ws_message_received.connect(_on_ws_message)
+	print("[Gameplay] Connected to GameState.ws_message_received")
 
 	_available_layout_aspects = _get_available_aspect_keys()
 	_refresh_layout_data()
@@ -103,6 +108,7 @@ func _ready():
 	if not GameState.current_match_id.is_empty():
 		_pending_ping_sent_at_ms = _now_ms()
 		_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
+		print("[Gameplay] Requesting match state for: ", GameState.current_match_id)
 		GameState.send_json({
 			"type": "get_match_state",
 			"match_id": GameState.current_match_id

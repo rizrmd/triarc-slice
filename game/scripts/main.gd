@@ -273,6 +273,11 @@ func _on_ws_message(msg: String) -> void:
 		return
 	var data: Dictionary = json.data
 	var msg_type: String = data.get("type", "")
+	if msg_type != "state_update":
+		print("[WS] Received: ", msg_type)
+
+	# Forward all messages to GameState signal for gameplay to receive
+	GameState.ws_message_received.emit(msg)
 
 	match msg_type:
 		"connected":
@@ -330,9 +335,12 @@ func _on_ws_message(msg: String) -> void:
 				find_match_ui.get_node("SearchingLabel").text = "Match found!"
 				await get_tree().create_timer(1.0).timeout
 			# Add gameplay as overlay to keep main scene loaded
+			print("[Main] Adding gameplay overlay...")
 			_add_overlay_scene("res://scenes/gameplay.tscn", "GameplayOverlay")
+			print("[Main] Gameplay overlay added")
 		_:
-			print("[WS] ", msg_type, ": ", msg.left(200))
+			if msg_type != "state_update":
+				print("[WS] ", msg_type, ": ", msg.left(200))
 
 # --- View management ---
 

@@ -2,6 +2,7 @@ extends Node
 ## GameState - Autoload for shared game data
 
 signal gameplay_aspect_changed(aspect_key: String)
+signal ws_message_received(msg: String)  # Forward WebSocket messages to gameplay
 
 # Player data
 var player_id: String = ""
