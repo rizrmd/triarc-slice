@@ -3,7 +3,48 @@ class_name AnimapLoader
 
 const DEFAULT_STATE_ID := "default"
 
+## Cache for preloaded animap data (slug -> data dictionary)
+var _animap_cache: Dictionary = {}
+
+## Preload an animap in the background. Call this during loading screens.
+## The data will be cached and load_animap() will return it instantly.
+func preload_animap_async(slug: String) -> void:
+	# Load synchronously but defer so it doesn't block
+	call_deferred("_preload_animap_sync", slug)
+
+func _preload_animap_sync(slug: String) -> void:
+	if _animap_cache.has(slug):
+		return  # Already cached
+	var data = _load_animap_file(slug)
+	if not data.is_empty():
+		_animap_cache[slug] = data
+		print("[AnimapLoader] Preloaded: ", slug)
+
+## Clear cached data for a slug (or all if empty)
+func clear_cache(slug: String = "") -> void:
+	if slug.is_empty():
+		_animap_cache.clear()
+	elif _animap_cache.has(slug):
+		_animap_cache.erase(slug)
+
+## Returns true if animap data is already cached
+func is_cached(slug: String) -> bool:
+	return _animap_cache.has(slug)
+
+## Returns all cached slugs
+func get_cached_slugs() -> Array[String]:
+	return Array(_animap_cache.keys(), TYPE_STRING, "", [])
+
+## Load animap from cache if available, otherwise load from disk.
+## Returns cached data if available, or loads and caches it.
 static func load_animap(slug: String) -> Dictionary:
+	var data = _load_animap_file(slug)
+	data["slug"] = slug
+	data["states"] = _normalize_states(data)
+	return data
+
+## Internal: Load animap JSON from disk without normalization (for caching)
+static func _load_animap_file(slug: String) -> Dictionary:
 	var path := "res://data/animap/%s/animap.json" % slug
 	if not FileAccess.file_exists(path):
 		push_warning("Animap not found: %s" % path)
@@ -19,10 +60,7 @@ static func load_animap(slug: String) -> Dictionary:
 		push_warning("Invalid animap JSON: %s" % path)
 		return {}
 
-	var data := parsed as Dictionary
-	data["slug"] = slug
-	data["states"] = _normalize_states(data)
-	return data
+	return parsed as Dictionary
 
 static func get_available_states(animap_data: Dictionary) -> PackedStringArray:
 	var result: PackedStringArray = []

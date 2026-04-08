@@ -100,13 +100,22 @@ func _process(_delta: float) -> void:
 
 func load_animap(slug: String) -> void:
 	animap_slug = slug
-	animap_data = AnimapLoader.load_animap(slug)
+	# Try instance-level cache first (from preload_animap_async), then fall back to static load
+	if _animap_loader != null and _animap_loader.is_cached(slug):
+		animap_data = AnimapLoader.load_animap(slug)  # Uses cached version internally
+	else:
+		animap_data = AnimapLoader.load_animap(slug)
 	current_state_id = AnimapLoader.DEFAULT_STATE_ID
 	_clear_layers()
 	_build_layers()
 	_apply_state(current_state_id, false)
 	_layout_layers()
 	animap_loaded.emit(slug)
+
+## Set the AnimapLoader instance to use for caching
+var _animap_loader: AnimapLoader = null
+func set_animap_loader(loader: AnimapLoader) -> void:
+	_animap_loader = loader
 
 func has_state(state_id: String) -> bool:
 	return AnimapLoader.has_state(animap_data, state_id)
