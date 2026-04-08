@@ -4,46 +4,46 @@
 [ext_resource type="Script" path="res://scripts/animap_player.gd" id="2_jyhfs"]
 [ext_resource type="PackedScene" path="res://scenes/hero_select.tscn" id="3_tbgi4"]
 
-[node name="Main" type="Control" unique_id=435486548]
+[node name="Main" type="Control" unique_id=2106975897]
 layout_mode = 3
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_sugp2")
 
-[node name="AnimapClip" type="Control" parent="." unique_id=783646641]
+[node name="AnimapClip" type="Control" parent="." unique_id=1011885620]
 clip_contents = true
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="AnimapPlayer" type="Control" parent="AnimapClip" unique_id=309944430]
+[node name="AnimapPlayer" type="Control" parent="AnimapClip" unique_id=1415635929]
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("2_jyhfs")
 
-[node name="LayerRoot" type="Control" parent="AnimapClip/AnimapPlayer" unique_id=1203781624]
+[node name="LayerRoot" type="Control" parent="AnimapClip/AnimapPlayer" unique_id=976403031]
 anchors_preset = 0
 
-[node name="Overlay" type="ColorRect" parent="." unique_id=1150540527]
+[node name="Overlay" type="ColorRect" parent="." unique_id=2049585578]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 0.3)
 
-[node name="FadeRect" type="ColorRect" parent="." unique_id=2049968609]
+[node name="FadeRect" type="ColorRect" parent="." unique_id=684459230]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 color = Color(0, 0, 0, 1)
 
-[node name="LoginUI" type="Control" parent="." unique_id=2108678828]
+[node name="LoginUI" type="Control" parent="." unique_id=1351769709]
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="LogoContainer" type="Control" parent="LoginUI" unique_id=571275245]
+[node name="LogoContainer" type="Control" parent="LoginUI" unique_id=1120009535]
 anchors_preset = 0
 anchor_left = 0.5
 anchor_right = 0.5
@@ -52,16 +52,16 @@ offset_top = 200.0
 offset_right = 150.0
 offset_bottom = 350.0
 
-[node name="LogoAnimap" type="Control" parent="LoginUI/LogoContainer" unique_id=1829658102]
+[node name="LogoAnimap" type="Control" parent="LoginUI/LogoContainer" unique_id=1462209726]
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("2_jyhfs")
 
-[node name="LayerRoot" type="Control" parent="LoginUI/LogoContainer/LogoAnimap" unique_id=315799949]
+[node name="LayerRoot" type="Control" parent="LoginUI/LogoContainer/LogoAnimap" unique_id=1619692628]
 anchors_preset = 0
 
-[node name="SignInContainer" type="Control" parent="LoginUI" unique_id=1901376421]
+[node name="SignInContainer" type="Control" parent="LoginUI" unique_id=1429035067]
 anchors_preset = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -72,16 +72,16 @@ offset_top = 50.0
 offset_right = 150.0
 offset_bottom = 130.0
 
-[node name="SignInAnimap" type="Control" parent="LoginUI/SignInContainer" unique_id=746225313]
+[node name="SignInAnimap" type="Control" parent="LoginUI/SignInContainer" unique_id=1504888599]
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("2_jyhfs")
 
-[node name="LayerRoot" type="Control" parent="LoginUI/SignInContainer/SignInAnimap" unique_id=1384814574]
+[node name="LayerRoot" type="Control" parent="LoginUI/SignInContainer/SignInAnimap" unique_id=1585829768]
 anchors_preset = 0
 
-[node name="StatusLabel" type="Label" parent="LoginUI" unique_id=656898677]
+[node name="StatusLabel" type="Label" parent="LoginUI" unique_id=58468645]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -94,13 +94,13 @@ offset_bottom = 190.0
 theme_override_font_sizes/font_size = 20
 horizontal_alignment = 1
 
-[node name="HomeUI" type="Control" parent="." unique_id=1222554430]
+[node name="HomeUI" type="Control" parent="." unique_id=1365550526]
 visible = false
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="TitleLabel" type="Label" parent="HomeUI" unique_id=1221861776]
+[node name="TitleLabel" type="Label" parent="HomeUI" unique_id=1093795711]
 layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
@@ -112,7 +112,7 @@ theme_override_font_sizes/font_size = 48
 text = "Home"
 horizontal_alignment = 1
 
-[node name="FindMatchButton" type="Button" parent="HomeUI" unique_id=398729033]
+[node name="FindMatchButton" type="Button" parent="HomeUI" unique_id=1019391400]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -125,7 +125,7 @@ offset_bottom = 260.0
 theme_override_font_sizes/font_size = 28
 text = "Find Match"
 
-[node name="TrainingButton" type="Button" parent="HomeUI" unique_id=585690888]
+[node name="TrainingButton" type="Button" parent="HomeUI" unique_id=1604157970]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -138,7 +138,7 @@ offset_bottom = 340.0
 theme_override_font_sizes/font_size = 28
 text = "Training"
 
-[node name="LogoutButton" type="Button" parent="HomeUI" unique_id=8365851]
+[node name="LogoutButton" type="Button" parent="HomeUI" unique_id=1490360434]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -151,7 +151,7 @@ offset_bottom = 420.0
 theme_override_font_sizes/font_size = 28
 text = "Logout"
 
-[node name="TestVfxButton" type="Button" parent="HomeUI" unique_id=699920810]
+[node name="TestVfxButton" type="Button" parent="HomeUI" unique_id=2081495893]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -164,7 +164,7 @@ offset_bottom = 500.0
 theme_override_font_sizes/font_size = 28
 text = "Test VFX"
 
-[node name="HeroSelectUI" type="Control" parent="." unique_id=426274258 instance=ExtResource("3_tbgi4")]
+[node name="HeroSelectUI" type="Control" parent="." unique_id=688602741 instance=ExtResource("3_tbgi4")]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -173,13 +173,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="FindMatchUI" type="Control" parent="." unique_id=2146492227]
+[node name="FindMatchUI" type="Control" parent="." unique_id=831885880]
 visible = false
 anchors_preset = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="TitleLabel" type="Label" parent="FindMatchUI" unique_id=1533698603]
+[node name="TitleLabel" type="Label" parent="FindMatchUI" unique_id=2114220614]
 layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
@@ -191,7 +191,7 @@ theme_override_font_sizes/font_size = 48
 text = "Find Match"
 horizontal_alignment = 1
 
-[node name="SearchingLabel" type="Label" parent="FindMatchUI" unique_id=2044886083]
+[node name="SearchingLabel" type="Label" parent="FindMatchUI" unique_id=817624597]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
@@ -204,7 +204,7 @@ theme_override_font_sizes/font_size = 28
 text = "Searching..."
 horizontal_alignment = 1
 
-[node name="BackButton" type="Button" parent="FindMatchUI" unique_id=315830095]
+[node name="BackButton" type="Button" parent="FindMatchUI" unique_id=1655732278]
 layout_mode = 0
 anchor_left = 0.5
 anchor_top = 0.5
