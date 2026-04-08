@@ -204,8 +204,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopyPosition = () => {
-    const { x, y } = selectedBox;
-    setFullBoxClipboard({ x, y });
+    const { anchor_offset_x, anchor_offset_y } = selectedBox;
+    setFullBoxClipboard({ anchor_offset_x, anchor_offset_y });
   };
 
   const handleCopySize = () => {
@@ -381,10 +381,10 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </select>
         </div>
 
-        <div className="space-y-1.5">
-          <Label className="text-[11px] font-medium text-muted-foreground">Screen Anchor</Label>
-          <div className="flex items-center gap-2">
-            <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md shrink-0 ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className="flex gap-3">
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-[11px] font-medium text-muted-foreground">Screen Anchor</Label>
+            <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
               {ANCHOR_OPTIONS.map((option) => (
                 <button
                   key={option}
@@ -406,7 +406,34 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
               ))}
             </div>
             <span className="text-[11px] text-muted-foreground capitalize">
-              {(selectedBox.screen_anchor || 'top-left').replace('-', ' ')}
+              {(selectedBox.screen_anchor || 'top-left').replace(/-/g, ' ')}
+            </span>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-[11px] font-medium text-muted-foreground">Pivot</Label>
+            <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
+              {ANCHOR_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  onClick={() => onUpdate(selectedBox.id, { pivot: option })}
+                  className={`
+                    w-6 h-6 rounded-sm transition-all border
+                    ${(selectedBox.pivot || 'top-left') === option
+                      ? 'bg-blue-600 border-blue-600'
+                      : 'bg-background hover:bg-accent border-transparent'}
+                  `}
+                  title={option}
+                  disabled={selectedBox.locked}
+                >
+                  <div className={`
+                    w-1.5 h-1.5 rounded-full mx-auto
+                    ${(selectedBox.pivot || 'top-left') === option ? 'bg-white' : 'bg-muted-foreground'}
+                  `} />
+                </button>
+              ))}
+            </div>
+            <span className="text-[11px] text-muted-foreground capitalize">
+              {(selectedBox.pivot || 'top-left').replace(/-/g, ' ')}
             </span>
           </div>
         </div>
@@ -447,8 +474,8 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
             </div>
           )}
 
-          {(isHeroBox ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
-            const prop = p as 'x' | 'y' | 'width' | 'height';
+          {(isHeroBox ? ['anchor_offset_x', 'anchor_offset_y'] : ['anchor_offset_x', 'anchor_offset_y', 'width', 'height']).map((p) => {
+            const prop = p as 'anchor_offset_x' | 'anchor_offset_y' | 'width' | 'height';
             const isWidth = prop === 'width';
             const isHeight = prop === 'height';
             const isSizeProp = isWidth || isHeight;
@@ -485,7 +512,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     }
                   }}
                 >
-                  {prop}
+                  {prop === 'anchor_offset_x' ? 'X' : prop === 'anchor_offset_y' ? 'Y' : prop}
                 </Label>
                 {isPercentMode && percentKey ? (
                   <PercentInput
