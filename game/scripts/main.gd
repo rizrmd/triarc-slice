@@ -422,25 +422,31 @@ func _apply_login_layout() -> void:
 
 ## Map of home layout box id -> HomeUI child node name
 const _HOME_BOX_NODES := {
-	"play_button": "FindMatchButton",
-	"deck_button": "TrainingButton",
-	"settings_button": "LogoutButton",
-	"player_name": "TitleLabel",
+	"title_label": "TitleLabel",
+	"find_match_button": "FindMatchButton",
+	"training_button": "TrainingButton",
+	"logout_button": "LogoutButton",
 }
 
 func _apply_home_layout() -> void:
 	var boxes = GameState.get_scene_boxes("home")
 	if boxes.is_empty():
+		print("[HOME LAYOUT] no boxes found")
 		return
 	var vp_size = get_viewport().get_visible_rect().size
+	print("[HOME LAYOUT] viewport: ", vp_size, " boxes: ", boxes.keys())
 	for box_id in _HOME_BOX_NODES:
 		if not boxes.has(box_id):
+			print("[HOME LAYOUT] box '", box_id, "' not in layout")
 			continue
 		var node_name: String = _HOME_BOX_NODES[box_id]
 		if not home_ui.has_node(node_name):
+			print("[HOME LAYOUT] node '", node_name, "' not in HomeUI")
 			continue
+		var r = GameState.resolve_box(boxes[box_id], vp_size)
+		print("[HOME LAYOUT] ", box_id, " -> ", node_name, " = ", r)
 		var node: Control = home_ui.get_node(node_name)
-		_apply_layout_rect(node, GameState.resolve_box(boxes[box_id], vp_size))
+		_apply_layout_rect(node, r)
 
 # --- Credential persistence (desktop) ---
 

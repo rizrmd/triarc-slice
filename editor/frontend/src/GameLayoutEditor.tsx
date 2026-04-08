@@ -112,14 +112,10 @@ const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
     { id: 'status_label', label: 'Status Label' },
   ],
   home: [
-    { id: 'player_avatar', label: 'Player Avatar' },
-    { id: 'player_name', label: 'Player Name' },
-    { id: 'currency_gold', label: 'Currency (Gold)' },
-    { id: 'currency_gems', label: 'Currency (Gems)' },
-    { id: 'play_button', label: 'Play Button' },
-    { id: 'deck_button', label: 'Deck Button' },
-    { id: 'shop_button', label: 'Shop Button' },
-    { id: 'settings_button', label: 'Settings Button' },
+    { id: 'title_label', label: 'Title Label' },
+    { id: 'find_match_button', label: 'Find Match' },
+    { id: 'training_button', label: 'Training' },
+    { id: 'logout_button', label: 'Logout' },
   ],
   gameplay: [
     { id: 'enemy1', label: 'Enemy 1' },
