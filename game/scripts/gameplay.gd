@@ -1,6 +1,8 @@
 extends Control
 ## Gameplay - Main battle scene with heroes, hand, and energy
 
+signal back_requested
+
 @onready var heroes_container: Control = $HeroesContainer
 @onready var hand_container: Control = $HandContainer
 @onready var hero_detail_placeholder: ColorRect = $UIOverlay/HeroDetailPlaceholder
@@ -854,7 +856,8 @@ func _on_back_pressed():
 
 	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	# Emit signal instead of changing scene - parent will handle removal
+	back_requested.emit()
 
 func _on_disconnected():
 	_pending_ping_sent_at_ms = -1

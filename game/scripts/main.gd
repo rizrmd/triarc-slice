@@ -16,6 +16,12 @@ signal view_changed(view_name: String)
 @onready var fade_rect: ColorRect = $FadeRect
 var _current_view: String = "login"
 
+# Loaded overlay scenes (keep main scene alive)
+var _overlay_scenes: Array = []
+
+# Animap loader for caching - created early so preloads can use it
+var _animap_loader: AnimapLoader = AnimapLoader.new()
+
 # Google Sign-In
 const WEB_CLIENT_ID = "12643923522-2oi6nt6clhbiav3r7kqgj27v00rm1nk6.apps.googleusercontent.com"
 const SIGN_IN_URL = "https://sg.vangambit.com/sign-in/desktop"
@@ -45,6 +51,25 @@ const VIEW_PAN_X := {
 }
 
 func _ready() -> void:
+	# Use preloaded AnimapLoader from loading screen if available, or reuse existing one
+	if GameState.animap_loader != null:
+		_animap_loader = GameState.animap_loader
+		print("[Main] Using preloaded AnimapLoader")
+	elif _animap_loader == null:
+		_animap_loader = AnimapLoader.new()
+		_animap_loader.preload_animap_async(MAIN_ANIMAP_SLUG)
+		print("[Main] Created new AnimapLoader, started preload: ", MAIN_ANIMAP_SLUG)
+	else:
+		print("[Main] Reusing existing AnimapLoader")
+	# Store in GameState so it persists across scene changes
+	GameState.animap_loader = _animap_loader
+
+	# Initialize animap player with the loader
+	animap_player.set_animap_loader(_animap_loader)
+
+	# Pause animap when app loses focus
+	get_tree().root.visibility_changed.connect(_on_visibility_changed)
+
 	# Connect button signals
 	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
 	home_ui.get_node("TrainingButton").pressed.connect(_on_training_pressed)
@@ -304,7 +329,8 @@ func _on_ws_message(msg: String) -> void:
 			if _current_view == "find_match":
 				find_match_ui.get_node("SearchingLabel").text = "Match found!"
 				await get_tree().create_timer(1.0).timeout
-			get_tree().change_scene_to_file("res://scenes/gameplay.tscn")
+			# Add gameplay as overlay to keep main scene loaded
+			_add_overlay_scene("res://scenes/gameplay.tscn", "GameplayOverlay")
 		_:
 			print("[WS] ", msg_type, ": ", msg.left(200))
 
@@ -393,10 +419,49 @@ func _on_logout_pressed() -> void:
 
 func _on_test_vfx_pressed() -> void:
 	print("[VFX TEST] Navigating to VFX Test scene...")
-	get_tree().change_scene_to_file("res://scenes/vfx_test.tscn")
+	_add_overlay_scene("res://scenes/vfx_test.tscn", "VfxTestOverlay")
 
 func _on_back_pressed() -> void:
-	_show_view("hero_select")
+	# Remove any overlay scenes
+	_remove_overlay_scenes()
+	# Don't animate - just stay on current view, overlay is gone
+	# The view was already set before going to overlay
+
+func _on_visibility_changed() -> void:
+	# Pause animap when app loses focus, resume when regained
+	if get_tree().root.visible:
+		# App is visible again - resume animap if no overlays
+		if _overlay_scenes.is_empty():
+			animap_player.process_mode = Node.PROCESS_MODE_INHERIT
+			print("[Main] App visible, resumed animap")
+	else:
+		# App lost focus - pause animap
+		animap_player.process_mode = Node.PROCESS_MODE_DISABLED
+		print("[Main] App hidden, paused animap")
+
+func _add_overlay_scene(scene_path: String, scene_name: String) -> void:
+	# Pause animap to save resources while overlay is active
+	animap_player.process_mode = Node.PROCESS_MODE_DISABLED
+
+	var scene = load(scene_path)
+	var node = scene.instantiate()
+	node.name = scene_name
+	# Connect back button to remove overlay
+	if node.has_signal("back_requested"):
+		node.back_requested.connect(_remove_overlay_scenes)
+	# Add at the end so it's on top, but don't hide main
+	add_child(node)
+	_overlay_scenes.append(node)
+	print("[Main] Added overlay: ", scene_name, " (total: ", _overlay_scenes.size(), ")")
+
+func _remove_overlay_scenes() -> void:
+	for overlay in _overlay_scenes:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+	_overlay_scenes.clear()
+	# Resume animap when all overlays are removed
+	animap_player.process_mode = Node.PROCESS_MODE_INHERIT
+	print("[Main] Removed all overlays, resumed animap")
 
 func _apply_layout_rect(node: Control, r: Dictionary) -> void:
 	node.anchor_left = 0

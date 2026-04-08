@@ -22,6 +22,9 @@ const MAX_HEROES: int = 3
 # WebSocket reference (set by main.gd)
 var ws: WebSocketPeer = null
 
+# AnimapLoader instance passed from loading screen (for caching preloaded animaps)
+var animap_loader: AnimapLoader = null
+
 # Local mock mode for testing without server
 var local_mock_mode: bool = false
 
@@ -40,6 +43,9 @@ const _DEFAULT_GAMEPLAY_ASPECT := "9-16"
 
 func _ready():
 	_apply_display_aspect_policy()
+	# Clean up any stale animap loader from previous session
+	if animap_loader != null:
+		animap_loader = null
 	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()

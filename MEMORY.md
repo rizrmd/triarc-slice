@@ -132,3 +132,32 @@ cd D:\kerja\VanGambit\triarc-slice2\triarc-slice
 - `game/scripts/hero.gd` - Main hero script
 - `game/scripts/gameplay.gd` - Gameplay controller
 - `game/scenes/gameplay.tscn` - Gameplay scene (contains HeroesContainer, EnemyHeroesContainer)
+
+---
+
+## Animap Preloading Optimization - 2026-04-08
+
+### Problem
+Navigating to home was slow because `AnimapPlayer.load_animap()` was loading the animap from disk every time, including decoding video files.
+
+### Solution
+Preload the animap in the background during the startup/loading scene, then cache it so navigation to home is instant.
+
+### Files Modified
+- `game/scripts/animap_loader.gd` - Added caching support and `preload_animap_async()` method
+- `game/scripts/animap_player.gd` - Added `_animap_loader` reference, uses cache when available
+- `game/scripts/loading_screen.gd` - Starts animap preloading in background while video plays
+- `game/scripts/main.gd` - Uses preloaded AnimapLoader from GameState
+- `game/scripts/game_state.gd` - Added `animap_loader` property for passing loader between scenes
+
+### Flow
+1. Loading scene starts → `AnimapLoader.preload_animap_async("main")` called via `call_deferred`
+2. Loading video plays while animap JSON is parsed in background
+3. Video finishes → loader stored in `GameState.animap_loader`
+4. Main scene starts → checks for preloaded loader, uses it for `AnimapPlayer`
+5. Navigating to home → animap state changes instantly (data already parsed)
+
+### Key Methods Added
+- `AnimapLoader.preload_animap_async(slug)` - Start background preload
+- `AnimapLoader.is_cached(slug)` - Check if animap is cached
+- `AnimapPlayer.set_animap_loader(loader)` - Connect loader to player

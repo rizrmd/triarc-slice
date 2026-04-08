@@ -1,5 +1,7 @@
 extends Control
 
+signal back_requested
+
 @onready var button_container: VBoxContainer = $ButtonContainer
 @onready var back_button: Button = $BackButton
 @onready var vfx_container: Control = $VfxContainer
@@ -125,7 +127,8 @@ func _debug(text: String) -> void:
 
 func _on_back_pressed() -> void:
 	print("[VFX] Back button pressed")
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	# Emit signal to parent (main.gd) to handle removal instead of changing scene
+	back_requested.emit()
 
 func _on_play_charge() -> void:
 	print("[VFX] Play Charge button pressed")

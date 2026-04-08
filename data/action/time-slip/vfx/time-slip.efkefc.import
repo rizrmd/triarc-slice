@@ -1,0 +1,17 @@
+[remap]
+
+importer="effekseer.effect"
+type="Resource"
+uid="uid://c2dcjt85prr46"
+path="res://.godot/imported/time-slip.efkefc-ff257ce19bdadd674a8ef52235525bb3.res"
+
+[deps]
+
+source_file="res://data/action/time-slip/vfx/time-slip.efkefc"
+dest_files=["res://.godot/imported/time-slip.efkefc-ff257ce19bdadd674a8ef52235525bb3.res"]
+
+[params]
+
+scale=1.0
+data_type=0
+compress=true
