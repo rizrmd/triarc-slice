@@ -82,7 +82,6 @@ var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
 const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
 func _ready():
 	add_to_group("gameplay")
-	print("[Gameplay] _ready() called, match_id: ", GameState.current_match_id)
 
 	reroll_button.pressed.connect(_on_reroll_pressed)
 	reroll_button.button_down.connect(func(): reroll_button.modulate = Color(0.8, 0.8, 0.8, 1.0))
@@ -92,7 +91,6 @@ func _ready():
 
 	# Connect to GameState WebSocket messages
 	GameState.ws_message_received.connect(_on_ws_message)
-	print("[Gameplay] Connected to GameState.ws_message_received")
 
 	_available_layout_aspects = _get_available_aspect_keys()
 	_refresh_layout_data()
@@ -108,7 +106,6 @@ func _ready():
 	if not GameState.current_match_id.is_empty():
 		_pending_ping_sent_at_ms = _now_ms()
 		_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
-		print("[Gameplay] Requesting match state for: ", GameState.current_match_id)
 		GameState.send_json({
 			"type": "get_match_state",
 			"match_id": GameState.current_match_id
@@ -167,7 +164,6 @@ func _unhandled_input(event: InputEvent):
 		var mouse_pos = get_global_mouse_position()
 		# Normal gameplay - click on ally hero (enemy clicks handled via hero_clicked signal)
 		var clicked_hero = _get_my_hero_at_point(mouse_pos)
-		print("[Gameplay] global click pos=", mouse_pos, " clicked_hero=", clicked_hero.hero_slug if clicked_hero else "none")
 		if clicked_hero:
 			_set_selected_hero(clicked_hero)
 		else:
@@ -234,7 +230,6 @@ func _update_game_state(data: Dictionary):
 			
 			# Ignore small damage (< 10) - likely DoT or server sync noise
 			if delta > 0 and delta < MIN_DAMAGE_THRESHOLD:
-				print("[Gameplay] Filtering small HP change: ", hero_data.get("hero_slug", ""), " delta=", delta, " (keeping ", old_hp, ")")
 				hero_data["hp_current"] = old_hp  # Keep old HP
 		
 		_last_known_hp[hero_id] = hero_data.get("hp_current", 0)
@@ -443,7 +438,6 @@ func _show_casting_indicator(hero: Hero, action_slug: String):
 	hero._show_casting("cast_%s_%d" % [action_slug, Time.get_ticks_msec()], cast_duration_ms, action_slug)
 
 func _on_card_drag_started(_card):
-	print("[Gameplay] drag started action=", _card.action_slug, " slot=", _card.slot_index, " clearing selection")
 	_clear_selected_hero()
 	_dragging_card = _card
 	_hovered_hero = null
@@ -466,7 +460,6 @@ func _highlight_valid_targets(_target_rule: String):
 ## Cast action using pre-targeting system (preset target from hero selection)
 func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
 	var target_slot = _get_hero_target(caster_hero.slot_index)
-	print("[Gameplay] Casting with preset target: hero ", caster_hero.slot_index, " -> enemy ", target_slot)
 	
 	# Show casting indicator on the caster hero
 	_show_casting_indicator(caster_hero, card.action_slug)
@@ -652,16 +645,11 @@ func _get_hero_target(hero_slot: int) -> int:
 
 ## Set target for a hero slot
 func _set_hero_target(hero_slot: int, enemy_slot: int):
-	print("[Marker] _set_hero_target called: hero_slot=", hero_slot, " -> enemy_slot=", enemy_slot)
 	_hero_targets[hero_slot] = enemy_slot
-	print("[Marker] _hero_targets now: ", _hero_targets)
-	print("[Marker] About to call _update_target_indicators")
 	_update_target_indicators()
-	print("[Marker] _update_target_indicators returned")
 
 ## Update target indicators on all enemy heroes - show ALL set targets, persist even when deselected
 func _update_target_indicators():
-	print("[Marker] _update_target_indicators START _hero_targets=", _hero_targets, " _selected_hero=", _selected_hero)
 	# First, hide all target indicators on all enemies (both regular and pooled markers)
 	for hero in enemy_heroes.values():
 		hero.show_target_marker(false)
@@ -670,36 +658,28 @@ func _update_target_indicators():
 	
 	# Only show markers if there is a selected ally hero
 	if _selected_hero == null or not is_instance_valid(_selected_hero):
-		print("[Marker] No selected hero, hiding all markers")
 		return
 	
 	var selected_slot = _selected_hero.slot_index
-	print("[Marker] Selected ally slot=", selected_slot)
 	
 	# Show target ONLY for the selected ally hero
 	if not _hero_targets.has(selected_slot):
-		print("[Marker] Selected ally has no target set")
 		return
 	
 	var target_slot = _hero_targets[selected_slot]
-	print("[Marker] Selected ally targets enemy slot=", target_slot)
 	
 	if not enemy_heroes.has(target_slot):
-		print("[Marker] Target enemy not found")
 		return
 	
 	var target_enemy = enemy_heroes[target_slot]
 	# Show marker for the selected ally (offset_index = 0 since only one marker for selected hero)
-	print("[Marker] Calling show_target_marker_with_offset for ", _selected_hero.hero_name)
 	target_enemy.show_target_marker_with_offset(true, selected_slot, 0, _selected_hero.hero_name)
 
 func _on_hero_clicked(hero: Hero):
-	print("[Gameplay] hero_clicked hero=", hero.hero_slug, " slot=", hero.slot_index, " enemy=", hero.is_enemy, " dead=", hero.is_dead())
 	
 	if hero.is_enemy:
 		# Enemy clicked - set as target for selected ally hero
 		if _selected_hero and not _selected_hero.is_dead():
-			print("[Marker] Enemy clicked for target: ", hero.hero_slug, " for ally: ", _selected_hero.hero_slug)
 			_set_hero_target(_selected_hero.slot_index, hero.slot_index)
 		return
 	
@@ -710,17 +690,14 @@ func _on_hero_clicked(hero: Hero):
 
 func _set_selected_hero(hero: Hero):
 	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero == hero:
-		print("[Gameplay] toggle off hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_clear_selected_hero()
 		return
 	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero != hero:
-		print("[Gameplay] deselect previous hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
 		# Hide target info on previous hero (marker persists)
 		_selected_hero.show_target_info(false)
 	_selected_hero = hero
 	if _selected_hero and is_instance_valid(_selected_hero):
-		print("[Gameplay] select hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(true)
 		# DO NOT auto-set target - player must manually select target by clicking enemy
 		# Update target indicators to show current target (if any)
@@ -729,10 +706,8 @@ func _set_selected_hero(hero: Hero):
 
 func _clear_selected_hero():
 	if _selected_hero and is_instance_valid(_selected_hero):
-		print("[Gameplay] clear selected hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
 	else:
-		print("[Gameplay] clear selected hero=noop")
 	_selected_hero = null
 	_update_target_indicators()
 	_update_hero_detail_placeholder()
@@ -789,14 +764,12 @@ func _get_hand_placeholder_rect() -> Rect2:
 func _get_my_hero_at_point(point: Vector2) -> Hero:
 	for hero in my_heroes.values():
 		if hero.get_global_rect().has_point(point):
-			print("[Gameplay] point over hero=", hero.hero_slug, " slot=", hero.slot_index)
 			return hero
 	return null
 
 func _get_enemy_hero_at_point(point: Vector2) -> Hero:
 	for hero in enemy_heroes.values():
 		if hero.get_global_rect().has_point(point):
-			print("[Gameplay] point over enemy=", hero.hero_slug, " slot=", hero.slot_index)
 			return hero
 	return null
 

@@ -25,10 +25,8 @@ func _start_animap_preload() -> void:
 		_animap_loader = AnimapLoader.new()
 		# Preload the main animap in background - will be ready when transitioning to main scene
 		_animap_loader.preload_animap_async("main")
-		print("[Loading] Started background preload of animap: main")
 	else:
 		_animap_loader = GameState.animap_loader
-		print("[Loading] Reusing existing AnimapLoader from GameState")
 
 func _apply_layout() -> void:
 	var boxes = GameState.get_scene_boxes("startup")

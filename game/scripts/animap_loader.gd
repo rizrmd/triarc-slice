@@ -18,7 +18,6 @@ func _preload_animap_sync(slug: String) -> void:
 	var data = _load_animap_file(slug)
 	if not data.is_empty():
 		_animap_cache[slug] = data
-		print("[AnimapLoader] Preloaded: ", slug)
 
 ## Clear cached data for a slug (or all if empty)
 func clear_cache(slug: String = "") -> void:
