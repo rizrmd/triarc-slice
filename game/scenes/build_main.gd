@@ -90,8 +90,8 @@ func _initialize() -> void:
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status_label.set_anchors_preset(Control.PRESET_CENTER)
 	status_label.position = Vector2(-150, 150)
-	status_label.size = Vector2(300, 40)
-	status_label.add_theme_font_size_override("font_size", 20)
+	status_label.size = Vector2(300, 60)
+	status_label.add_theme_font_size_override("font_size", 26)
 	login_ui.add_child(status_label)
 
 	# --- Home UI ---
