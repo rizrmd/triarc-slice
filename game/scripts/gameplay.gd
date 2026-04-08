@@ -707,7 +707,6 @@ func _set_selected_hero(hero: Hero):
 func _clear_selected_hero():
 	if _selected_hero and is_instance_valid(_selected_hero):
 		_selected_hero.set_selected(false)
-	else:
 	_selected_hero = null
 	_update_target_indicators()
 	_update_hero_detail_placeholder()
