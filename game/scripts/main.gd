@@ -55,12 +55,11 @@ func _ready() -> void:
 	sign_in_animap.gui_input.connect(_on_sign_in_gui_input)
 
 	animap_player.load_animap(MAIN_ANIMAP_SLUG)
-	logo_animap.fit_mode = "contain"
 	logo_animap.load_animap("vg-logo")
-	sign_in_animap.fit_mode = "contain"
 	sign_in_animap.load_animap("google-sign-in")
 
 	_apply_login_layout()
+	_apply_home_layout()
 
 	# Initialize Google Sign-In: native plugin on Android, OAuth loopback on desktop
 	if Engine.has_singleton("GodotGoogleSignIn"):
@@ -394,36 +393,54 @@ func _on_logout_pressed() -> void:
 func _on_back_pressed() -> void:
 	_show_view("hero_select")
 
+func _apply_layout_rect(node: Control, r: Dictionary) -> void:
+	node.anchor_left = 0
+	node.anchor_top = 0
+	node.anchor_right = 0
+	node.anchor_bottom = 0
+	node.position = Vector2(r["x"], r["y"])
+	node.size = Vector2(r["width"], r["height"])
+
 func _apply_login_layout() -> void:
 	var boxes = GameState.get_scene_boxes("login")
 	if boxes.is_empty():
 		return
 	var vp_size = get_viewport().get_visible_rect().size
-	var scale_factor = vp_size.x / 1080.0
 
 	if boxes.has("logo"):
-		var r = GameState.resolve_box(boxes["logo"], vp_size)
-		var logo_container: Control = login_ui.get_node("LogoContainer")
-		var sw = r["width"] * scale_factor
-		var sh = r["height"] * scale_factor
-		logo_container.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
-		logo_container.size = Vector2(sw, sh)
+		var box = boxes["logo"]
+		logo_animap.fit_mode = str(box.get("fill", "contain"))
+		_apply_layout_rect(login_ui.get_node("LogoContainer"), GameState.resolve_box(box, vp_size))
 
 	if boxes.has("sign_in_button"):
-		var r = GameState.resolve_box(boxes["sign_in_button"], vp_size)
-		var sign_in_container: Control = login_ui.get_node("SignInContainer")
-		var sw = r["width"] * scale_factor
-		var sh = r["height"] * scale_factor
-		sign_in_container.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
-		sign_in_container.size = Vector2(sw, sh)
+		var box = boxes["sign_in_button"]
+		sign_in_animap.fit_mode = str(box.get("fill", "contain"))
+		_apply_layout_rect(login_ui.get_node("SignInContainer"), GameState.resolve_box(box, vp_size))
 
 	if boxes.has("status_label"):
-		var r = GameState.resolve_box(boxes["status_label"], vp_size)
-		var status_label: Label = login_ui.get_node("StatusLabel")
-		var sw = r["width"] * scale_factor
-		var sh = r["height"] * scale_factor
-		status_label.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
-		status_label.size = Vector2(sw, sh)
+		_apply_layout_rect(login_ui.get_node("StatusLabel"), GameState.resolve_box(boxes["status_label"], vp_size))
+
+## Map of home layout box id -> HomeUI child node name
+const _HOME_BOX_NODES := {
+	"play_button": "FindMatchButton",
+	"deck_button": "TrainingButton",
+	"settings_button": "LogoutButton",
+	"player_name": "TitleLabel",
+}
+
+func _apply_home_layout() -> void:
+	var boxes = GameState.get_scene_boxes("home")
+	if boxes.is_empty():
+		return
+	var vp_size = get_viewport().get_visible_rect().size
+	for box_id in _HOME_BOX_NODES:
+		if not boxes.has(box_id):
+			continue
+		var node_name: String = _HOME_BOX_NODES[box_id]
+		if not home_ui.has_node(node_name):
+			continue
+		var node: Control = home_ui.get_node(node_name)
+		_apply_layout_rect(node, GameState.resolve_box(boxes[box_id], vp_size))
 
 # --- Credential persistence (desktop) ---
 
