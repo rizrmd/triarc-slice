@@ -33,7 +33,7 @@
     },
     "title_label": {
       "anchor_offset_x": 0,
-      "anchor_offset_y": -159,
+      "anchor_offset_y": -422,
       "height": 63,
       "height_percent": 3.1,
       "id": "title_label",
@@ -41,10 +41,10 @@
       "pivot": "center",
       "screen_anchor": "center",
       "screen_relative": true,
-      "width": 568,
-      "width_percent": 37,
-      "x": 484,
-      "y": 833
+      "width": 1536,
+      "width_percent": 100,
+      "x": 0,
+      "y": 571
     },
     "training_button": {
       "anchor_offset_x": 0,
