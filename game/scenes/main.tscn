@@ -137,6 +137,19 @@ offset_bottom = 280.0
 theme_override_font_sizes/font_size = 28
 text = "Logout"
 
+[node name="TestVfxButton" type="Button" parent="HomeUI" unique_id=1987654321]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -100.0
+offset_top = 310.0
+offset_right = 100.0
+offset_bottom = 370.0
+theme_override_font_sizes/font_size = 28
+text = "Test VFX"
+
 [node name="HeroSelectUI" parent="." instance=ExtResource("3_hero_select")]
 visible = false
 

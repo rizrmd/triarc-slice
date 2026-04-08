@@ -31,6 +31,21 @@
       "x": 484,
       "y": 1103
     },
+    "test_vfx_button": {
+      "anchor_offset_x": 0,
+      "anchor_offset_y": 200,
+      "height": 63,
+      "height_percent": 3.1,
+      "id": "test_vfx_button",
+      "label": "Test VFX",
+      "pivot": "center",
+      "screen_anchor": "center",
+      "screen_relative": true,
+      "width": 568,
+      "width_percent": 37,
+      "x": 484,
+      "y": 1193
+    },
     "title_label": {
       "anchor_offset_x": 0,
       "anchor_offset_y": -422,

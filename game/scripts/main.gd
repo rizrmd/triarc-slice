@@ -49,6 +49,7 @@ func _ready() -> void:
 	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
 	home_ui.get_node("TrainingButton").pressed.connect(_on_training_pressed)
 	home_ui.get_node("LogoutButton").pressed.connect(_on_logout_pressed)
+	home_ui.get_node("TestVfxButton").pressed.connect(_on_test_vfx_pressed)
 	hero_select_ui.back_requested.connect(func(): _show_view("home"))
 	hero_select_ui.find_match_requested.connect(func(): _show_view("find_match"))
 	find_match_ui.get_node("BackButton").pressed.connect(_on_back_pressed)
@@ -390,6 +391,10 @@ func _on_logout_pressed() -> void:
 	_show_view("login")
 	login_ui.get_node("StatusLabel").text = ""
 
+func _on_test_vfx_pressed() -> void:
+	print("[VFX TEST] Navigating to VFX Test scene...")
+	get_tree().change_scene_to_file("res://scenes/vfx_test.tscn")
+
 func _on_back_pressed() -> void:
 	_show_view("hero_select")
 
@@ -426,6 +431,7 @@ const _HOME_BOX_NODES := {
 	"find_match_button": "FindMatchButton",
 	"training_button": "TrainingButton",
 	"logout_button": "LogoutButton",
+	"test_vfx_button": "TestVfxButton",
 }
 
 func _apply_home_layout() -> void:
