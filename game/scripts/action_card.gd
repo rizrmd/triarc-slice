@@ -5,6 +5,7 @@ extends Button
 signal card_drag_started(card: Button)
 signal card_drag_ended(card: Button, dropped_on_target: bool)
 signal card_awaiting_target(card: ActionCard, caster: Hero)
+signal card_cast_on_ally(card: ActionCard, caster: Hero)
 
 var action_slug: String = ""
 var action_name: String = ""
@@ -26,7 +27,8 @@ const REF_W: float = 1024.0
 const REF_H: float = 1536.0
 
 func _ready():
-	button_down.connect(_on_button_down)
+	# Using _gui_input for drag handling instead of signals
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	z_index = 1
 
 	_frame_tex = load("res://assets/ui/action-frame.webp")
@@ -293,28 +295,38 @@ func _make_masked_char_group(layer: String, pos: Dictionary, scale_pct: float, c
 
 # --- Drag & drop ---
 
-func _on_button_down():
-	is_dragging = true
-	drag_start_pos = global_position
-	_drag_offset = get_global_mouse_position() - global_position
-	card_drag_started.emit(self)
-
-	scale = Vector2(1.1, 1.1)
-	z_index = 100
-
-func _input(event):
-	if not is_dragging:
-		return
-	if event is InputEventMouseMotion:
+func _gui_input(event: InputEvent):
+	print("[ActionCard] _gui_input: event=", event.get_class(), " is_dragging=", is_dragging)
+	if event is InputEventMouseButton:
+		var mouse_btn := event as InputEventMouseButton
+		print("[ActionCard] _gui_input: button=", mouse_btn.button_index, " pressed=", mouse_btn.pressed)
+		if mouse_btn.button_index == MOUSE_BUTTON_LEFT:
+			if mouse_btn.pressed:
+				# Button down - start drag
+				is_dragging = true
+				drag_start_pos = global_position
+				_drag_offset = get_global_mouse_position() - global_position
+				scale = Vector2(1.1, 1.1)
+				z_index = 100
+				card_drag_started.emit(self)
+				print("[ActionCard] _gui_input: drag started, is_dragging=", is_dragging)
+			else:
+				# Button up - end drag
+				print("[ActionCard] _gui_input: button up, is_dragging=", is_dragging)
+				if is_dragging:
+					_end_drag()
+				accept_event()
+	elif event is InputEventMouseMotion and is_dragging:
 		global_position = get_global_mouse_position() - _drag_offset
-	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-		_end_drag()
 
 func _end_drag():
+	print("[ActionCard] _end_drag: action_slug=", action_slug, " target_rule=", target_rule)
 	is_dragging = false
 
 	var dropped_on = _get_drop_target()
+	print("[ActionCard] _end_drag: dropped_on=", dropped_on)
 	var valid_drop = _is_valid_target(dropped_on)
+	print("[ActionCard] _end_drag: valid_drop=", valid_drop)
 
 	if valid_drop:
 		# Hide immediately — before any property resets that could flash
@@ -329,6 +341,9 @@ func _end_drag():
 			return
 		
 		_cast_action(dropped_on)
+		# Emit signal for immediate pie animation on ally
+		var caster = dropped_on as Hero
+		card_cast_on_ally.emit(self, caster)
 		card_drag_ended.emit(self, true)
 	else:
 		scale = Vector2(1.0, 1.0)
@@ -343,25 +358,37 @@ func _get_drop_target() -> Control:
 	var best_dist = INF
 	var best_hero: Control = null
 	var gameplay = get_tree().get_first_node_in_group("gameplay")
+	print("[ActionCard] _get_drop_target: gameplay=", gameplay)
 	if gameplay:
-		for hero in gameplay.get_heroes():
+		var all_heroes = gameplay.get_heroes()
+		print("[ActionCard] _get_drop_target: heroes count=", all_heroes.size())
+		for hero in all_heroes:
+			print("[ActionCard] _get_drop_target: checking hero=", hero.hero_slug if "hero_slug" in hero else "?", " rect=", hero.get_global_rect(), " intersects=", card_rect.intersects(hero.get_global_rect()))
 			if card_rect.intersects(hero.get_global_rect()):
 				var dist = card_center.distance_to(hero.get_global_rect().get_center())
 				if dist < best_dist:
 					best_dist = dist
 					best_hero = hero
+	print("[ActionCard] _get_drop_target: best_hero=", best_hero)
 	return best_hero
 
 func _is_valid_target(target: Control) -> bool:
+	print("[ActionCard] _is_valid_target: target=", target)
 	if target == null:
+		print("[ActionCard] _is_valid_target: returning false (target is null)")
 		return false
 	var target_hero = target as Hero
 	if not target_hero:
+		print("[ActionCard] _is_valid_target: returning false (not a Hero)")
 		return false
+	print("[ActionCard] _is_valid_target: hero is_enemy=", target_hero.is_enemy, " is_dead=", target_hero.is_dead(), " is_casting=", target_hero.is_casting())
 	# Only your own alive, non-casting heroes are valid drop targets
-	return not target_hero.is_enemy and not target_hero.is_dead() and not target_hero.is_casting()
+	var valid = not target_hero.is_enemy and not target_hero.is_dead() and not target_hero.is_casting()
+	print("[ActionCard] _is_valid_target: returning ", valid)
+	return valid
 
 func _cast_action(caster: Hero, target_slot: int = -1):
+	print("[ActionCard] _cast_action: action_slug=", action_slug, " caster=", caster.hero_slug, " caster_slot=", caster.slot_index, " target_slot=", target_slot)
 	# The hero you drop the card on IS the caster.
 	# If target_slot is provided, use it; otherwise server auto-resolves based on target_rule.
 	var payload = {
@@ -372,6 +399,7 @@ func _cast_action(caster: Hero, target_slot: int = -1):
 	}
 	if target_slot >= 0:
 		payload["target_slot"] = target_slot
+	print("[ActionCard] _cast_action: sending payload=", JSON.stringify(payload))
 	GameState.send_json(payload)
 
 func _snap_back():
