@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_sugp2"]
 [ext_resource type="Script" path="res://scripts/animap_player.gd" id="2_jyhfs"]
 [ext_resource type="PackedScene" path="res://scenes/hero_select.tscn" id="3_tbgi4"]
+[ext_resource type="PackedScene" path="res://scenes/animap_button.tscn" id="4_animap_btn"]
 
 [node name="Main" type="Control" unique_id=297658702]
 layout_mode = 3
@@ -18,9 +19,11 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 
 [node name="AnimapPlayer" type="Control" parent="AnimapClip" unique_id=297816204]
-anchors_preset = 0
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("2_jyhfs")
 
 [node name="LayerRoot" type="Control" parent="AnimapClip/AnimapPlayer" unique_id=23230332]
@@ -72,14 +75,7 @@ offset_top = 50.0
 offset_right = 150.0
 offset_bottom = 130.0
 
-[node name="SignInAnimap" type="Control" parent="LoginUI/SignInContainer" unique_id=1320834905]
-anchors_preset = 0
-anchor_right = 1.0
-anchor_bottom = 1.0
-script = ExtResource("2_jyhfs")
-
-[node name="LayerRoot" type="Control" parent="LoginUI/SignInContainer/SignInAnimap" unique_id=894790196]
-anchors_preset = 0
+[node name="SignInButton" parent="LoginUI/SignInContainer" instance=ExtResource("4_animap_btn") unique_id=1320834905]
 
 [node name="StatusLabel" type="Label" parent="LoginUI" unique_id=848533317]
 layout_mode = 0

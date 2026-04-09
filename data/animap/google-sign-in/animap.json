@@ -10,8 +10,8 @@
       "file": "default.webp",
       "visible": true,
       "opacity": 1,
-      "x": 834,
-      "y": 235,
+      "x": 0,
+      "y": 0,
       "scale": 1
     }
   ],
@@ -27,7 +27,8 @@
         "default": {
           "brightness": 125,
           "lightness": 60,
-          "y": 9.94140625
+          "x": 1,
+          "y": 19.109375
         }
       }
     }

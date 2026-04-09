@@ -1,0 +1,36 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/animap_button.gd" id="1_animap_btn"]
+[ext_resource type="Script" path="res://scripts/animap_player.gd" id="2_animap_player"]
+
+[node name="AnimapButton" type="Control" unique_id=1234567900]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_animap_btn")
+
+[node name="AnimapPlayer" type="Control" parent="." unique_id=1234567901]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_animap_player")
+
+[node name="LayerRoot" type="Control" parent="AnimapPlayer" unique_id=1234567902]
+layout_mode = 1
+anchors_preset = 0
+
+[node name="MouseCapture" type="Control" parent="." unique_id=1234567903]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
