@@ -76,7 +76,7 @@ const ANCHOR_FACTORS: Record<ScreenAnchor, { x: number; y: number }> = {
   'bottom-right': { x: 1, y: 1 },
 };
 
-function AnimapBoxPreview({ slug }: { slug: string }) {
+function AnimapBoxPreview({ slug, fill = 'contain' }: { slug: string; fill?: string }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,7 +99,9 @@ function AnimapBoxPreview({ slug }: { slug: string }) {
     );
   }
 
-  return <img src={previewUrl} className="w-full h-full object-contain" alt={slug} />;
+  // Map fill mode to CSS object-fit
+  const objectFit = fill === 'cover' ? 'object-cover' : fill === 'stretch' ? 'object-fill' : fill === 'none' ? 'object-none' : 'object-contain';
+  return <img src={previewUrl} className={`w-full h-full ${objectFit}`} alt={slug} />;
 }
 
 const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
@@ -393,6 +395,8 @@ export default function GameLayoutEditor() {
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [snapToCenter, setSnapToCenter] = useState(true);
+  const SNAP_THRESHOLD = 10; // pixels
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [bgDimensions, setBgDimensions] = useState({ width: 0, height: 0 });
   const [showPivotLine, setShowPivotLine] = useState(false);
@@ -410,6 +414,7 @@ export default function GameLayoutEditor() {
   const toNormalizedRef = useRef<any>(null);
   const loadingBgRef = useRef<string>('');
   const didDragRef = useRef(false);
+  const isSnappingRef = useRef(false);
   const getBoxesRef = useRef<(l: GameLayout) => Record<string, Box>>(null as any);
   const setBoxesRef = useRef<(l: GameLayout, boxes: Record<string, Box>) => GameLayout>(null as any);
   const syncRafRef = useRef<number>(0);
@@ -1201,6 +1206,20 @@ export default function GameLayoutEditor() {
               <AlignJustify className="h-4 w-4" />
             </Button>
             <Button
+              variant={snapToCenter ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSnapToCenter(prev => !prev)}
+              title="Toggle Snap to Center (drag boxes near viewport center to snap)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <circle cx="8" cy="8" r="2" />
+                <line x1="8" y1="0" x2="8" y2="4" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="8" y1="12" x2="8" y2="16" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="0" y1="8" x2="4" y2="8" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="12" y1="8" x2="16" y2="8" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+            </Button>
+            <Button
               variant="outline"
               size="sm"
               onClick={() => {
@@ -1332,6 +1351,51 @@ export default function GameLayoutEditor() {
                 />
               )}
 
+              {/* Snap to center guides */}
+              {snapToCenter && (
+                <>
+                  {/* Horizontal center line */}
+                  <div
+                    className="absolute pointer-events-none z-5"
+                    style={{
+                      left: 0,
+                      top: '50%',
+                      width: '100%',
+                      height: '1px',
+                      backgroundColor: 'rgba(59, 130, 246, 0.4)',
+                      transform: 'translateY(-50%)',
+                    }}
+                  />
+                  {/* Vertical center line */}
+                  <div
+                    className="absolute pointer-events-none z-5"
+                    style={{
+                      left: '50%',
+                      top: 0,
+                      width: '1px',
+                      height: '100%',
+                      backgroundColor: 'rgba(59, 130, 246, 0.4)',
+                      transform: 'translateX(-50%)',
+                    }}
+                  />
+                  {/* Center point */}
+                  <div
+                    className="absolute pointer-events-none z-5"
+                    style={{
+                      left: '50%',
+                      top: '50%',
+                      width: '12px',
+                      height: '12px',
+                      marginLeft: '-6px',
+                      marginTop: '-6px',
+                      borderRadius: '50%',
+                      border: '2px solid rgba(59, 130, 246, 0.6)',
+                      backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    }}
+                  />
+                </>
+              )}
+
               {Object.values(currentBoxes).map(box => (
                 (() => {
                   const hasPreview = !!(box.cardSlug || box.actionSlug || box.poseSlug || box.animapSlug);
@@ -1344,8 +1408,27 @@ export default function GameLayoutEditor() {
                       disableDragging={box.locked}
                       enableResizing={!box.locked}
                       onDragStop={(_e, d) => {
-                        const newX = Math.round(d.x);
-                        const newY = Math.round(d.y);
+                        let newX = Math.round(d.x);
+                        let newY = Math.round(d.y);
+                        
+                        // Snap to center logic
+                        if (snapToCenter && !isSnappingRef.current) {
+                          const boxCenterX = newX + box.width / 2;
+                          const boxCenterY = newY + box.height / 2;
+                          const viewportCenterX = viewport.width / 2;
+                          const viewportCenterY = viewport.height / 2;
+                          
+                          const snapX = Math.abs(boxCenterX - viewportCenterX);
+                          const snapY = Math.abs(boxCenterY - viewportCenterY);
+                          
+                          if (snapX <= SNAP_THRESHOLD) {
+                            newX = Math.round(viewportCenterX - box.width / 2);
+                          }
+                          if (snapY <= SNAP_THRESHOLD) {
+                            newY = Math.round(viewportCenterY - box.height / 2);
+                          }
+                        }
+                        
                         if (newX !== box.x || newY !== box.y) didDragRef.current = true;
                         const dx = newX - box.x;
                         const dy = newY - box.y;
@@ -1530,7 +1613,7 @@ export default function GameLayoutEditor() {
 
                       {box.animapSlug && (
                         <div className="absolute inset-0 pointer-events-none select-none">
-                          <AnimapBoxPreview slug={box.animapSlug} />
+                          <AnimapBoxPreview slug={box.animapSlug} fill={box.fill} />
                         </div>
                       )}
 
@@ -1538,7 +1621,7 @@ export default function GameLayoutEditor() {
                         <div className="absolute inset-0 pointer-events-none select-none">
                           <img
                             src={box.asset}
-                            className="w-full h-full object-contain"
+                            className={`w-full h-full ${box.fill === 'cover' ? 'object-cover' : box.fill === 'stretch' ? 'object-fill' : box.fill === 'none' ? 'object-none' : 'object-contain'}`}
                             alt=""
                             onLoad={(e) => {
                               if (!box.locked) {
