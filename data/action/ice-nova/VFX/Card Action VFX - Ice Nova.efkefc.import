@@ -1,0 +1,17 @@
+[remap]
+
+importer="effekseer.effect"
+type="Resource"
+uid="uid://x5bn0kc5io4x"
+path="res://.godot/imported/Card Action VFX - Ice Nova.efkefc-933edd3a8318d4e9be1125cc9cd525f3.res"
+
+[deps]
+
+source_file="res://data/action/ice-nova/VFX/Card Action VFX - Ice Nova.efkefc"
+dest_files=["res://.godot/imported/Card Action VFX - Ice Nova.efkefc-933edd3a8318d4e9be1125cc9cd525f3.res"]
+
+[params]
+
+scale=1.0
+data_type=0
+compress=true
