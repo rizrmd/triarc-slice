@@ -832,7 +832,7 @@ func _on_back_pressed():
 		"match_id": GameState.current_match_id
 	})
 
-	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
+	GameState.return_to_hero_select_after_gameplay = false  # Training returns to home
 	GameState.current_match_id = ""
 	# Emit signal instead of changing scene - parent will handle removal
 	back_requested.emit()
@@ -842,7 +842,7 @@ func _on_disconnected():
 	_ping_samples.clear()
 	_display_ping_ms = -1
 	_refresh_ping_label()
-	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
+	GameState.return_to_hero_select_after_gameplay = false
 	GameState.current_match_id = ""
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
@@ -854,7 +854,7 @@ func _on_match_end(winner: int):
 
 	# Show result and return to main after delay
 	await get_tree().create_timer(3.0).timeout
-	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
+	GameState.return_to_hero_select_after_gameplay = false
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _set_initial_positions():
