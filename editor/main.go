@@ -834,6 +834,9 @@ func animapHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Sync to game/data/ for game.exe
+		syncAnimapToGame(slug)
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 
@@ -978,6 +981,8 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "Failed to save video", http.StatusInternalServerError)
 					return
 				}
+				// Sync to game/data/ for game.exe
+				syncAnimapToGame(slug)
 				// Generate WebM preview with progress tracking
 				taskID := fmt.Sprintf("%d", time.Now().UnixNano())
 				convertTasks.Store(taskID, &convertTask{Progress: 0})
@@ -992,6 +997,8 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+			// Sync to game/data/ for game.exe
+			syncAnimapToGame(slug)
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".webp"})
 		}
@@ -1587,6 +1594,58 @@ func heroAudioHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// syncAnimapToGame copies an animap folder from data/animap/{slug} to game/data/animap/{slug}
+// This ensures game.exe can access the animap assets after editing in editor.exe
+func syncAnimapToGame(slug string) {
+	srcDir := filepath.Join(resolvePath("./data"), "animap", slug)
+	dstDir := filepath.Join(resolvePath("./game/data"), "animap", slug)
+
+	// Check if source exists
+	if _, err := os.Stat(srcDir); err != nil {
+		return
+	}
+
+	// Create destination directory
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return
+	}
+
+	// Copy all files from source to destination
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue // Skip subdirectories
+		}
+		srcFile := filepath.Join(srcDir, entry.Name())
+		dstFile := filepath.Join(dstDir, entry.Name())
+		data, err := os.ReadFile(srcFile)
+		if err != nil {
+			continue
+		}
+		os.WriteFile(dstFile, data, 0644)
+	}
+}
+
+// syncAnimapsInLayout syncs all animap folders referenced in a scene layout to game/data/
+func syncAnimapsInLayout(layout map[string]interface{}) {
+	boxes, ok := layout["boxes"].(map[string]interface{})
+	if !ok {
+		return
+	}
+	for _, box := range boxes {
+		boxMap, ok := box.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if animapSlug, ok := boxMap["animapSlug"].(string); ok && animapSlug != "" {
+			syncAnimapToGame(animapSlug)
+		}
+	}
+}
+
 // sceneLayoutHandler handles /api/scene/{slug}/layout — per-scene layout files.
 func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse: /api/scene/{slug}/layout
@@ -1638,6 +1697,22 @@ func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
 		if err := encoder.Encode(layout); err != nil {
 			http.Error(w, "Failed to write JSON", http.StatusInternalServerError)
 			return
+		}
+
+		// Also sync to game/data/ for game.exe
+		gameLayoutPath := filepath.Join(resolvePath("./game/data"), "scene", slug, "layout.json")
+		if err := os.MkdirAll(filepath.Dir(gameLayoutPath), 0755); err == nil {
+			if gameFile, gameErr := os.Create(gameLayoutPath); gameErr == nil {
+				gameEncoder := json.NewEncoder(gameFile)
+				gameEncoder.SetIndent("", "  ")
+				gameEncoder.Encode(layout)
+				gameFile.Close()
+			}
+		}
+
+		// Sync referenced animaps to game/data/
+		if layoutMap, ok := layout.(map[string]interface{}); ok {
+			syncAnimapsInLayout(layoutMap)
 		}
 
 		w.WriteHeader(http.StatusOK)
