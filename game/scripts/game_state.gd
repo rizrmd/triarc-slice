@@ -15,6 +15,7 @@ var current_team: int = 0
 var match_state: Dictionary = {}
 var match_mode: String = "matchmaking" # "matchmaking" or "training"
 var return_to_hero_select_after_gameplay: bool = false
+var previous_view_before_gameplay: String = ""  # Track view before gameplay to return correctly
 
 # Hero selection
 var selected_heroes: Array[String] = []

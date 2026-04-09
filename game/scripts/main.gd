@@ -257,6 +257,8 @@ func _on_ws_message(msg: String) -> void:
 		"match_found":
 			GameState.current_match_id = data.get("match_id", "")
 			GameState.current_team = data.get("team", 1)
+			# Store previous view to return correctly after gameplay
+			GameState.previous_view_before_gameplay = _current_view
 			if _current_view == "find_match":
 				find_match_ui.get_node("SearchingLabel").text = "Match found!"
 				await get_tree().create_timer(1.0).timeout
@@ -409,6 +411,14 @@ func _remove_overlay_scenes() -> void:
 			overlay.queue_free()
 	_overlay_scenes.clear()
 	animap_player.process_mode = Node.PROCESS_MODE_INHERIT
+
+	# Return to correct view after gameplay
+	# For training, always go to home. For matchmaking, return to hero_select.
+	var target_view: String = "hero_select"
+	if GameState.previous_view_before_gameplay == "home" or GameState.match_mode == "training":
+		target_view = "home"
+	GameState.previous_view_before_gameplay = ""
+	_show_view(target_view, false)
 
 # --- Layout ---
 
