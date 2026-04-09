@@ -20,7 +20,7 @@ var _layer_materials: Dictionary = {}
 var _video_layers: Dictionary = {}
 var _transition_tween: Tween = null
 
-## "cover" scales by height (may overflow width), "contain"/"stretch" fit content to bounds
+## "cover" scales by height (may overflow width), "contain"/"stretch" fit content to bounds, "none" positions without scaling
 var fit_mode: String = "cover":
 	set(value):
 		fit_mode = value
@@ -462,6 +462,11 @@ func _layout_layers() -> void:
 				layer_root.position = offset - content.position * sf
 				print("[DEBUG Animap] scale: ", sf, " layer_root pos: ", layer_root.position)
 			return
+	elif fit_mode == "none":
+		# Position layer_root at top-left corner, no scaling
+		layer_root.scale = Vector2.ONE
+		layer_root.position = Vector2.ZERO
+		return
 
 	# cover mode (default)
 	var scale_factor := viewport_size.y / animap_height

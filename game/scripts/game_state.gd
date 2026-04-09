@@ -301,6 +301,13 @@ func resolve_box(box: Dictionary, viewport_size: Vector2, aspect_key: String = "
 		py = cy_norm * viewport_size.y - h / 2.0
 	return {"x": px, "y": py, "width": w, "height": h}
 
+## Apply a layout box to a Control node — resolves position & size from the box data.
+## Use this instead of manually setting position/size to avoid double-scaling bugs.
+func apply_box(box: Dictionary, control: Control, viewport_size: Vector2, aspect_key: String = "") -> void:
+	var r := resolve_box(box, viewport_size, aspect_key)
+	control.position = Vector2(r["x"], r["y"])
+	control.size = Vector2(r["width"], r["height"])
+
 func _uses_aspect_map(boxes: Dictionary) -> bool:
 	for key in boxes.keys():
 		if ASPECT_VIEWPORTS.has(str(key)):
