@@ -18,6 +18,7 @@ func initialize(sign_in_url: String) -> void:
 	_sign_in_url = sign_in_url
 
 func signIn() -> void:
+	print("[DEBUG] desktop_auth.signIn called at ", Time.get_ticks_msec())
 	_stop_server()
 
 	_tcp_server = TCPServer.new()
@@ -26,9 +27,10 @@ func signIn() -> void:
 			_redirect_port = port
 			break
 	if _redirect_port == 0:
+		print("[DEBUG] Failed to bind port")
 		sign_in_failed.emit("Cannot open local port for sign-in redirect")
 		return
-
+	print("[DEBUG] Port bound: ", _redirect_port, " URL: ", _sign_in_url + "?port=" + str(_redirect_port))
 	OS.shell_open(_sign_in_url + "?port=" + str(_redirect_port))
 	set_process(true)
 
