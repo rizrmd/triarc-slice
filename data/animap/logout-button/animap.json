@@ -1,0 +1,24 @@
+{
+  "name": "Logout Button",
+  "width": 1080,
+  "height": 1920,
+  "layers": [
+    {
+      "id": "layer-1775554601529",
+      "name": "logout",
+      "type": "image",
+      "file": "logout.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    }
+  ]
+}

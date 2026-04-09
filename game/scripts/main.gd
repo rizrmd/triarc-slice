@@ -45,10 +45,15 @@ const VIEW_PAN_X := {
 }
 
 func _ready() -> void:
-	# Connect button signals
-	home_ui.get_node("FindMatchButton").pressed.connect(_on_find_match_pressed)
-	home_ui.get_node("TrainingButton").pressed.connect(_on_training_pressed)
-	home_ui.get_node("LogoutButton").pressed.connect(_on_logout_pressed)
+	# Connect button signals for new home UI
+	home_ui.get_node("PlayButtonContainer/PlayButtonAnimap").gui_input.connect(_on_play_button_gui_input)
+	home_ui.get_node("DeckButtonContainer/DeckButtonAnimap").gui_input.connect(_on_deck_button_gui_input)
+	home_ui.get_node("ShopButtonContainer/ShopButtonAnimap").gui_input.connect(_on_shop_button_gui_input)
+	home_ui.get_node("SettingsButtonContainer/SettingsButtonAnimap").gui_input.connect(_on_settings_button_gui_input)
+	home_ui.get_node("CurrencyGoldContainer/CurrencyGoldAnimap").gui_input.connect(_on_currency_gold_gui_input)
+	home_ui.get_node("CurrencyGemsContainer/CurrencyGemsAnimap").gui_input.connect(_on_currency_gems_gui_input)
+	home_ui.get_node("PlayerAvatarContainer/PlayerAvatarAnimap").gui_input.connect(_on_player_avatar_gui_input)
+	home_ui.get_node("PlayerNameContainer/PlayerNameAnimap").gui_input.connect(_on_player_name_gui_input)
 	hero_select_ui.back_requested.connect(func(): _show_view("home"))
 	hero_select_ui.find_match_requested.connect(func(): _show_view("find_match"))
 	find_match_ui.get_node("BackButton").pressed.connect(_on_back_pressed)
@@ -60,7 +65,41 @@ func _ready() -> void:
 	sign_in_animap.fit_mode = "contain"
 	sign_in_animap.load_animap("google-sign-in")
 
+	# Load home UI animaps
+	var player_avatar_animap = home_ui.get_node("PlayerAvatarContainer/PlayerAvatarAnimap")
+	player_avatar_animap.fit_mode = "contain"
+	player_avatar_animap.load_animap("profile-button")
+
+	var player_name_animap = home_ui.get_node("PlayerNameContainer/PlayerNameAnimap")
+	player_name_animap.fit_mode = "contain"
+	player_name_animap.load_animap("training-button")
+
+	var play_button_animap = home_ui.get_node("PlayButtonContainer/PlayButtonAnimap")
+	play_button_animap.fit_mode = "contain"
+	play_button_animap.load_animap("find-match-button")
+
+	var deck_button_animap = home_ui.get_node("DeckButtonContainer/DeckButtonAnimap")
+	deck_button_animap.fit_mode = "contain"
+	deck_button_animap.load_animap("cards-button")
+
+	var shop_button_animap = home_ui.get_node("ShopButtonContainer/ShopButtonAnimap")
+	shop_button_animap.fit_mode = "contain"
+	shop_button_animap.load_animap("heroes-button")
+
+	var settings_button_animap = home_ui.get_node("SettingsButtonContainer/SettingsButtonAnimap")
+	settings_button_animap.fit_mode = "contain"
+	settings_button_animap.load_animap("setting-button-button")
+
+	var currency_gold_animap = home_ui.get_node("CurrencyGoldContainer/CurrencyGoldAnimap")
+	currency_gold_animap.fit_mode = "contain"
+	currency_gold_animap.load_animap("power-button-button")
+
+	var currency_gems_animap = home_ui.get_node("CurrencyGemsContainer/CurrencyGemsAnimap")
+	currency_gems_animap.fit_mode = "contain"
+	currency_gems_animap.load_animap("logout-button")
+
 	_apply_login_layout()
+	_apply_home_layout()
 
 	# Initialize Google Sign-In: native plugin on Android, OAuth loopback on desktop
 	if Engine.has_singleton("GodotGoogleSignIn"):
@@ -394,6 +433,68 @@ func _on_logout_pressed() -> void:
 func _on_back_pressed() -> void:
 	_show_view("hero_select")
 
+# --- Home UI Button Handlers ---
+
+func _on_play_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "PlayButtonAnimap", _on_play_pressed)
+
+func _on_deck_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "DeckButtonAnimap", _on_deck_pressed)
+
+func _on_shop_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "ShopButtonAnimap", _on_shop_pressed)
+
+func _on_settings_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "SettingsButtonAnimap", _on_settings_pressed)
+
+func _on_currency_gold_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "CurrencyGoldAnimap", _on_currency_gold_pressed)
+
+func _on_currency_gems_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "CurrencyGemsAnimap", _on_currency_gems_pressed)
+
+func _on_player_avatar_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "PlayerAvatarAnimap", _on_player_avatar_pressed)
+
+func _on_player_name_gui_input(event: InputEvent) -> void:
+	_handle_animap_button(event, "PlayerNameAnimap", _on_player_name_pressed)
+
+func _handle_animap_button(event: InputEvent, animap_name: String, callback: Callable) -> void:
+	var animap = home_ui.get_node(animap_name)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			animap.set_state("clicked")
+		else:
+			animap.set_state("default")
+			callback.call()
+		animap.accept_event()
+
+func _on_play_pressed() -> void:
+	print("[Home] Play pressed")
+	GameState.match_mode = "matchmaking"
+	_show_view("hero_select")
+
+func _on_deck_pressed() -> void:
+	print("[Home] Deck pressed")
+
+func _on_shop_pressed() -> void:
+	print("[Home] Shop pressed")
+
+func _on_settings_pressed() -> void:
+	print("[Home] Settings pressed")
+
+func _on_currency_gold_pressed() -> void:
+	print("[Home] Currency Gold pressed")
+
+func _on_currency_gems_pressed() -> void:
+	print("[Home] Currency Gems pressed")
+
+func _on_player_avatar_pressed() -> void:
+	print("[Home] Player Avatar pressed")
+
+func _on_player_name_pressed() -> void:
+	print("[Home] Player Name pressed")
+
 func _apply_login_layout() -> void:
 	var boxes = GameState.get_scene_boxes("login")
 	if boxes.is_empty():
@@ -424,6 +525,35 @@ func _apply_login_layout() -> void:
 		var sh = r["height"] * scale_factor
 		status_label.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
 		status_label.size = Vector2(sw, sh)
+
+func _apply_home_layout() -> void:
+	var boxes = GameState.get_scene_boxes("home")
+	if boxes.is_empty():
+		return
+	var vp_size = get_viewport().get_visible_rect().size
+	var scale_factor = vp_size.x / 1080.0
+
+	var box_mappings := {
+		"player_avatar": "PlayerAvatarContainer",
+		"player_name": "PlayerNameContainer",
+		"play_button": "PlayButtonContainer",
+		"deck_button": "DeckButtonContainer",
+		"shop_button": "ShopButtonContainer",
+		"settings_button": "SettingsButtonContainer",
+		"currency_gold": "CurrencyGoldContainer",
+		"currency_gems": "CurrencyGemsContainer",
+	}
+
+	for box_id in boxes.keys():
+		if not box_mappings.has(box_id):
+			continue
+		var r = GameState.resolve_box(boxes[box_id], vp_size)
+		var container_name = box_mappings[box_id]
+		var container: Control = home_ui.get_node(container_name)
+		var sw = r["width"] * scale_factor
+		var sh = r["height"] * scale_factor
+		container.position = Vector2(r["x"] - (sw - r["width"]) / 2.0, r["y"] - (sh - r["height"]) / 2.0)
+		container.size = Vector2(sw, sh)
 
 # --- Credential persistence (desktop) ---
 

@@ -4,7 +4,14 @@
     "info"
   ],
   "Home": [
-    "contoh"
+    "profile-button",
+    "training-button",
+    "setting-button-button",
+    "power-button-button",
+    "find-match-button",
+    "heroes-button",
+    "logout-button",
+    "cards-button"
   ],
   "Login": [
     "google-sign-in",
