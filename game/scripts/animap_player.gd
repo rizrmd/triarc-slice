@@ -20,8 +20,11 @@ var _layer_materials: Dictionary = {}
 var _video_layers: Dictionary = {}
 var _transition_tween: Tween = null
 
-## "cover" scales by height (may overflow width), "contain" fits within bounds
-var fit_mode: String = "cover"
+## "cover" scales by height (may overflow width), "contain"/"stretch" fit content to bounds
+var fit_mode: String = "cover":
+	set(value):
+		fit_mode = value
+		_layout_layers()
 
 ## Horizontal pan position: 0.0 = left edge, 0.5 = centered, 1.0 = right edge
 var pan_x: float = 0.5:
@@ -33,6 +36,9 @@ func _ready() -> void:
 	anchors_preset = PRESET_FULL_RECT
 	layer_root.anchors_preset = PRESET_TOP_LEFT
 	resized.connect(_layout_layers)
+
+func _gui_input(event: InputEvent) -> void:
+	pass
 
 func _process(_delta: float) -> void:
 	for layer_id in _video_layers.keys():
@@ -97,13 +103,22 @@ func _process(_delta: float) -> void:
 
 func load_animap(slug: String) -> void:
 	animap_slug = slug
-	animap_data = AnimapLoader.load_animap(slug)
+	# Try instance-level cache first (from preload_animap_async), then fall back to static load
+	if _animap_loader != null and _animap_loader.is_cached(slug):
+		animap_data = AnimapLoader.load_animap(slug)  # Uses cached version internally
+	else:
+		animap_data = AnimapLoader.load_animap(slug)
 	current_state_id = AnimapLoader.DEFAULT_STATE_ID
 	_clear_layers()
 	_build_layers()
 	_apply_state(current_state_id, false)
 	_layout_layers()
 	animap_loaded.emit(slug)
+
+## Set the AnimapLoader instance to use for caching
+var _animap_loader: AnimapLoader = null
+func set_animap_loader(loader: AnimapLoader) -> void:
+	_animap_loader = loader
 
 func has_state(state_id: String) -> bool:
 	return AnimapLoader.has_state(animap_data, state_id)
@@ -178,7 +193,9 @@ func _create_image_layer(layer: Dictionary) -> Control:
 	if ResourceLoader.exists(texture_path):
 		node.texture = load(texture_path)
 		if node.texture != null:
-			node.size = node.texture.get_size()
+			var tex_size := node.texture.get_size()
+			node.size = tex_size
+			print("[DEBUG Animap] Layer '", layer.get("id", ""), "' texture size: ", tex_size)
 
 	return node
 
@@ -282,6 +299,7 @@ func _apply_layer_static(node: Control, layer: Dictionary) -> void:
 		var texture_node := node as TextureRect
 		if texture_node.texture != null:
 			texture_node.size = texture_node.texture.get_size()
+			print("[DEBUG Animap] Layer '", layer.get("id", ""), "' node rect after static apply: ", node.get_global_rect(), " stretch_mode: ", texture_node.stretch_mode)
 	elif node is Label:
 		var label_node := node as Label
 		label_node.size = Vector2(float(layer.get("width", 480.0)), float(layer.get("height", 160.0)))
@@ -397,6 +415,21 @@ func _resolve_media_path(file_name: String, prefer_ogv: bool) -> String:
 			return path
 	return ""
 
+func _get_content_bounds() -> Rect2:
+	var bounds := Rect2()
+	var first := true
+	for layer_id in _layer_nodes:
+		var node: Control = _layer_nodes[layer_id]
+		if not node.visible:
+			continue
+		var layer_rect := Rect2(node.position, node.size * node.scale.x)
+		if first:
+			bounds = layer_rect
+			first = false
+		else:
+			bounds = bounds.merge(layer_rect)
+	return bounds
+
 func _layout_layers() -> void:
 	if animap_data.is_empty():
 		return
@@ -410,14 +443,30 @@ func _layout_layers() -> void:
 	if viewport_size.y <= 0.0:
 		return
 
-	var scale_factor: float
-	if fit_mode == "contain":
-		scale_factor = minf(viewport_size.x / animap_width, viewport_size.y / animap_height)
-	else:
-		scale_factor = viewport_size.y / animap_height
+	layer_root.size = Vector2(animap_width, animap_height)
+
+	if fit_mode == "stretch" or fit_mode == "contain":
+		var content := _get_content_bounds()
+		print("[DEBUG Animap] fit_mode=contain content bounds: ", content)
+		if content.size.x > 0 and content.size.y > 0:
+			if fit_mode == "stretch":
+				var sx := viewport_size.x / content.size.x
+				var sy := viewport_size.y / content.size.y
+				layer_root.scale = Vector2(sx, sy)
+				layer_root.position = -content.position * Vector2(sx, sy)
+			else:
+				var sf := minf(viewport_size.x / content.size.x, viewport_size.y / content.size.y)
+				var scaled_size := content.size * sf
+				var offset := (viewport_size - scaled_size) * 0.5
+				layer_root.scale = Vector2.ONE * sf
+				layer_root.position = offset - content.position * sf
+				print("[DEBUG Animap] scale: ", sf, " layer_root pos: ", layer_root.position)
+			return
+
+	# cover mode (default)
+	var scale_factor := viewport_size.y / animap_height
 	var excess_x := animap_width * scale_factor - viewport_size.x
 	layer_root.position = Vector2(-pan_x * excess_x, (viewport_size.y - animap_height * scale_factor) * 0.5)
-	layer_root.size = Vector2(animap_width, animap_height)
 	layer_root.scale = Vector2.ONE * scale_factor
 
 func _clear_layers() -> void:

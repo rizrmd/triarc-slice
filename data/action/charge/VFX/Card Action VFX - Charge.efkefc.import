@@ -1,0 +1,17 @@
+[remap]
+
+importer="effekseer.effect"
+type="Resource"
+uid="uid://cre82acr46ljf"
+path="res://.godot/imported/Card Action VFX - Charge.efkefc-23b3966c82a91bbc66425bdaf688441c.res"
+
+[deps]
+
+source_file="res://data/action/charge/VFX/Card Action VFX - Charge.efkefc"
+dest_files=["res://.godot/imported/Card Action VFX - Charge.efkefc-23b3966c82a91bbc66425bdaf688441c.res"]
+
+[params]
+
+scale=1.0
+data_type=0
+compress=true

@@ -2,6 +2,7 @@ extends Node
 ## GameState - Autoload for shared game data
 
 signal gameplay_aspect_changed(aspect_key: String)
+signal ws_message_received(msg: String)  # Forward WebSocket messages to gameplay
 
 # Player data
 var player_id: String = ""
@@ -14,6 +15,7 @@ var current_team: int = 0
 var match_state: Dictionary = {}
 var match_mode: String = "matchmaking" # "matchmaking" or "training"
 var return_to_hero_select_after_gameplay: bool = false
+var previous_view_before_gameplay: String = ""  # Track view before gameplay to return correctly
 
 # Hero selection
 var selected_heroes: Array[String] = []
@@ -21,6 +23,9 @@ const MAX_HEROES: int = 3
 
 # WebSocket reference (set by main.gd)
 var ws: WebSocketPeer = null
+
+# AnimapLoader instance passed from loading screen (for caching preloaded animaps)
+var animap_loader: AnimapLoader = null
 
 # Local mock mode for testing without server
 var local_mock_mode: bool = false
@@ -40,6 +45,9 @@ const _DEFAULT_GAMEPLAY_ASPECT := "9-16"
 
 func _ready():
 	_apply_display_aspect_policy()
+	# Clean up any stale animap loader from previous session
+	if animap_loader != null:
+		animap_loader = null
 	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()
