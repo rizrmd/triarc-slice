@@ -2,8 +2,8 @@
   "background": "",
   "boxes": {
     "logo": {
-      "anchor_offset_x": 0,
-      "anchor_offset_y": 0,
+      "anchor_offset_x": 12,
+      "anchor_offset_y": 162,
       "animapSlug": "vg-logo",
       "fill": "contain",
       "height": 732,
@@ -15,12 +15,12 @@
       "screen_relative": true,
       "width": 705,
       "width_percent": 65.3,
-      "x": 188,
-      "y": 0
+      "x": 199,
+      "y": 162
     },
     "sign_in_button": {
-      "anchor_offset_x": 0,
-      "anchor_offset_y": 93,
+      "anchor_offset_x": -2,
+      "anchor_offset_y": 87,
       "animapSlug": "google-sign-in",
       "fill": "contain",
       "height": 173,
@@ -32,8 +32,8 @@
       "screen_relative": true,
       "width": 631,
       "width_percent": 58.4,
-      "x": 225,
-      "y": 967
+      "x": 222,
+      "y": 960
     },
     "status_label": {
       "anchor_offset_x": 1,
@@ -47,8 +47,8 @@
       "screen_relative": true,
       "width": 467,
       "width_percent": 43.2,
-      "x": 307,
-      "y": 1147
+      "x": 308,
+      "y": 1148
     }
   }
 }

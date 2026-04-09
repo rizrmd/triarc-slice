@@ -37,6 +37,9 @@ func _ready() -> void:
 	layer_root.anchors_preset = PRESET_TOP_LEFT
 	resized.connect(_layout_layers)
 
+func _gui_input(event: InputEvent) -> void:
+	pass
+
 func _process(_delta: float) -> void:
 	for layer_id in _video_layers.keys():
 		var video_state: Dictionary = _video_layers[layer_id]
@@ -190,7 +193,9 @@ func _create_image_layer(layer: Dictionary) -> Control:
 	if ResourceLoader.exists(texture_path):
 		node.texture = load(texture_path)
 		if node.texture != null:
-			node.size = node.texture.get_size()
+			var tex_size := node.texture.get_size()
+			node.size = tex_size
+			print("[DEBUG Animap] Layer '", layer.get("id", ""), "' texture size: ", tex_size)
 
 	return node
 
@@ -294,6 +299,7 @@ func _apply_layer_static(node: Control, layer: Dictionary) -> void:
 		var texture_node := node as TextureRect
 		if texture_node.texture != null:
 			texture_node.size = texture_node.texture.get_size()
+			print("[DEBUG Animap] Layer '", layer.get("id", ""), "' node rect after static apply: ", node.get_global_rect(), " stretch_mode: ", texture_node.stretch_mode)
 	elif node is Label:
 		var label_node := node as Label
 		label_node.size = Vector2(float(layer.get("width", 480.0)), float(layer.get("height", 160.0)))
@@ -441,6 +447,7 @@ func _layout_layers() -> void:
 
 	if fit_mode == "stretch" or fit_mode == "contain":
 		var content := _get_content_bounds()
+		print("[DEBUG Animap] fit_mode=contain content bounds: ", content)
 		if content.size.x > 0 and content.size.y > 0:
 			if fit_mode == "stretch":
 				var sx := viewport_size.x / content.size.x
@@ -453,6 +460,7 @@ func _layout_layers() -> void:
 				var offset := (viewport_size - scaled_size) * 0.5
 				layer_root.scale = Vector2.ONE * sf
 				layer_root.position = offset - content.position * sf
+				print("[DEBUG Animap] scale: ", sf, " layer_root pos: ", layer_root.position)
 			return
 
 	# cover mode (default)

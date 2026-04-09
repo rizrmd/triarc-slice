@@ -28,6 +28,7 @@ var _animap_loader: AnimapLoader = AnimapLoader.new()
 const WEB_CLIENT_ID := "12643923522-2oi6nt6clhbiav3r7kqgj27v00rm1nk6.apps.googleusercontent.com"
 const SIGN_IN_URL := "https://sg.vangambit.com/sign-in/desktop"
 var _google_sign_in: Object = null
+var _is_signing_in: bool = false
 
 # WebSocket
 const SERVER_URL := "wss://sg.vangambit.com/ws"
@@ -129,6 +130,7 @@ func _connect_auth() -> void:
 		desktop_auth.sign_in_success.connect(_on_sign_in_success)
 		desktop_auth.sign_in_failed.connect(_on_sign_in_failed)
 		desktop_auth.sign_out_complete.connect(_on_sign_out_complete)
+		desktop_auth.initialize(SIGN_IN_URL)
 		_google_sign_in = desktop_auth
 
 func _connect_visibility_handler() -> void:
@@ -159,9 +161,11 @@ func _process(_delta: float) -> void:
 func _connect_to_server() -> void:
 	login_ui.get_node("StatusLabel").text = "Connecting..."
 	sign_in_animap.visible = false
+	print("[DEBUG] _connect_to_server called at ", Time.get_ticks_msec())
 	_ws = WebSocketPeer.new()
 	var err := _ws.connect_to_url(SERVER_URL)
 	if err != OK:
+		_is_signing_in = false
 		login_ui.get_node("StatusLabel").text = "Connection failed."
 		sign_in_animap.visible = true
 		return
@@ -177,6 +181,7 @@ func _check_connection() -> void:
 	_ws.poll()
 	match _ws.get_ready_state():
 		WebSocketPeer.STATE_OPEN:
+			print("[DEBUG] STATE_OPEN at ", Time.get_ticks_msec())
 			var auth_msg := {"type": "authenticate"}
 			if not _session_token.is_empty():
 				auth_msg["session_token"] = _session_token
@@ -186,6 +191,8 @@ func _check_connection() -> void:
 		WebSocketPeer.STATE_CONNECTING:
 			_wait_for_connection()
 		_:
+			print("[DEBUG] Connection failed state: ", _ws.get_ready_state(), " at ", Time.get_ticks_msec())
+			_is_signing_in = false
 			login_ui.get_node("StatusLabel").text = "Connection failed."
 			sign_in_animap.visible = true
 
@@ -222,6 +229,7 @@ func _on_ws_message(msg: String) -> void:
 		"connected":
 			pass
 		"authenticated":
+			print("[DEBUG] authenticated at ", Time.get_ticks_msec())
 			_player_id = str(data.get("player_id", ""))
 			_display_name = str(data.get("display_name", _display_name))
 			var new_session: String = str(data.get("session_token", ""))
@@ -237,6 +245,7 @@ func _on_ws_message(msg: String) -> void:
 			GameState.ws = _ws
 			_show_view("home")
 		"auth_error":
+			print("[DEBUG] auth_error at ", Time.get_ticks_msec(), " error: ", data.get("error", ""))
 			if _ws:
 				_ws.close()
 				_ws = null
@@ -267,12 +276,16 @@ func _on_ws_message(msg: String) -> void:
 # --- Google Sign-In ---
 
 func _on_sign_in_success(id_token: String, _email: String, display_name: String) -> void:
+	print("[DEBUG] _on_sign_in_success at ", Time.get_ticks_msec(), " display_name: ", display_name)
+	_is_signing_in = false
 	_id_token = id_token
 	_display_name = display_name
 	_save_credentials(id_token, "", display_name)
 	_connect_to_server()
 
 func _on_sign_in_failed(error: String) -> void:
+	print("[DEBUG] _on_sign_in_failed at ", Time.get_ticks_msec(), " error: ", error)
+	_is_signing_in = false
 	sign_in_animap.visible = true
 	if "No credentials" in error or "NoCredential" in error:
 		login_ui.get_node("StatusLabel").text = "No Google account found.\nPlease add one in Settings."
@@ -285,6 +298,7 @@ func _on_sign_out_complete() -> void:
 	_id_token = ""
 	_session_token = ""
 	_display_name = ""
+	_is_signing_in = false
 	_clear_saved_credentials()
 	if _ws:
 		_ws.close()
@@ -350,15 +364,21 @@ func _on_sign_in_gui_input(event: InputEvent) -> void:
 		sign_in_animap.accept_event()
 
 func _on_login_pressed() -> void:
+	if _is_signing_in:
+		return
+	_is_signing_in = true
+	print("[DEBUG] _on_login_pressed at ", Time.get_ticks_msec())
 	login_ui.get_node("StatusLabel").text = "Signing in..."
 	sign_in_animap.visible = false
 	var saved := _load_saved_credentials()
 	if not saved.is_empty():
+		print("[DEBUG] Using saved credentials, session_token length: ", _session_token.length())
 		_id_token = saved.get("id_token", "")
 		_display_name = saved.get("display_name", "")
 		_session_token = saved.get("session_token", "")
 		_connect_to_server()
 	else:
+		print("[DEBUG] No saved credentials, opening Google sign-in")
 		_google_sign_in.signIn()
 
 func _on_find_match_pressed() -> void:
@@ -439,12 +459,30 @@ func _apply_login_layout() -> void:
 	if boxes.has("logo"):
 		var box: Dictionary = boxes["logo"]
 		logo_animap.fit_mode = str(box.get("fill", "contain"))
-		_apply_layout_rect(login_ui.get_node("LogoContainer"), GameState.resolve_box(box, vp_size))
+		var logo_rect := GameState.resolve_box(box, vp_size)
+		_apply_layout_rect(login_ui.get_node("LogoContainer"), logo_rect)
+		var logo_container: Control = login_ui.get_node("LogoContainer")
+		logo_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	if boxes.has("sign_in_button"):
 		var box: Dictionary = boxes["sign_in_button"]
 		sign_in_animap.fit_mode = str(box.get("fill", "contain"))
-		_apply_layout_rect(login_ui.get_node("SignInContainer"), GameState.resolve_box(box, vp_size))
+		sign_in_animap.mouse_filter = Control.MOUSE_FILTER_STOP
+		var resolved := GameState.resolve_box(box, vp_size)
+		_apply_layout_rect(login_ui.get_node("SignInContainer"), resolved)
+		var container: Control = login_ui.get_node("SignInContainer")
+		container.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	if boxes.has("sign_in_button"):
+		var box: Dictionary = boxes["sign_in_button"]
+		sign_in_animap.fit_mode = str(box.get("fill", "contain"))
+		sign_in_animap.mouse_filter = Control.MOUSE_FILTER_STOP
+		var resolved := GameState.resolve_box(box, vp_size)
+		print("[DEBUG] sign_in_button resolved: pos=", resolved["x"], ",", resolved["y"], " size=", resolved["width"], "x", resolved["height"])
+		_apply_layout_rect(login_ui.get_node("SignInContainer"), resolved)
+		var container: Control = login_ui.get_node("SignInContainer")
+		container.mouse_filter = Control.MOUSE_FILTER_STOP
+		print("[DEBUG] SignInContainer rect: ", container.get_global_rect())
 
 	if boxes.has("status_label"):
 		var status_box: Dictionary = boxes["status_label"]
