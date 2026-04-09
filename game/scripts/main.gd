@@ -11,7 +11,7 @@ signal view_changed(view_name: String)
 @onready var hero_select_ui: Control = $HeroSelectUI
 @onready var find_match_ui: Control = $FindMatchUI
 @onready var logo_animap: AnimapPlayer = $LoginUI/LogoContainer/LogoAnimap
-@onready var sign_in_animap: AnimapPlayer = $LoginUI/SignInContainer/SignInAnimap
+@onready var sign_in_button: AnimapButton = $LoginUI/SignInContainer/SignInButton
 @onready var overlay: ColorRect = $Overlay
 @onready var fade_rect: ColorRect = $FadeRect
 
@@ -82,7 +82,7 @@ func _ready() -> void:
 		_display_name = saved.get("display_name", "")
 		_session_token = saved.get("session_token", "")
 		login_ui.get_node("StatusLabel").text = "Connecting..."
-		sign_in_animap.visible = false
+		sign_in_button.visible = false
 		_show_view("login", false)
 		_fade_in_from_black()
 		_connect_to_server()
@@ -108,11 +108,11 @@ func _connect_button_signals() -> void:
 	hero_select_ui.back_requested.connect(func(): _show_view("home"))
 	hero_select_ui.find_match_requested.connect(func(): _show_view("find_match"))
 	find_match_ui.get_node("BackButton").pressed.connect(_on_find_match_back_pressed)
-	sign_in_animap.gui_input.connect(_on_sign_in_gui_input)
+	sign_in_button.pressed.connect(_on_sign_in_button_pressed)
 
 	animap_player.load_animap(MAIN_ANIMAP_SLUG)
 	logo_animap.load_animap("vg-logo")
-	sign_in_animap.load_animap("google-sign-in")
+	sign_in_button.load_animap("google-sign-in")
 
 	_apply_login_layout()
 	_apply_home_layout()
@@ -160,14 +160,14 @@ func _process(_delta: float) -> void:
 
 func _connect_to_server() -> void:
 	login_ui.get_node("StatusLabel").text = "Connecting..."
-	sign_in_animap.visible = false
+	sign_in_button.visible = false
 	print("[DEBUG] _connect_to_server called at ", Time.get_ticks_msec())
 	_ws = WebSocketPeer.new()
 	var err := _ws.connect_to_url(SERVER_URL)
 	if err != OK:
 		_is_signing_in = false
 		login_ui.get_node("StatusLabel").text = "Connection failed."
-		sign_in_animap.visible = true
+		sign_in_button.visible = true
 		return
 	_wait_for_connection()
 
@@ -194,7 +194,7 @@ func _check_connection() -> void:
 			print("[DEBUG] Connection failed state: ", _ws.get_ready_state(), " at ", Time.get_ticks_msec())
 			_is_signing_in = false
 			login_ui.get_node("StatusLabel").text = "Connection failed."
-			sign_in_animap.visible = true
+			sign_in_button.visible = true
 
 func _send_json(data: Dictionary) -> void:
 	if _ws and _ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
@@ -258,7 +258,7 @@ func _on_ws_message(msg: String) -> void:
 				_clear_saved_credentials()
 				_id_token = ""
 				_session_token = ""
-				sign_in_animap.visible = true
+				sign_in_button.visible = true
 				login_ui.get_node("StatusLabel").text = "Session expired. Please sign in again."
 				_show_view("login")
 		"matchmaking_queued":
@@ -286,7 +286,7 @@ func _on_sign_in_success(id_token: String, _email: String, display_name: String)
 func _on_sign_in_failed(error: String) -> void:
 	print("[DEBUG] _on_sign_in_failed at ", Time.get_ticks_msec(), " error: ", error)
 	_is_signing_in = false
-	sign_in_animap.visible = true
+	sign_in_button.visible = true
 	if "No credentials" in error or "NoCredential" in error:
 		login_ui.get_node("StatusLabel").text = "No Google account found.\nPlease add one in Settings."
 		OS.shell_open("market://details?id=com.google.android.gms")
@@ -354,14 +354,8 @@ func _update_overlay_visibility(view_name: String, animate: bool) -> void:
 
 # --- Button Handlers ---
 
-func _on_sign_in_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			sign_in_animap.set_state("clicked")
-		else:
-			sign_in_animap.set_state("default")
-			_on_login_pressed()
-		sign_in_animap.accept_event()
+func _on_sign_in_button_pressed() -> void:
+	_on_login_pressed()
 
 func _on_login_pressed() -> void:
 	if _is_signing_in:
@@ -369,7 +363,7 @@ func _on_login_pressed() -> void:
 	_is_signing_in = true
 	print("[DEBUG] _on_login_pressed at ", Time.get_ticks_msec())
 	login_ui.get_node("StatusLabel").text = "Signing in..."
-	sign_in_animap.visible = false
+	sign_in_button.visible = false
 	var saved := _load_saved_credentials()
 	if not saved.is_empty():
 		print("[DEBUG] Using saved credentials, session_token length: ", _session_token.length())
@@ -398,7 +392,7 @@ func _on_logout_pressed() -> void:
 	if _ws:
 		_ws.close()
 		_ws = null
-	sign_in_animap.visible = true
+	sign_in_button.visible = true
 	_show_view("login")
 	login_ui.get_node("StatusLabel").text = ""
 
@@ -466,23 +460,9 @@ func _apply_login_layout() -> void:
 
 	if boxes.has("sign_in_button"):
 		var box: Dictionary = boxes["sign_in_button"]
-		sign_in_animap.fit_mode = str(box.get("fill", "contain"))
-		sign_in_animap.mouse_filter = Control.MOUSE_FILTER_STOP
+		sign_in_button.set_fit_mode(str(box.get("fill", "contain")))
 		var resolved := GameState.resolve_box(box, vp_size)
 		_apply_layout_rect(login_ui.get_node("SignInContainer"), resolved)
-		var container: Control = login_ui.get_node("SignInContainer")
-		container.mouse_filter = Control.MOUSE_FILTER_STOP
-
-	if boxes.has("sign_in_button"):
-		var box: Dictionary = boxes["sign_in_button"]
-		sign_in_animap.fit_mode = str(box.get("fill", "contain"))
-		sign_in_animap.mouse_filter = Control.MOUSE_FILTER_STOP
-		var resolved := GameState.resolve_box(box, vp_size)
-		print("[DEBUG] sign_in_button resolved: pos=", resolved["x"], ",", resolved["y"], " size=", resolved["width"], "x", resolved["height"])
-		_apply_layout_rect(login_ui.get_node("SignInContainer"), resolved)
-		var container: Control = login_ui.get_node("SignInContainer")
-		container.mouse_filter = Control.MOUSE_FILTER_STOP
-		print("[DEBUG] SignInContainer rect: ", container.get_global_rect())
 
 	if boxes.has("status_label"):
 		var status_box: Dictionary = boxes["status_label"]

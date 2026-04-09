@@ -74,15 +74,10 @@ func _initialize() -> void:
 	sign_in_container.size = Vector2(300, 80)
 	login_ui.add_child(sign_in_container)
 
-	var sign_in_animap = AnimapPlayer.new()
-	sign_in_animap.name = "SignInAnimap"
-	sign_in_animap.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sign_in_container.add_child(sign_in_animap)
-
-	var sign_in_layer_root = Control.new()
-	sign_in_layer_root.name = "LayerRoot"
-	sign_in_layer_root.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	sign_in_animap.add_child(sign_in_layer_root)
+	# Use AnimapButton component for sign-in button
+	var sign_in_button = preload("res://scenes/animap_button.tscn").instantiate()
+	sign_in_button.name = "SignInButton"
+	sign_in_container.add_child(sign_in_button)
 
 	var status_label = Label.new()
 	status_label.name = "StatusLabel"
