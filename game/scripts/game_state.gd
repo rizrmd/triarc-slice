@@ -30,6 +30,9 @@ var animap_loader: AnimapLoader = null
 # Local mock mode for testing without server
 var local_mock_mode: bool = false
 
+# Scene caching — keep main scene alive while in gameplay
+var _cached_main_scene: Node = null
+
 # Hero definitions cache
 var hero_defs: Dictionary = {}
 var action_defs: Dictionary = {}
@@ -452,6 +455,35 @@ func should_return_to_hero_select() -> bool:
 		return false
 	return_to_hero_select_after_gameplay = false
 	return true
+
+## Hide and pause the current main scene, then load gameplay on top.
+func cache_main_and_enter_gameplay() -> void:
+	var root := get_tree().root
+	_cached_main_scene = get_tree().current_scene
+	_cached_main_scene.process_mode = Node.PROCESS_MODE_DISABLED
+	_cached_main_scene.visible = false
+
+	var gameplay = load("res://scenes/gameplay.tscn").instantiate()
+	root.add_child(gameplay)
+	get_tree().current_scene = gameplay
+
+## Remove gameplay and restore the cached main scene (or fall back to full reload).
+func return_to_main() -> void:
+	if _cached_main_scene:
+		var gameplay = get_tree().current_scene
+		if gameplay:
+			gameplay.queue_free()
+
+		_cached_main_scene.process_mode = Node.PROCESS_MODE_INHERIT
+		_cached_main_scene.visible = true
+		get_tree().current_scene = _cached_main_scene
+
+		if _cached_main_scene.has_method("resume_from_gameplay"):
+			_cached_main_scene.resume_from_gameplay()
+
+		_cached_main_scene = null
+	else:
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func send_json(data: Dictionary) -> void:
 	if local_mock_mode:
