@@ -189,10 +189,21 @@ function VideoTimeline({
     const video = document.createElement('video');
     video.preload = 'auto';
     video.crossOrigin = 'anonymous';
+<<<<<<< HEAD
     video.src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
     video.onloadedmetadata = () => {
       setDuration(video.duration);
     };
+=======
+    const src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
+    console.log('[timeline] loading video', src);
+    video.src = src;
+    video.onloadedmetadata = () => {
+      console.log('[timeline] loadedmetadata', src, 'duration:', video.duration, 'size:', video.videoWidth, 'x', video.videoHeight);
+      setDuration(video.duration);
+    };
+    video.onerror = () => console.error('[timeline] error loading', src, video.error?.message, video.error?.code);
+>>>>>>> origin/main
     videoRef.current = video;
     return () => { videoRef.current = null; };
   }, [file, slug, fileVersion]);
@@ -950,6 +961,7 @@ export function AnimapPropertyPanel({
                   Erase
                 </Button>
               </div>
+<<<<<<< HEAD
               <div className="space-y-1">
                 <Label className="text-xs">Size: {brushSize}px</Label>
                 <Slider
@@ -980,6 +992,41 @@ export function AnimapPropertyPanel({
                   step={0.01}
                 />
               </div>
+=======
+              <PropertyRow
+                label="Size"
+                value={brushSize}
+                onChange={setBrushSize}
+                onReset={() => setBrushSize(40)}
+                resetValue={40}
+                min={1}
+                max={200}
+                step={1}
+                displayValue={`${brushSize}px`}
+              />
+              <PropertyRow
+                label="Opacity"
+                value={brushOpacity}
+                onChange={setBrushOpacity}
+                onReset={() => setBrushOpacity(1)}
+                resetValue={1}
+                min={0.01}
+                max={1}
+                step={0.01}
+                displayValue={`${(brushOpacity * 100).toFixed(0)}%`}
+              />
+              <PropertyRow
+                label="Hardness"
+                value={brushHardness}
+                onChange={setBrushHardness}
+                onReset={() => setBrushHardness(0.8)}
+                resetValue={0.8}
+                min={0}
+                max={1}
+                step={0.01}
+                displayValue={`${(brushHardness * 100).toFixed(0)}%`}
+              />
+>>>>>>> origin/main
             </div>
           </>
         )}

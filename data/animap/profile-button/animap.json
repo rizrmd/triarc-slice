@@ -4,7 +4,11 @@
   "height": 1920,
   "layers": [
     {
+<<<<<<< HEAD
       "id": "layer-1775746767335",
+=======
+      "id": "layer-1775554255341",
+>>>>>>> origin/main
       "name": "profile",
       "type": "image",
       "file": "profile.webp",

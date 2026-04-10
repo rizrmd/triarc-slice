@@ -12,6 +12,10 @@
   },
   "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+<<<<<<< HEAD
+=======
+  "text_shadow_size": 3,
+>>>>>>> origin/main
   "tint": "#d4ff38",
   "description": "Cut the target with a venom-laced attack that delivers toxic internal damage.",
   "cost": 3,
@@ -20,6 +24,7 @@
     "shadow"
   ],
   "target_rule": "enemy_single",
+<<<<<<< HEAD
   "visible_layers": {
     "card": true,
     "char-bg": true,
@@ -41,5 +46,24 @@
     "status_kind": "dot",
     "status_duration_ms": 5000,
     "status_value": 7
+=======
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual"
+  },
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": true,
+    "pose-char-fg": false,
+    "pose-frame": false,
+    "pose-mask-fg": false,
+    "pose-shadow": false
+>>>>>>> origin/main
   }
 }

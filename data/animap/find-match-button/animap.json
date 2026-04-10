@@ -4,7 +4,11 @@
   "height": 1920,
   "layers": [
     {
+<<<<<<< HEAD
       "id": "layer-1775746539707",
+=======
+      "id": "layer-1775554522696",
+>>>>>>> origin/main
       "name": "find-match",
       "type": "image",
       "file": "find-match.webp",

@@ -1,0 +1,71 @@
+{
+  "background": "",
+  "boxes": {
+    "find_match_button": {
+      "anchor_offset_x": 1,
+      "anchor_offset_y": -168,
+      "animapSlug": "find-match-button",
+      "fill": "contain",
+      "height": 266,
+      "height_percent": 13,
+      "id": "find_match_button",
+      "label": "Find Match",
+      "pivot": "center",
+      "screen_anchor": "center",
+      "screen_relative": true,
+      "width": 653,
+      "width_percent": 42.5,
+      "x": 443,
+      "y": 723
+    },
+    "logout_button": {
+      "anchor_offset_x": 0,
+      "anchor_offset_y": 0,
+      "animapSlug": "logout-button",
+      "fill": "contain",
+      "height": 137,
+      "height_percent": 6.7,
+      "id": "logout_button",
+      "label": "Logout",
+      "pivot": "bottom-right",
+      "screen_anchor": "bottom-right",
+      "screen_relative": true,
+      "width": 490,
+      "width_percent": 31.9,
+      "x": 1046,
+      "y": 1911
+    },
+    "title_label": {
+      "anchor_offset_x": 0,
+      "anchor_offset_y": 46,
+      "height": 238,
+      "height_percent": 11.6,
+      "id": "title_label",
+      "label": "Title Label",
+      "pivot": "top-center",
+      "screen_anchor": "top-center",
+      "screen_relative": true,
+      "width": 1344,
+      "width_percent": 87.5,
+      "x": 96,
+      "y": 46
+    },
+    "training_button": {
+      "anchor_offset_x": 0,
+      "anchor_offset_y": 156,
+      "animapSlug": "training-button",
+      "fill": "contain",
+      "height": 154,
+      "height_percent": 7.5,
+      "id": "training_button",
+      "label": "Training",
+      "pivot": "center",
+      "screen_anchor": "center",
+      "screen_relative": true,
+      "width": 490,
+      "width_percent": 31.9,
+      "x": 523,
+      "y": 1103
+    }
+  }
+}

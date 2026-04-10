@@ -4,7 +4,11 @@
   "height": 1920,
   "layers": [
     {
+<<<<<<< HEAD
       "id": "layer-1775746609814",
+=======
+      "id": "layer-1775554568595",
+>>>>>>> origin/main
       "name": "heroes",
       "type": "image",
       "file": "heroes.webp",
