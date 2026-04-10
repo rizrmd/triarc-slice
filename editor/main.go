@@ -1506,8 +1506,10 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 				existing.TargetRule = config.TargetRule
 				existing.Targeting = config.Targeting
 				existing.VisibleLayers = config.VisibleLayers
-				// Only update gameplay if explicitly sent (not nil)
-				if config.Gameplay != nil {
+				// Only update gameplay if explicitly sent with actual data.
+				// Note: JSON "null" unmarshals as a non-nil pointer to a nil struct,
+				// so we must also check that the pointer points to a non-nil struct.
+				if config.Gameplay != nil && config.Gameplay.CastingTimeMs != 0 {
 					existing.Gameplay = config.Gameplay
 				}
 				config = existing
