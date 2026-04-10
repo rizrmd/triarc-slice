@@ -357,8 +357,6 @@ export default function CardEditor({ mode }: CardEditorProps) {
           targeting: normalizeTargeting(data.targeting, data.target_rule),
           target_rule: targetingToTargetRule(data.targeting ?? normalizeTargeting(data.targeting, data.target_rule)),
           description: data.description,
-          // Ensure gameplay is always included for actions
-          gameplay: isAction ? (data.gameplay || null) : undefined,
         };
 
         const loadImageSize = (src: string) =>

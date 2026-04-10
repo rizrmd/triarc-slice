@@ -40,11 +40,9 @@ func _on_mouse_capture_gui_input(event: InputEvent) -> void:
 func _on_animap_player_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			if animap_player.has_state("clicked"):
-				animap_player.set_state("clicked")
+			animap_player.set_state("clicked")
 		else:
-			if animap_player.has_state("clicked"):
-				animap_player.set_state("default")
+			animap_player.set_state("default")
 			if not _click_disabled:
 				pressed.emit()
 		animap_player.accept_event()

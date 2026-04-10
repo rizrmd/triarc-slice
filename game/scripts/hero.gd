@@ -554,7 +554,6 @@ func show_dot_applied(dot_type: String, damage_per_tick: int, ticks: int):
 
 ## Show/hide target marker (red circle/arrow above hero)
 func show_target_marker(show: bool, is_primary: bool = true):
-	print("[Marker] show_target_marker called: show=", show, " hero=", hero_slug)
 	if not show:
 		if _target_indicator:
 			_target_indicator.modulate.a = 0.0
@@ -562,14 +561,12 @@ func show_target_marker(show: bool, is_primary: bool = true):
 	
 	# Create indicator if needed
 	if not _target_indicator:
-		print("[Marker] Creating _target_indicator for hero=", hero_slug)
 		_target_indicator = _create_target_indicator()
 	
 	# Position indicator above the hero using global position
 	var global_pos = get_global_position()
 	_target_indicator.global_position = Vector2(global_pos.x - 30, global_pos.y - 70)
 	_target_indicator.modulate.a = 1.0
-	print("[Marker] _target_indicator positioned: ", _target_indicator.global_position, " modulate=", _target_indicator.modulate)
 	
 	# Pulse animation
 	if _target_tween and _target_tween.is_valid():
@@ -594,18 +591,15 @@ func show_target_marker_with_offset(show: bool, source_slot: int, offset_index: 
 	
 	# Create or reuse indicator for this source slot
 	if not _marker_pool.has(source_slot):
-		print("[Marker] Creating new pooled indicator for source_slot=", source_slot, " hero=", hero_slug)
 		_marker_pool[source_slot] = _create_indicator_for_pool()
 	
 	var indicator = _marker_pool[source_slot]
-	print("[Marker] Using indicator: ", indicator, " visible=", indicator.visible, " modulate=", indicator.modulate)
 	
 	# Position relative to this hero (indicator is child of hero)
 	var offset_x = (source_slot - 1) * 50  # -50, 0, +50 based on slot
 	var offset_y = -70 - (offset_index * 35)  # Stack vertically if multiple
 	indicator.position = Vector2(-30 + offset_x, offset_y)
 	indicator.modulate.a = 1.0
-	print("[Marker] After set: indicator.pos=", indicator.position, " modulate.a=", indicator.modulate.a)
 	
 	# Pulse animation
 	if _target_tween and _target_tween.is_valid():
@@ -623,8 +617,6 @@ func hide_all_pooled_markers():
 
 ## Create indicator node for the marker pool
 func _create_indicator_for_pool() -> Control:
-	print("[Marker] _create_indicator_for_pool called for hero=", hero_slug)
-	
 	# Create indicator as a child of this hero
 	var indicator = Control.new()
 	indicator.name = "PooledTargetIndicator"
@@ -659,7 +651,6 @@ func _create_indicator_for_pool() -> Control:
 	add_child(indicator)
 	# Start with modulate.a = 0 (hidden)
 	indicator.modulate.a = 0.0
-	print("[Marker] Indicator created: ", indicator, " parent=", indicator.get_parent())
 	
 	return indicator
 
@@ -712,7 +703,6 @@ func _create_target_indicator() -> Control:
 	# Add to hero's parent instead of hero itself to avoid clip_children clipping
 	var parent_node = get_parent()
 	parent_node.add_child(indicator)
-	print("[Marker] Added indicator to parent: ", parent_node.name, " for hero ", hero_slug)
 	
 	return indicator
 
@@ -894,7 +884,6 @@ func _refresh_selection_visuals():
 		char_sprite.modulate = Color.WHITE
 		if shadow_sprite.texture:
 			shadow_sprite.modulate = _frame_base_modulate * lerpf(1.0, 0.4, combined_dim)
-	print("[Hero] refresh_visuals hero=", hero_slug, " selected=", _is_selected, " selection_strength=", _selection_strength, " drag_dim_strength=", _drag_dim_strength, " bg_brightness=", bg_brightness, " frame_modulate=", shadow_sprite.modulate)
 
 func get_slot_index() -> int:
 	return slot_index

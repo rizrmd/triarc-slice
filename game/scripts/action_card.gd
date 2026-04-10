@@ -382,3 +382,14 @@ func set_enabled(enabled: bool):
 			tween.tween_property(_bg_group, "modulate", Color.WHITE, 0.2)
 		else:
 			_bg_group.modulate = Color(0.5, 0.5, 0.5, 0.5)
+
+func set_action_slug(new_slug: String):
+	action_slug = new_slug
+	var config = _load_action_config(action_slug)
+	# Update action_name and energy_cost from config
+	action_name = config.get("full_name", action_slug.replace("_", " ").replace("-", " ").capitalize())
+	energy_cost = int(config.get("cost", energy_cost))
+	var targeting = config.get("targeting", {})
+	if not targeting.is_empty():
+		target_rule = targeting.get("side", target_rule)
+	_build_card_visual(config)

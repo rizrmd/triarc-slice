@@ -114,16 +114,6 @@ type ActionConfig struct {
 	TargetRule      string           `json:"target_rule"`
 	Targeting       *ActionTargeting `json:"targeting,omitempty"`
 	VisibleLayers   map[string]bool  `json:"visible_layers,omitempty"`
-	Gameplay        *ActionGameplay `json:"gameplay,omitempty"`
-}
-
-type ActionGameplay struct {
-	CastingTimeMs    int     `json:"casting_time_ms"`
-	EffectKind       string  `json:"effect_kind"`
-	BasePower        int     `json:"base_power"`
-	StatusKind       *string `json:"status_kind,omitempty"`
-	StatusDurationMs int     `json:"status_duration_ms"`
-	StatusValue      int     `json:"status_value"`
 }
 
 type ActionTargeting struct {
@@ -1480,41 +1470,7 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 			return
 		}
-		log.Printf("[actionHandler] Received config for %s: full_name=%s, char_bg_scale=%.0f, has_gameplay=%v", slug, config.FullName, config.CharBgScale, config.Gameplay != nil)
-
-		// Merge with existing data to preserve fields not sent by frontend
-		if existingData, err := os.ReadFile(actionPath); err == nil {
-			var existing ActionConfig
-			if err := json.Unmarshal(existingData, &existing); err == nil {
-				// Only overwrite fields that are explicitly set in the incoming config
-				if config.FullName != "" {
-					existing.FullName = config.FullName
-				}
-				if config.FrameImage != "" {
-					existing.FrameImage = config.FrameImage
-				}
-				existing.CharBgPos = config.CharBgPos
-				existing.CharBgScale = config.CharBgScale
-				existing.NamePos = config.NamePos
-				existing.NameScale = config.NameScale
-				existing.TextShadowColor = config.TextShadowColor
-				existing.TextShadowSize = config.TextShadowSize
-				existing.Tint = config.Tint
-				existing.Description = config.Description
-				existing.Cost = config.Cost
-				existing.Element = config.Element
-				existing.TargetRule = config.TargetRule
-				existing.Targeting = config.Targeting
-				existing.VisibleLayers = config.VisibleLayers
-				// Only update gameplay if explicitly sent with actual data.
-				// Note: JSON "null" unmarshals as a non-nil pointer to a nil struct,
-				// so we must also check that the pointer points to a non-nil struct.
-				if config.Gameplay != nil && config.Gameplay.CastingTimeMs != 0 {
-					existing.Gameplay = config.Gameplay
-				}
-				config = existing
-			}
-		}
+		log.Printf("[actionHandler] Received config for %s: full_name=%s, char_bg_scale=%.0f", slug, config.FullName, config.CharBgScale)
 
 		// Ensure directory exists
 		dir := filepath.Dir(actionPath)

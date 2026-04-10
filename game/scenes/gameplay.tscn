@@ -144,6 +144,22 @@ offset_bottom = 70.0
 theme_override_font_sizes/font_size = 24
 text = "Leave"
 
+[node name="ActionDropdown" type="OptionButton" parent="UIOverlay"]
+offset_left = 20.0
+offset_top = 80.0
+offset_right = 220.0
+offset_bottom = 130.0
+theme_override_font_sizes/font_size = 20
+item_count = 1
+selected = 0
+fit_to_longest_item = false
+allow_reselect_when_empty = true
+_flat = false
+allbackground_item = true
+popup/full_rect = true
+popup/item_0/text = "Select Action"
+popup/item_0/id = 0
+
 [node name="MatchInfoLabel" type="Label" parent="UIOverlay"]
 offset_left = 200.0
 offset_top = 20.0

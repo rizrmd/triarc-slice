@@ -9,6 +9,7 @@ signal back_requested
 @onready var energy_bar: TextureRect = $UIOverlay/EnergyBar
 @onready var reroll_button: TextureButton = $UIOverlay/RerollButton
 @onready var back_button: Button = $UIOverlay/BackButton
+@onready var action_dropdown: OptionButton = $UIOverlay/ActionDropdown
 @onready var fade_rect: ColorRect = $UIOverlay/FadeRect
 @onready var info_animap: AnimapPlayer = $InfoAnimap
 @onready var time_animap: AnimapPlayer = $TimeAnimap
@@ -77,13 +78,32 @@ var _next_ping_probe_at_ms: int = 0
 var _ping_samples: Array[int] = []
 var _display_ping_ms: int = -1
 
+# Debug action dropdown - the single override action to apply to ALL cards
+var _debug_override_action: String = ""
+
 # HP change filtering to prevent random/small damage ticks
 var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
 const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
 
-# Action dropdown (training mode)
-var _action_dropdown: OptionButton = null
-var _selected_training_action: String = ""
+# Track local cast to prevent server updates from overwriting pie chart
+var _local_cast_cast_id: String = ""
+var _local_cast_hero_id: String = ""
+var _local_cast_skip_until_ms: int = 0  # Skip server casts for this hero until this timestamp
+
+# Track actions being cast - key is hero_instance_id, value is {action_slug, until_ms}
+var _casting_by_hero: Dictionary = {}
+
+# Track which action slugs are currently casting (to block same action)
+var _casting_action_slugs: Array = []  # List of action slugs being cast
+
+# Queue for casts that need to wait for same action to finish
+var _queued_casts: Array = []  # Array of {hero, action_slug} to cast later
+
+# Track heroes that are currently casting (hero_instance_id -> action_slug)
+var _casting_heroes: Dictionary = {}  # hero_instance_id -> action_slug
+
+# Cooldown per hero after casting - block server casts for a short time
+var _hero_cooldown_until: Dictionary = {}  # hero_instance_id -> timestamp_ms when cooldown ends
 
 func _ready():
 	add_to_group("gameplay")
@@ -92,6 +112,10 @@ func _ready():
 	reroll_button.button_down.connect(func(): reroll_button.modulate = Color(0.8, 0.8, 0.8, 1.0))
 	reroll_button.button_up.connect(func(): reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0))
 	back_button.pressed.connect(_on_back_pressed)
+	if action_dropdown != null:
+		action_dropdown.item_selected.connect(_on_action_dropdown_selected)
+	else:
+		print("[DEBUG] DROPDOWN IS NULL!")
 	GameState.gameplay_aspect_changed.connect(_on_gameplay_aspect_changed)
 
 	# Connect to GameState WebSocket messages
@@ -106,7 +130,7 @@ func _ready():
 	_setup_info_animap()
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
-	_create_action_dropdown()
+	_populate_action_dropdown()
 
 	# Request initial match state (normal online mode)
 	if not GameState.current_match_id.is_empty():
@@ -194,7 +218,7 @@ func _on_ws_message(msg: String):
 			# Match already started, we're in gameplay
 			pass
 		"error":
-			print("[Gameplay] Error: ", data.get("message", ""))
+			pass  # Silently ignore server errors for now
 
 func _on_gameplay_aspect_changed(_aspect_key: String):
 	if not _layout_ready:
@@ -297,21 +321,10 @@ func _update_hand(hand_data: Array):
 	# Skip updates during reroll exit/entrance animation
 	if _rerolling or _reroll_animating:
 		return
-
-	# Training mode override: use selected action instead of server cards
-	if GameState.match_mode == "training" and not _selected_training_action.is_empty():
-		var override_hand: Array = []
-		for i in range(5):  # 5 cards in hand
-			override_hand.append({
-				"action_slug": _selected_training_action,
-				"slot_index": i,
-				"team": GameState.current_team
-			})
-		hand_data = override_hand
-
-	# Skip update if a card is being dragged
+	
+	# Skip update if a card is being dragged (guard against freed cards)
 	for card in hand_cards:
-		if card.is_dragging:
+		if is_instance_valid(card) and card.is_dragging:
 			return
 
 	# No hand data in this update — keep current display intact.
@@ -328,6 +341,7 @@ func _update_hand(hand_data: Array):
 
 	# Stabilize: only keep cards present in BOTH this and previous update.
 	# This filters out cards that flip in/out due to server sending both teams' data.
+	# Only filter when we have previous keys to compare against (skip on first update)
 	if not _prev_server_keys.is_empty() and not hand_cards.is_empty():
 		hand_data = hand_data.filter(func(cd):
 			var key = "%s:%d" % [cd.get("action_slug", ""), cd.get("slot_index", 0)]
@@ -344,20 +358,35 @@ func _update_hand(hand_data: Array):
 	var vp_size = get_viewport().get_visible_rect().size
 	var existing_by_key: Dictionary = {}
 	for card in hand_cards:
-		existing_by_key[_get_hand_card_key(card.slot_index, card.action_slug)] = card
+		if is_instance_valid(card) and not card.is_queued_for_deletion():
+			existing_by_key[_get_hand_card_key(card.slot_index, card.action_slug)] = card
 
 	var next_hand_cards: Array = []
 
 	# Reuse existing cards when possible so hand reflow can animate.
-	for i in range(filtered_hand.size()):
-		var key = "action%d" % (i + 1)
+	# When debug override is active, we still reuse but re-apply setup
+	var existing_by_slot: Dictionary = {}
+	var reused_cards: Array = []  # Track cards that were reused to avoid cleanup
+	for card in hand_cards:
+		if is_instance_valid(card) and not card.is_queued_for_deletion():
+			existing_by_slot[card.slot_index] = card
+	
+	for card_data in filtered_hand:
+		var slot_index: int = int(card_data.get("slot_index", 0))
+		# Use slot_index to determine layout position (slot 1 -> action1, etc.)
+		var key = "action%d" % slot_index
 		if not _layout_boxes.has(key):
 			continue
 
 		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-		var card_data = filtered_hand[i]
-		var card_key = _get_hand_card_key(card_data.get("slot_index", 0), card_data.get("action_slug", ""))
-		var card = existing_by_key.get(card_key, null)
+		
+		# Apply debug override if active - modify card_data before setup
+		if not _debug_override_action.is_empty():
+			card_data["action_slug"] = _debug_override_action
+			card_data["action_name"] = _debug_override_action.replace("-", " ").capitalize()
+		
+		var card: Control = existing_by_slot.get(slot_index, null)
+		
 		var target_pos = Vector2(r["x"], r["y"])
 		var target_size = Vector2(r["width"], r["height"])
 
@@ -379,17 +408,42 @@ func _update_hand(hand_data: Array):
 				card.modulate.a = 0.0
 				card.position.x += 300
 		else:
-			existing_by_key.erase(card_key)
+			existing_by_slot.erase(slot_index)
+			reused_cards.append(card)  # Mark as reused
 			card.size = target_size
+			# Re-apply setup to update action_slug if override is active
+			if not _debug_override_action.is_empty():
+				card.setup(card_data)
+			# Always animate card to new position for proper reflow
+			card.position = card.position  # Reset to trigger position change
 			_move_hand_card(card, target_pos, true)
 
 		card.set_enabled(card.can_afford(current_energy))
-		next_hand_cards.append(card)
+		if is_instance_valid(card) and not card.is_queued_for_deletion():
+			next_hand_cards.append(card)
 
-	for stale_card in existing_by_key.values():
-		stale_card.queue_free()
+	# When override is active, skip stale card cleanup because existing_by_key
+	# has wrong keys (doesn't account for override). We use slot-based matching
+	# via existing_by_slot which handles stale cards properly.
+	if _debug_override_action.is_empty():
+		# Only queue_free cards that were NOT reused
+		var stale_count = 0
+		for stale_card in existing_by_key.values():
+			if is_instance_valid(stale_card) and not stale_card.is_queued_for_deletion():
+				if not stale_card in reused_cards:
+					stale_count += 1
+					stale_card.queue_free()
 
 	hand_cards = next_hand_cards
+	
+	# Cleanup orphan cards - cards in container but not in hand_cards array
+	var valid_cards_set = []
+	for c in hand_cards:
+		valid_cards_set.append(c.get_instance_id())
+	for child in hand_container.get_children():
+		if child.get_instance_id() not in valid_cards_set:
+			hand_container.remove_child(child)
+			child.queue_free()
 
 	if _reroll_entrance_pending:
 		_reroll_entrance_pending = false
@@ -421,6 +475,7 @@ func _set_energy_fill(ratio: float):
 
 func _update_casting_indicators(casts: Array):
 	var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
+	var current_time_ms = Time.get_ticks_msec()
 
 	for cast in casts:
 		if cast.get("resolved", false):
@@ -428,6 +483,23 @@ func _update_casting_indicators(casts: Array):
 
 		var cast_id = cast.get("cast_id", "")
 		var caster_id = cast.get("caster_hero_instance_id", "")
+		
+		# Cleanup expired casts first
+		_cleanup_expired_casts()
+		
+		# Skip if this hero is currently casting a local action
+		if _casting_by_hero.has(caster_id):
+			var cast_info = _casting_by_hero[caster_id]
+			var until_ms = cast_info.get("until_ms", 0)
+			if current_time_ms < until_ms:
+				continue  # Skip server cast, local animation is in progress
+		
+		# Skip if hero is in cooldown period after local cast
+		if _hero_cooldown_until.has(caster_id):
+			var cooldown_end = _hero_cooldown_until[caster_id]
+			if current_time_ms < cooldown_end:
+				continue  # Skip server cast, hero is in cooldown
+
 		var started_at = int(cast.get("started_at", 0))
 		var resolves_at = int(cast.get("resolves_at", 0))
 
@@ -440,6 +512,55 @@ func _update_casting_indicators(casts: Array):
 		if hero:
 			hero._show_casting(cast_id, total_ms, action_slug)
 
+## Cleanup expired casts from tracking
+func _cleanup_expired_casts():
+	var current_time_ms = Time.get_ticks_msec()
+	var expired_heroes = []
+	for hero_id in _casting_by_hero.keys():
+		var cast_info = _casting_by_hero[hero_id]
+		if cast_info.get("until_ms", 0) < current_time_ms:
+			expired_heroes.append(hero_id)
+	for hero_id in expired_heroes:
+		var action_slug = _casting_by_hero[hero_id].get("action_slug", "")
+		_casting_action_slugs.erase(action_slug)
+		_casting_by_hero.erase(hero_id)
+		_casting_heroes.erase(hero_id)
+		# Add cooldown to block server casts for 2 seconds (same as local cast skip)
+		_hero_cooldown_until[hero_id] = current_time_ms + 2000
+	
+	# Process queued casts - only start if hero is no longer casting
+	if not _queued_casts.is_empty():
+		_process_queued_casts()
+
+## Process queued casts that were waiting for hero to be free
+func _process_queued_casts():
+	var current_time_ms = Time.get_ticks_msec()
+	var remaining_queue = []
+	
+	for queued in _queued_casts:
+		var action_slug = queued.get("action_slug", "")
+		var hero: Hero = queued.get("hero")
+		
+		# Check if this hero is still casting
+		if _casting_heroes.has(hero.hero_instance_id):
+			remaining_queue.append(queued)  # Hero still busy
+			continue
+		
+		# Hero is free, start casting
+		if is_instance_valid(hero):
+			var cast_duration_ms = 1500
+			var cast_id = "cast_%s_%d" % [action_slug, current_time_ms]
+			_local_cast_cast_id = cast_id
+			_local_cast_hero_id = hero.hero_instance_id
+			_local_cast_skip_until_ms = current_time_ms + 2000
+			_casting_by_hero[hero.hero_instance_id] = {"action_slug": action_slug, "until_ms": current_time_ms + cast_duration_ms}
+			_casting_heroes[hero.hero_instance_id] = action_slug
+			if not action_slug in _casting_action_slugs:
+				_casting_action_slugs.append(action_slug)
+			hero._show_casting(cast_id, cast_duration_ms, action_slug)
+	
+	_queued_casts = remaining_queue
+
 func _find_hero_by_instance_id(instance_id: String) -> Node:
 	for hero in my_heroes.values():
 		if hero.hero_instance_id == instance_id:
@@ -451,10 +572,33 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 
 ## Show casting indicator on hero (wrapper for hero._show_casting)
 func _show_casting_indicator(hero: Hero, action_slug: String):
+	# Check if this hero is already casting - if so, queue this cast
+	if _casting_heroes.has(hero.hero_instance_id):
+		_queued_casts.append({"hero": hero, "action_slug": action_slug, "timestamp": Time.get_ticks_msec()})
+		return
+	
+	# Clear cooldown when starting new cast
+	_hero_cooldown_until.erase(hero.hero_instance_id)
+	
 	var cast_duration_ms = 1500  # 1.5 detik cast time
-	hero._show_casting("cast_%s_%d" % [action_slug, Time.get_ticks_msec()], cast_duration_ms, action_slug)
+	var cast_id = "cast_%s_%d" % [action_slug, Time.get_ticks_msec()]
+	# Track local cast to prevent server updates from overwriting
+	_local_cast_cast_id = cast_id
+	_local_cast_hero_id = hero.hero_instance_id
+	_local_cast_skip_until_ms = Time.get_ticks_msec() + 2000  # Skip server casts for 2 seconds
+	# Track by hero to support multiple simultaneous casts
+	_casting_by_hero[hero.hero_instance_id] = {"action_slug": action_slug, "until_ms": Time.get_ticks_msec() + cast_duration_ms}
+	_casting_heroes[hero.hero_instance_id] = action_slug
+	# Track action slug to block same action being cast twice
+	if not action_slug in _casting_action_slugs:
+		_casting_action_slugs.append(action_slug)
+	hero._show_casting(cast_id, cast_duration_ms, action_slug)
 
 func _on_card_drag_started(_card):
+	# Cleanup expired casts first
+	_cleanup_expired_casts()
+	
+	# Allow drag even if same action is being cast - will be queued
 	_clear_selected_hero()
 	_dragging_card = _card
 	_hovered_hero = null
@@ -478,38 +622,38 @@ func _highlight_valid_targets(_target_rule: String):
 func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
 	var target_slot = _get_hero_target(caster_hero.slot_index)
 	
+	# Get the actual action to send - use override if set, otherwise use card's original
+	var action_to_send = _debug_override_action if not _debug_override_action.is_empty() else card.action_slug
+	
 	# Show casting indicator on the caster hero
-	_show_casting_indicator(caster_hero, card.action_slug)
+	_show_casting_indicator(caster_hero, action_to_send)
 	
 	# Track the used card so state_update won't recreate it
-	_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
+	_used_hand_keys.append("%s:%d" % [action_to_send, card.slot_index])
 	
-	# Remove card from hand
-	hand_cards.erase(card)
-	_layout_hand_cards(true)
-	
-	# In training mode, immediately replace the card instead of waiting for server
-	if GameState.match_mode == "training":
-		var action_slug = card.action_slug
-		var slot_index = card.slot_index
-		card.queue_free()
-		# Create replacement card at same slot
-		_add_training_card(action_slug, slot_index)
-		return
-	
-	# Send cast action with preset target (normal mode)
-	GameState.send_json({
+	# Send cast action with preset target
+	var cast_data = {
 		"type": "cast_action",
 		"match_id": GameState.current_match_id,
 		"caster_slot": caster_hero.slot_index,
 		"hand_slot_index": card.slot_index,
 		"target_slot": target_slot
-	})
+	}
+	GameState.send_json(cast_data)
 	
+	# Remove card from tracking BEFORE queue_free (queue_free is async)
+	hand_cards.erase(card)
 	card.queue_free()
+	_layout_hand_cards(true)
 	
 	# Auto-reroll when all cards are used (server grants free reroll)
-	if hand_cards.is_empty():
+	# Check for valid cards only
+	var has_valid_cards = false
+	for c in hand_cards:
+		if is_instance_valid(c):
+			has_valid_cards = true
+			break
+	if not has_valid_cards:
 		_reroll_entrance_pending = true
 		_used_hand_keys.clear()
 		_prev_server_keys.clear()
@@ -669,6 +813,8 @@ func _clear_highlights():
 func _get_hero_target(hero_slot: int) -> int:
 	return _hero_targets.get(hero_slot, _default_targets.get(hero_slot, hero_slot))
 
+
+
 ## Set target for a hero slot
 func _set_hero_target(hero_slot: int, enemy_slot: int):
 	_hero_targets[hero_slot] = enemy_slot
@@ -800,12 +946,14 @@ func _get_enemy_hero_at_point(point: Vector2) -> Hero:
 
 func _layout_hand_cards(animated: bool):
 	var vp_size = get_viewport().get_visible_rect().size
-	for i in range(hand_cards.size()):
-		var key = "action%d" % (i + 1)
+	for card in hand_cards:
+		if not is_instance_valid(card):
+			continue
+		# Use card's slot_index to determine layout position
+		var key = "action%d" % card.slot_index
 		if not _layout_boxes.has(key):
 			continue
 		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-		var card = hand_cards[i]
 		card.size = Vector2(r["width"], r["height"])
 		_move_hand_card(card, Vector2(r["x"], r["y"]), animated)
 
@@ -845,6 +993,7 @@ func _on_reroll_pressed():
 	reroll_button.modulate = Color(0.4, 0.4, 0.4, 1.0)
 	_used_hand_keys.clear()
 	_prev_server_keys.clear()
+	# Keep _debug_override_action active after reroll so new cards use it
 	_play_reroll_exit()
 	GameState.send_json({
 		"type": "reroll_hand",
@@ -899,13 +1048,6 @@ func _set_initial_positions():
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)
 		back_button.position = Vector2(r["x"], r["y"])
 		back_button.size = Vector2(r["width"], r["height"])
-	# Position action dropdown below back button (only in training mode)
-	if _action_dropdown != null:
-		_action_dropdown.offset_left = back_button.offset_left
-		_action_dropdown.offset_top = back_button.offset_bottom + 8
-		_action_dropdown.offset_right = back_button.offset_left + 200
-		_action_dropdown.offset_bottom = back_button.offset_bottom + 48
-		_action_dropdown.visible = (GameState.match_mode == "training")
 	if _layout_boxes.has("info") and info_animap:
 		var r = GameState.resolve_box(_layout_boxes["info"], vp_size, _layout_aspect_key)
 		info_animap.position = Vector2(r["x"], r["y"])
@@ -919,8 +1061,6 @@ func _set_initial_positions():
 		energy_bar.modulate.a = 0.0
 		reroll_button.modulate.a = 0.0
 		back_button.modulate.a = 0.0
-		if _action_dropdown:
-			_action_dropdown.modulate.a = 0.0
 		if info_animap:
 			info_animap.modulate.a = 0.0
 		if time_animap:
@@ -1023,6 +1163,7 @@ func _play_reroll_exit():
 			hand_container.remove_child(card)
 			card.queue_free()
 		hand_cards.clear()
+		# Keep _debug_override_action active so new cards use it
 		# Unblock _update_hand — next server state will build new cards with entrance
 		_rerolling = false
 		_reroll_animating = false
@@ -1089,8 +1230,6 @@ func _play_entrance_animation():
 	_animate_ui_element(energy_bar, 0.7, Vector2(0, 30))
 	_animate_ui_element(reroll_button, 0.8, Vector2(0, 30))
 	_animate_ui_element(back_button, 0.75, Vector2(0, -20))
-	if _action_dropdown:
-		_animate_ui_element(_action_dropdown, 0.76, Vector2(0, -20))
 	if info_animap:
 		_animate_ui_element(info_animap, 0.68, Vector2(0, -20))
 	if time_animap:
@@ -1256,74 +1395,6 @@ func _create_ping_label():
 	$UIOverlay.add_child(_ping_label)
 	_refresh_ping_label()
 
-func _create_action_dropdown():
-	_action_dropdown = OptionButton.new()
-	_action_dropdown.name = "ActionDropdown"
-	_action_dropdown.text = "Select Action"
-	
-	# Add all action slugs to dropdown
-	var action_slugs = GameState.action_defs.keys()
-	action_slugs.sort()
-	for slug in action_slugs:
-		_action_dropdown.add_item(slug.capitalize().replace("-", " "), _action_dropdown.item_count)
-		_action_dropdown.set_item_metadata(_action_dropdown.item_count - 1, slug)
-	
-	# Position below back button
-	_action_dropdown.custom_minimum_size = Vector2(200, 40)
-	_action_dropdown.offset_left = back_button.offset_left
-	_action_dropdown.offset_top = back_button.offset_bottom + 8
-	_action_dropdown.offset_right = back_button.offset_left + 200
-	_action_dropdown.offset_bottom = back_button.offset_bottom + 48
-	
-	# Only visible in training mode
-	_action_dropdown.visible = (GameState.match_mode == "training")
-	
-	# Connect selection to override hand
-	_action_dropdown.item_selected.connect(_on_training_action_selected)
-	
-	$UIOverlay.add_child(_action_dropdown)
-
-func _on_training_action_selected(index: int):
-	_selected_training_action = _action_dropdown.get_item_metadata(index)
-	# Refresh hand with selected action
-	if GameState.match_mode == "training" and not _selected_training_action.is_empty():
-		_update_hand_with_training_action()
-
-func _update_hand_with_training_action():
-	# Build hand data with the selected action for each slot
-	var override_hand: Array = []
-	var num_cards = 5  # Default hand size
-	for i in range(num_cards):
-		override_hand.append({
-			"action_slug": _selected_training_action,
-			"slot_index": i,
-			"team": GameState.current_team
-		})
-	_update_hand(override_hand)
-
-func _add_training_card(action_slug: String, slot_index: int):
-	var key = "action%d" % (slot_index + 1)
-	if not _layout_boxes.has(key):
-		return
-	
-	var vp_size = get_viewport().get_visible_rect().size
-	var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
-	var card_data = {
-		"action_slug": action_slug,
-		"slot_index": slot_index,
-		"team": GameState.current_team
-	}
-	
-	var card = ACTION_CARD_SCENE.instantiate()
-	hand_container.add_child(card)
-	card.size = Vector2(r["width"], r["height"])
-	card.position = Vector2(r["x"], r["y"])
-	card.setup(card_data)
-	card.card_drag_started.connect(_on_card_drag_started)
-	card.card_drag_ended.connect(_on_card_drag_ended)
-	card.set_enabled(card.can_afford(current_energy))
-	hand_cards.append(card)
-
 func _update_ping_probe():
 	if GameState.current_match_id.is_empty():
 		return
@@ -1379,6 +1450,52 @@ func _refresh_ping_label():
 
 func _now_ms() -> int:
 	return Time.get_ticks_msec()
+
+func _populate_action_dropdown():
+	if action_dropdown == null:
+		return
+	action_dropdown.clear()
+	# Add placeholder first
+	action_dropdown.add_item("Select Action", 0)
+	action_dropdown.set_item_metadata(0, "")
+	# Add all action names from GameState
+	var action_slugs = GameState.action_defs.keys()
+	action_slugs.sort()
+	var id = 1
+	for slug in action_slugs:
+		var def = GameState.action_defs[slug]
+		var name = def.get("name", slug.replace("-", " ").capitalize())
+		action_dropdown.add_item(name, id)
+		action_dropdown.set_item_metadata(id, slug)
+		id += 1
+
+func _on_action_dropdown_selected(index: int):
+	if action_dropdown == null:
+		return
+	var action_slug: String = action_dropdown.get_item_metadata(index)
+	if action_slug.is_empty():
+		_debug_override_action = ""
+		_update_hand_cards_action("")
+		return
+	
+	# When override changes, force full hand rebuild by clearing all state
+	_used_hand_keys.clear()
+	_prev_server_keys.clear()
+	_debug_override_action = action_slug
+	
+	# Clear all cards immediately - don't try to reuse
+	for card in hand_cards:
+		if is_instance_valid(card) and card.get_parent() == hand_container:
+			hand_container.remove_child(card)
+			card.queue_free()
+	hand_cards.clear()
+
+func _update_hand_cards_action(action_slug: String):
+	if action_slug.is_empty():
+		_debug_override_action = ""
+	for card in hand_cards:
+		if is_instance_valid(card) and not card.is_queued_for_deletion() and card.has_method("set_action_slug"):
+			card.set_action_slug(action_slug)
 
 func _toggle_dev_panel():
 	if not _dev_panel:

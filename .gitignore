@@ -1,2 +1,20 @@
 bin/
 *.DS_Store
+
+# Build artifacts / compiled binaries
+*.exe
+*.macos
+editor/frontend/dist/
+game/game_launcher/
+
+# Godot auto-generated
+.godot/
+*.import
+*.uid
+*.preview.webm
+
+# Node
+node_modules/
+
+# Misc
+UI_Bug/
