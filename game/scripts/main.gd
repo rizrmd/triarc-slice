@@ -131,6 +131,27 @@ func _ready() -> void:
 	tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
 	tween.tween_callback(func(): fade_rect.visible = false)
 
+## Called by GameState.return_to_main() to restore state after gameplay.
+func resume_from_gameplay() -> void:
+	# Sync WebSocket — gameplay may have disconnected
+	if GameState.ws and GameState.ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
+		_ws = GameState.ws
+	else:
+		_ws = null
+		if not _player_id.is_empty():
+			home_ui.get_node("TitleLabel").text = "Reconnecting..."
+			_connect_to_server()
+
+	var start_view := "hero_select" if GameState.should_return_to_hero_select() else "home"
+	_show_view(start_view, false)
+
+	# Fade in from black
+	fade_rect.visible = true
+	fade_rect.color.a = 1.0
+	var tween = create_tween()
+	tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
+	tween.tween_callback(func(): fade_rect.visible = false)
+
 func _process(_delta: float) -> void:
 	if _ws:
 		_ws.poll()
@@ -313,7 +334,7 @@ func _on_ws_message(msg: String) -> void:
 			if _current_view == "find_match":
 				find_match_ui.get_node("SearchingLabel").text = "Match found!"
 				await get_tree().create_timer(1.0).timeout
-			get_tree().change_scene_to_file("res://scenes/gameplay.tscn")
+			GameState.cache_main_and_enter_gameplay()
 		_:
 			print("[WS] ", msg_type, ": ", msg.left(200))
 

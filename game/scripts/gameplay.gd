@@ -832,10 +832,9 @@ func _on_back_pressed():
 		"match_id": GameState.current_match_id
 	})
 
-	GameState.return_to_hero_select_after_gameplay = false  # Training returns to home
+	GameState.return_to_hero_select_after_gameplay = false
 	GameState.current_match_id = ""
-	# Emit signal instead of changing scene - parent will handle removal
-	back_requested.emit()
+	GameState.return_to_main()
 
 func _on_disconnected():
 	_pending_ping_sent_at_ms = -1
@@ -844,7 +843,7 @@ func _on_disconnected():
 	_refresh_ping_label()
 	GameState.return_to_hero_select_after_gameplay = false
 	GameState.current_match_id = ""
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	GameState.return_to_main()
 
 func _on_match_end(winner: int):
 	# Disable interactions
@@ -855,7 +854,7 @@ func _on_match_end(winner: int):
 	# Show result and return to main after delay
 	await get_tree().create_timer(3.0).timeout
 	GameState.return_to_hero_select_after_gameplay = false
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	GameState.return_to_main()
 
 func _set_initial_positions():
 	if energy_bar == null or reroll_button == null or back_button == null:
