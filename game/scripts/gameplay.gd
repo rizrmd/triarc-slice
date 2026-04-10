@@ -80,6 +80,11 @@ var _display_ping_ms: int = -1
 # HP change filtering to prevent random/small damage ticks
 var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
 const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
+
+# Action dropdown (training mode)
+var _action_dropdown: OptionButton = null
+var _selected_training_action: String = ""
+
 func _ready():
 	add_to_group("gameplay")
 
@@ -101,6 +106,7 @@ func _ready():
 	_setup_info_animap()
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
+	_create_action_dropdown()
 
 	# Request initial match state (normal online mode)
 	if not GameState.current_match_id.is_empty():
@@ -292,6 +298,17 @@ func _update_hand(hand_data: Array):
 	if _rerolling or _reroll_animating:
 		return
 
+	# Training mode override: use selected action instead of server cards
+	if GameState.match_mode == "training" and not _selected_training_action.is_empty():
+		var override_hand: Array = []
+		for i in range(5):  # 5 cards in hand
+			override_hand.append({
+				"action_slug": _selected_training_action,
+				"slot_index": i,
+				"team": GameState.current_team
+			})
+		hand_data = override_hand
+
 	# Skip update if a card is being dragged
 	for card in hand_cards:
 		if card.is_dragging:
@@ -471,7 +488,16 @@ func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
 	hand_cards.erase(card)
 	_layout_hand_cards(true)
 	
-	# Send cast action with preset target
+	# In training mode, immediately replace the card instead of waiting for server
+	if GameState.match_mode == "training":
+		var action_slug = card.action_slug
+		var slot_index = card.slot_index
+		card.queue_free()
+		# Create replacement card at same slot
+		_add_training_card(action_slug, slot_index)
+		return
+	
+	# Send cast action with preset target (normal mode)
 	GameState.send_json({
 		"type": "cast_action",
 		"match_id": GameState.current_match_id,
@@ -873,6 +899,13 @@ func _set_initial_positions():
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)
 		back_button.position = Vector2(r["x"], r["y"])
 		back_button.size = Vector2(r["width"], r["height"])
+	# Position action dropdown below back button (only in training mode)
+	if _action_dropdown != null:
+		_action_dropdown.offset_left = back_button.offset_left
+		_action_dropdown.offset_top = back_button.offset_bottom + 8
+		_action_dropdown.offset_right = back_button.offset_left + 200
+		_action_dropdown.offset_bottom = back_button.offset_bottom + 48
+		_action_dropdown.visible = (GameState.match_mode == "training")
 	if _layout_boxes.has("info") and info_animap:
 		var r = GameState.resolve_box(_layout_boxes["info"], vp_size, _layout_aspect_key)
 		info_animap.position = Vector2(r["x"], r["y"])
@@ -886,6 +919,8 @@ func _set_initial_positions():
 		energy_bar.modulate.a = 0.0
 		reroll_button.modulate.a = 0.0
 		back_button.modulate.a = 0.0
+		if _action_dropdown:
+			_action_dropdown.modulate.a = 0.0
 		if info_animap:
 			info_animap.modulate.a = 0.0
 		if time_animap:
@@ -1054,6 +1089,8 @@ func _play_entrance_animation():
 	_animate_ui_element(energy_bar, 0.7, Vector2(0, 30))
 	_animate_ui_element(reroll_button, 0.8, Vector2(0, 30))
 	_animate_ui_element(back_button, 0.75, Vector2(0, -20))
+	if _action_dropdown:
+		_animate_ui_element(_action_dropdown, 0.76, Vector2(0, -20))
 	if info_animap:
 		_animate_ui_element(info_animap, 0.68, Vector2(0, -20))
 	if time_animap:
@@ -1218,6 +1255,74 @@ func _create_ping_label():
 		_ping_label.modulate.a = 0.0
 	$UIOverlay.add_child(_ping_label)
 	_refresh_ping_label()
+
+func _create_action_dropdown():
+	_action_dropdown = OptionButton.new()
+	_action_dropdown.name = "ActionDropdown"
+	_action_dropdown.text = "Select Action"
+	
+	# Add all action slugs to dropdown
+	var action_slugs = GameState.action_defs.keys()
+	action_slugs.sort()
+	for slug in action_slugs:
+		_action_dropdown.add_item(slug.capitalize().replace("-", " "), _action_dropdown.item_count)
+		_action_dropdown.set_item_metadata(_action_dropdown.item_count - 1, slug)
+	
+	# Position below back button
+	_action_dropdown.custom_minimum_size = Vector2(200, 40)
+	_action_dropdown.offset_left = back_button.offset_left
+	_action_dropdown.offset_top = back_button.offset_bottom + 8
+	_action_dropdown.offset_right = back_button.offset_left + 200
+	_action_dropdown.offset_bottom = back_button.offset_bottom + 48
+	
+	# Only visible in training mode
+	_action_dropdown.visible = (GameState.match_mode == "training")
+	
+	# Connect selection to override hand
+	_action_dropdown.item_selected.connect(_on_training_action_selected)
+	
+	$UIOverlay.add_child(_action_dropdown)
+
+func _on_training_action_selected(index: int):
+	_selected_training_action = _action_dropdown.get_item_metadata(index)
+	# Refresh hand with selected action
+	if GameState.match_mode == "training" and not _selected_training_action.is_empty():
+		_update_hand_with_training_action()
+
+func _update_hand_with_training_action():
+	# Build hand data with the selected action for each slot
+	var override_hand: Array = []
+	var num_cards = 5  # Default hand size
+	for i in range(num_cards):
+		override_hand.append({
+			"action_slug": _selected_training_action,
+			"slot_index": i,
+			"team": GameState.current_team
+		})
+	_update_hand(override_hand)
+
+func _add_training_card(action_slug: String, slot_index: int):
+	var key = "action%d" % (slot_index + 1)
+	if not _layout_boxes.has(key):
+		return
+	
+	var vp_size = get_viewport().get_visible_rect().size
+	var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+	var card_data = {
+		"action_slug": action_slug,
+		"slot_index": slot_index,
+		"team": GameState.current_team
+	}
+	
+	var card = ACTION_CARD_SCENE.instantiate()
+	hand_container.add_child(card)
+	card.size = Vector2(r["width"], r["height"])
+	card.position = Vector2(r["x"], r["y"])
+	card.setup(card_data)
+	card.card_drag_started.connect(_on_card_drag_started)
+	card.card_drag_ended.connect(_on_card_drag_ended)
+	card.set_enabled(card.can_afford(current_energy))
+	hand_cards.append(card)
 
 func _update_ping_probe():
 	if GameState.current_match_id.is_empty():
