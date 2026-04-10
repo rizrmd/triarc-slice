@@ -1,0 +1,43 @@
+{
+  "full_name": "Shadowstep",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -15
+  },
+  "char_bg_scale": 89,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "#000000",
+  "tint": "#dd3c89",
+  "description": "Move through darkness to reposition and strike before the enemy can react.",
+  "cost": 3,
+  "element": [
+    "shadow"
+  ],
+  "target_rule": "enemy_single",
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "gameplay": {
+    "casting_time_ms": 800,
+    "effect_kind": "damage",
+    "base_power": 26,
+    "status_kind": null,
+    "status_duration_ms": 0,
+    "status_value": 0
+  }
+}

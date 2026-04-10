@@ -1,0 +1,66 @@
+{
+  "full_name": "Arcane Paladin",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -39,
+    "y": 258
+  },
+  "char_fg_pos": {
+    "x": -39,
+    "y": 258
+  },
+  "char_bg_scale": 204,
+  "char_fg_scale": 204,
+  "name_pos": {
+    "x": 0,
+    "y": 94
+  },
+  "name_scale": 51,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#c7c7c7",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 151
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 3200,
+  "hp_bar_max": 3200,
+  "hp_bar_hue": 204,
+  "hp_bar_font_size": 31,
+  "lore": "Their soul is a conduit for blinding light and deep shadow, stabilized by an unshakeable will. However, this volatile mixture makes them unstable when exposed to raw fire.",
+  "stats": {
+    "attack": 145,
+    "defense": 145,
+    "element_affinity": {
+      "earth": 10,
+      "fire": -20,
+      "ice": 0,
+      "light": 20,
+      "shadow": 15,
+      "wind": -10
+    },
+    "max_hp": 3200
+  },
+  "audio": {
+    "ActionReject": "/data/hero/arcane-paladin/audio/Arcane_Paladin_7_-_Hold_your_ground..wav",
+    "CastingHighAffinity": "/data/hero/arcane-paladin/audio/Arcane_Paladin_2_-_The_arcane_awakens!.wav",
+    "CastingLowAffinity": "/data/hero/arcane-paladin/audio/Arcane_Paladin_1_-_Light_and_shadow_clash..wav",
+    "DamageBlocked": "/data/hero/arcane-paladin/audio/Arcane_Paladin_5_-_Your_strike_fails..wav",
+    "DamageCritical": "/data/hero/arcane-paladin/audio/Arcane_Paladin_4_-_You_test_my_will!.wav",
+    "DamageNormal": "/data/hero/arcane-paladin/audio/Arcane_Paladin_3_-My_will_holds..wav",
+    "Die": "/data/hero/arcane-paladin/audio/Arcane_Paladin_6_-_Forgive_me....wav"
+  },
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 63
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": -2,
+      "y": 62
+    },
+    "shadow_scale": 98
+  }
+}

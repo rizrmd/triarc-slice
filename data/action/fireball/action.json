@@ -1,0 +1,44 @@
+{
+  "full_name": "Fireball",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 92,
+    "y": -10
+  },
+  "char_bg_scale": 135,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#e54c00",
+  "description": "Hurl a classic burst of flame that explodes against a single enemy.",
+  "cost": 3,
+  "element": [
+    "fire"
+  ],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1500,
+    "effect_kind": "damage",
+    "base_power": 25,
+    "status_kind": null,
+    "status_duration_ms": 0,
+    "status_value": 0
+  }
+}

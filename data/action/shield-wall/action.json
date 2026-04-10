@@ -1,0 +1,51 @@
+{
+  "full_name": "Shield Wall",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -17
+  },
+  "char_bg_scale": 135,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#fbb698",
+  "description": "Lock into a defensive stance that creates a sturdy frontline barrier.",
+  "cost": 3,
+  "element": [
+    "earth"
+  ],
+  "target_rule": "ally_single",
+  "targeting": {
+    "side": "ally",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": true,
+    "allow_dead": false
+  },
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": true,
+    "pose-char-fg": false,
+    "pose-frame": false,
+    "pose-mask-fg": false,
+    "pose-shadow": false
+  },
+  "gameplay": {
+    "casting_time_ms": 1200,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "shield",
+    "status_duration_ms": 6000,
+    "status_value": 20
+  }
+}

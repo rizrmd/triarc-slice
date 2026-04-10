@@ -1,0 +1,54 @@
+{
+  "full_name": "Princess Emberheart",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -33,
+    "y": 305
+  },
+  "char_fg_pos": {
+    "x": -33,
+    "y": 305
+  },
+  "char_bg_scale": 220,
+  "char_fg_scale": 220,
+  "name_pos": {
+    "x": 0,
+    "y": 92
+  },
+  "name_scale": 42,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#ff7a33",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2900,
+  "hp_bar_max": 2900,
+  "hp_bar_hue": 0,
+  "hp_bar_font_size": 31,
+  "lore": "Her spirit burns with the intensity of a dragon's heart, radiating nobility. Cold magic saps her will, dulling the edge of her flaming blade.",
+  "stats": {
+    "attack": 150,
+    "defense": 120,
+    "element_affinity": {
+      "earth": -5,
+      "fire": 30,
+      "ice": -25,
+      "light": 10,
+      "shadow": 0,
+      "wind": 5
+    },
+    "max_hp": 2900
+  },
+  "audio": {
+    "ActionReject": "/data/hero/princess-emberheart/audio/Princess_Emberheart_7_-_Not_yet..wav",
+    "CastingHighAffinity": "/data/hero/princess-emberheart/audio/Princess_Emberheart_2_-_Let_the_fire_judge_you!.wav",
+    "CastingLowAffinity": "/data/hero/princess-emberheart/audio/Princess_Emberheart_1_-_Burn_bright..wav",
+    "DamageBlocked": "/data/hero/princess-emberheart/audio/Princess_Emberheart_5_-_Your_strike_fails..wav",
+    "DamageCritical": "/data/hero/princess-emberheart/audio/Princess_Emberheart_4_-_My_flame…_falters!.wav",
+    "DamageNormal": "/data/hero/princess-emberheart/audio/Princess_Emberheart_3_-_I_stand..wav",
+    "Die": "/data/hero/princess-emberheart/audio/Princess_Emberheart_6_-_The_flame…_fades….wav"
+  },
+  "pose": null
+}

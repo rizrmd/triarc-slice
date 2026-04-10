@@ -1,0 +1,44 @@
+{
+  "full_name": "Stand Firm",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -22,
+    "y": 17
+  },
+  "char_bg_scale": 144,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#f5b67a",
+  "description": "Brace in place and refuse displacement, converting resolve into defense.",
+  "cost": 2,
+  "element": [
+    "earth"
+  ],
+  "target_rule": "self",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "ally",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": true,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 800,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "shield",
+    "status_duration_ms": 4000,
+    "status_value": 15
+  }
+}

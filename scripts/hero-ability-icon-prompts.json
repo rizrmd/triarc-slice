@@ -1,0 +1,176 @@
+{
+  "image": {
+    "stylePrompt": "fantasy tactical RPG ability icon, centered single emblem, high contrast silhouette, crisp readable shape at small size, polished game UI art, dramatic lighting, clean composition, no text, no letters, no words, no watermark, no UI frame, no collage",
+    "negativePrompt": "text, letters, words, typography, logo, watermark, signature, border, frame, clutter, busy scene, multiple subjects, realistic photo, low contrast, blurry details"
+  },
+  "entries": [
+    {
+      "heroSlug": "flame-warlock",
+      "abilityId": "fire-bolt",
+      "name": "Fire Bolt",
+      "output": "data/hero/flame-warlock/img/abilities/fire-bolt.webp",
+      "prompt": "narrow flaming projectile launched from a ritual sigil, bright ember core, fire magic"
+    },
+    {
+      "heroSlug": "flame-warlock",
+      "abilityId": "ignite",
+      "name": "Ignite",
+      "output": "data/hero/flame-warlock/img/abilities/ignite.webp",
+      "prompt": "burning brand symbol, cursed ember wound, lingering flame debuff"
+    },
+    {
+      "heroSlug": "flame-warlock",
+      "abilityId": "inferno",
+      "name": "Inferno",
+      "output": "data/hero/flame-warlock/img/abilities/inferno.webp",
+      "prompt": "expanding wall of fire, sweeping inferno blast, area attack"
+    },
+    {
+      "heroSlug": "flame-warlock",
+      "abilityId": "volatile-end",
+      "name": "Volatile End",
+      "output": "data/hero/flame-warlock/img/abilities/volatile-end.webp",
+      "prompt": "cracked ember core about to explode, unstable fire sphere, last burst"
+    },
+    {
+      "heroSlug": "flame-warlock",
+      "abilityId": "apocalypse-flame",
+      "name": "Apocalypse Flame",
+      "output": "data/hero/flame-warlock/img/abilities/apocalypse-flame.webp",
+      "prompt": "catastrophic flame sigil, descending firestorm, apocalyptic blaze"
+    },
+    {
+      "heroSlug": "arc-strider",
+      "abilityId": "arc-slash",
+      "name": "Arc Slash",
+      "output": "data/hero/arc-strider/img/abilities/arc-slash.webp",
+      "prompt": "curved blade sweep with lightning arc, fast electric slash"
+    },
+    {
+      "heroSlug": "arc-strider",
+      "abilityId": "thunder-step",
+      "name": "Thunder Step",
+      "output": "data/hero/arc-strider/img/abilities/thunder-step.webp",
+      "prompt": "blink strike silhouette with thunder impact, teleport attack"
+    },
+    {
+      "heroSlug": "arc-strider",
+      "abilityId": "storm-pulse",
+      "name": "Storm Pulse",
+      "output": "data/hero/arc-strider/img/abilities/storm-pulse.webp",
+      "prompt": "circular electric shockwave radiating outward, storm pulse"
+    },
+    {
+      "heroSlug": "arc-strider",
+      "abilityId": "static-charge",
+      "name": "Static Charge",
+      "output": "data/hero/arc-strider/img/abilities/static-charge.webp",
+      "prompt": "stacked lightning charge nodes, overload glyph, charged energy counter"
+    },
+    {
+      "heroSlug": "arc-strider",
+      "abilityId": "lightning-reflexes",
+      "name": "Lightning Reflexes",
+      "output": "data/hero/arc-strider/img/abilities/lightning-reflexes.webp",
+      "prompt": "dodging figure with electric afterimage, split bolt reflexes"
+    },
+    {
+      "heroSlug": "arc-strider",
+      "abilityId": "tempest-surge",
+      "name": "Tempest Surge",
+      "output": "data/hero/arc-strider/img/abilities/tempest-surge.webp",
+      "prompt": "storm form striking multiple targets, chained lightning assault"
+    },
+    {
+      "heroSlug": "storm-ranger",
+      "abilityId": "volt-arrow",
+      "name": "Volt Arrow",
+      "output": "data/hero/storm-ranger/img/abilities/volt-arrow.webp",
+      "prompt": "charged arrow with lightning trail, precise ranged shot"
+    },
+    {
+      "heroSlug": "storm-ranger",
+      "abilityId": "hunters-mark",
+      "name": "Hunter's Mark",
+      "output": "data/hero/storm-ranger/img/abilities/hunters-mark.webp",
+      "prompt": "tracking reticle symbol, marked prey rune, hunter target glyph"
+    },
+    {
+      "heroSlug": "storm-ranger",
+      "abilityId": "gale-volley",
+      "name": "Gale Volley",
+      "output": "data/hero/storm-ranger/img/abilities/gale-volley.webp",
+      "prompt": "rain of arrows with wind streaks, wide volley attack"
+    },
+    {
+      "heroSlug": "storm-ranger",
+      "abilityId": "patience",
+      "name": "Patience",
+      "output": "data/hero/storm-ranger/img/abilities/patience.webp",
+      "prompt": "taut drawn bow held steady, waiting crosshair, calm precision"
+    },
+    {
+      "heroSlug": "storm-ranger",
+      "abilityId": "storm-shelter",
+      "name": "Storm Shelter",
+      "output": "data/hero/storm-ranger/img/abilities/storm-shelter.webp",
+      "prompt": "ally shield under curved wind canopy, protective storm barrier"
+    },
+    {
+      "heroSlug": "storm-ranger",
+      "abilityId": "skybreak-volley",
+      "name": "Skybreak Volley",
+      "output": "data/hero/storm-ranger/img/abilities/skybreak-volley.webp",
+      "prompt": "split sky with descending arrows and mark sigils, ultimate volley"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "shield-bash",
+      "name": "Shield Bash",
+      "output": "data/hero/iron-knight/img/abilities/shield-bash.webp",
+      "prompt": "heavy shield slam with blunt impact burst"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "hold-the-line",
+      "name": "Hold the Line",
+      "output": "data/hero/iron-knight/img/abilities/hold-the-line.webp",
+      "prompt": "raised shield wall, defensive formation symbol, unwavering line"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "bulwark",
+      "name": "Bulwark",
+      "output": "data/hero/iron-knight/img/abilities/bulwark.webp",
+      "prompt": "massive shield intercepting incoming blows for allies"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "retribution",
+      "name": "Retribution",
+      "output": "data/hero/iron-knight/img/abilities/retribution.webp",
+      "prompt": "reflected light impact bouncing off steel, retaliatory shield"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "last-stand",
+      "name": "Last Stand",
+      "output": "data/hero/iron-knight/img/abilities/last-stand.webp",
+      "prompt": "cracked shield reigniting with stubborn holy light, final stand"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "vow-of-two-shields",
+      "name": "Vow of Two Shields",
+      "output": "data/hero/iron-knight/img/abilities/vow-of-two-shields.webp",
+      "prompt": "two interlocking shields glowing with sacred oath light"
+    },
+    {
+      "heroSlug": "iron-knight",
+      "abilityId": "unbreakable-oath",
+      "name": "Unbreakable Oath",
+      "output": "data/hero/iron-knight/img/abilities/unbreakable-oath.webp",
+      "prompt": "radiant shield dome with cleansing light burst, ultimate protection"
+    }
+  ]
+}

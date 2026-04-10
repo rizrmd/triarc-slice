@@ -1,0 +1,65 @@
+{
+  "full_name": "Demon Empress",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 8,
+    "y": 258
+  },
+  "char_fg_pos": {
+    "x": 8,
+    "y": 258
+  },
+  "char_bg_scale": 185,
+  "char_fg_scale": 185,
+  "name_pos": {
+    "x": 0,
+    "y": 91
+  },
+  "name_scale": 52,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#e34602",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 151
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 3100,
+  "hp_bar_max": 3100,
+  "hp_bar_hue": 0,
+  "hp_bar_font_size": 31,
+  "lore": "Born of the abyss and hellfire, she commands absolute dominance over darkness and flame. She is anchored by the deep earth but withers under the judgment of holy light.",
+  "stats": {
+    "attack": 160,
+    "defense": 125,
+    "element_affinity": {
+      "earth": 10,
+      "fire": 20,
+      "ice": 0,
+      "light": -35,
+      "shadow": 30,
+      "wind": -10
+    },
+    "max_hp": 3100
+  },
+  "audio": {
+    "ActionReject": "/data/hero/demon-empress/audio/Demon_Empress_7_-_You_test_my_patience..wav",
+    "CastingHighAffinity": "/data/hero/demon-empress/audio/Demon_Empress_2_-_Bow_before_your_Empress!.wav",
+    "CastingLowAffinity": "/data/hero/demon-empress/audio/Demon_Empress_1_-_A_spark_is_enough..wav",
+    "DamageBlocked": "/data/hero/demon-empress/audio/Demon_Empress_5_-_You_cannot_harm_me..wav",
+    "DamageCritical": "/data/hero/demon-empress/audio/Demon_Empress_4_-_Insolent_wretch!.wav",
+    "DamageNormal": "/data/hero/demon-empress/audio/Demon_Empress_3_-_Pathetic.wav",
+    "Die": "/data/hero/demon-empress/audio/Demon_Empress_6_-_The_abyss…_will_remember_this.wav"
+  },
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 0,
+      "y": -7
+    },
+    "shadow_scale": 100
+  }
+}

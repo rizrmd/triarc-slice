@@ -1,0 +1,45 @@
+{
+  "full_name": "Poison Strike",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -13
+  },
+  "char_bg_scale": 89,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#d4ff38",
+  "description": "Cut the target with a venom-laced attack that delivers toxic internal damage.",
+  "cost": 3,
+  "element": [
+    "earth",
+    "shadow"
+  ],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1400,
+    "effect_kind": "damage_and_status",
+    "base_power": 16,
+    "status_kind": "dot",
+    "status_duration_ms": 5000,
+    "status_value": 7
+  }
+}

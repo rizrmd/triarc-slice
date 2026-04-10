@@ -1,0 +1,44 @@
+{
+  "full_name": "Ice Nova",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -62,
+    "y": -14
+  },
+  "char_bg_scale": 137,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#93cfff",
+  "description": "Detonate a sudden burst of freezing energy around the point of impact.",
+  "cost": 3,
+  "element": [
+    "ice"
+  ],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1800,
+    "effect_kind": "damage_and_status",
+    "base_power": 18,
+    "status_kind": "attack_buff",
+    "status_duration_ms": 3000,
+    "status_value": -12
+  }
+}

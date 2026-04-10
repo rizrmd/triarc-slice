@@ -1,0 +1,65 @@
+{
+  "full_name": "Necromancer",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -29,
+    "y": 243
+  },
+  "char_fg_pos": {
+    "x": -29,
+    "y": 243
+  },
+  "char_bg_scale": 208,
+  "char_fg_scale": 208,
+  "name_pos": {
+    "x": 0,
+    "y": 88
+  },
+  "name_scale": 56,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#f4f755",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 148
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2300,
+  "hp_bar_max": 2300,
+  "hp_bar_hue": 74,
+  "hp_bar_font_size": 31,
+  "lore": "They weave death itself into a cloak, chilling the air around them. While masters of the grave's cold shadow, they are terrified of the life-giving light and the purging fire that turns their minions to dust.",
+  "stats": {
+    "attack": 160,
+    "defense": 100,
+    "element_affinity": {
+      "earth": 10,
+      "fire": -20,
+      "ice": 15,
+      "light": -30,
+      "shadow": 35,
+      "wind": 0
+    },
+    "max_hp": 2300
+  },
+  "audio": {
+    "ActionReject": "/data/hero/necromancer/audio/Necromancer_7_-_The_ritual_is_not_ready..wav",
+    "CastingHighAffinity": "/data/hero/necromancer/audio/Necromancer_2_-The_grave_answers!.wav",
+    "CastingLowAffinity": "/data/hero/necromancer/audio/Necromancer_1_-_The_grave_stirs..wav",
+    "DamageBlocked": "/data/hero/necromancer/audio/Necromancer_5_-_Death_protects_me..wav",
+    "DamageCritical": "/data/hero/necromancer/audio/Necromancer_4_-_My_shadows…_falter!.wav",
+    "DamageNormal": "/data/hero/necromancer/audio/Necromancer_3_-_Insolent.wav",
+    "Die": "/data/hero/necromancer/audio/Necromancer_6_-_Even_death…_claims_me….wav"
+  },
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 0,
+      "y": 4
+    },
+    "shadow_scale": 100
+  }
+}

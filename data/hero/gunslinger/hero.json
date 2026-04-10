@@ -1,0 +1,54 @@
+{
+  "full_name": "Gunslinger",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -10,
+    "y": 247
+  },
+  "char_fg_pos": {
+    "x": -10,
+    "y": 247
+  },
+  "char_bg_scale": 185,
+  "char_fg_scale": 185,
+  "name_pos": {
+    "x": 0,
+    "y": 90
+  },
+  "name_scale": 56,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#e69157",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 150
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2500,
+  "hp_bar_max": 2500,
+  "hp_bar_hue": 62,
+  "hp_bar_font_size": 31,
+  "lore": "Explosive power and quick reflexes are their trade. They harness fire and wind for their craft, but damp conditions and unstable ground ruin their aim.",
+  "stats": {
+    "attack": 165,
+    "defense": 105,
+    "element_affinity": {
+      "earth": -15,
+      "fire": 20,
+      "ice": -10,
+      "light": 10,
+      "shadow": -5,
+      "wind": 15
+    },
+    "max_hp": 2500
+  },
+  "audio": {
+    "ActionReject": "/data/hero/gunslinger/audio/Gunslinger_7_-_Not_yet..wav",
+    "CastingHighAffinity": "/data/hero/gunslinger/audio/Gunslinger_2_-_Try_dodging_this!.wav",
+    "CastingLowAffinity": "/data/hero/gunslinger/audio/Gunslinger_1_-_Just_a_spark..wav",
+    "DamageBlocked": "/data/hero/gunslinger/audio/Gunslinger_5_-_Too_slow..wav",
+    "DamageCritical": "/data/hero/gunslinger/audio/Gunslinger_4_-_That_one_hurt!.wav",
+    "DamageNormal": "/data/hero/gunslinger/audio/Gunslinger_3_-_Lucky_shot..wav",
+    "Die": "/data/hero/gunslinger/audio/Gunslinger_6_-_Not…_my_best_day….wav"
+  },
+  "pose": null
+}

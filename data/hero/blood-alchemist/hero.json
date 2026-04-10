@@ -1,0 +1,66 @@
+{
+  "full_name": "Blood Alchemist",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -2,
+    "y": 216
+  },
+  "char_fg_pos": {
+    "x": -2,
+    "y": 216
+  },
+  "char_bg_scale": 182,
+  "char_fg_scale": 182,
+  "name_pos": {
+    "x": 0,
+    "y": 96
+  },
+  "name_scale": 50,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#ff1900",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2900,
+  "hp_bar_max": 2900,
+  "hp_bar_hue": 0,
+  "hp_bar_font_size": 31,
+  "lore": "They thrive in the dark arts of vitality, drawing power from shadow and the earth itself. However, the purifying light of the sun and the cauterizing heat of fire disrupt their forbidden transmutation.",
+  "stats": {
+    "attack": 145,
+    "defense": 110,
+    "element_affinity": {
+      "earth": 10,
+      "fire": -10,
+      "ice": 0,
+      "light": -20,
+      "shadow": 30,
+      "wind": 0
+    },
+    "max_hp": 2900
+  },
+  "audio": {
+    "ActionReject": "/data/hero/blood-alchemist/audio/Blood_Alchemist_7_-_The_timing_is_wrong..wav",
+    "CastingHighAffinity": "/data/hero/blood-alchemist/audio/Blood_Alchemist_2_-_Transmutation_unleashed!.wav",
+    "CastingLowAffinity": "/data/hero/blood-alchemist/audio/Blood_Alchemist_1_-_A_minor_reaction..wav",
+    "DamageBlocked": "/data/hero/blood-alchemist/audio/Blood_Alchemist_5_-_Predictable.wav",
+    "DamageCritical": "/data/hero/blood-alchemist/audio/Blood_Alchemist_4_-_My_blood…!.wav",
+    "DamageNormal": "/data/hero/blood-alchemist/audio/Blood_Alchemist_3_-_Tch…_insignificant..wav",
+    "Die": "/data/hero/blood-alchemist/audio/Blood_Alchemist_6_-_So…_this…_is_failure….wav"
+  },
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 6,
+      "y": -1
+    },
+    "shadow_scale": 100
+  }
+}

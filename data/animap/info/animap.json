@@ -1,0 +1,35 @@
+{
+  "name": "info",
+  "width": 869,
+  "height": 842,
+  "layers": [
+    {
+      "id": "layer-1774152854533",
+      "name": "info",
+      "type": "image",
+      "file": "info.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    },
+    {
+      "id": "dragging",
+      "name": "dragging",
+      "layer_overrides": {
+        "layer-1774152854533": {
+          "scale": 1.144921875,
+          "x": -55,
+          "y": -48
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "full_name": "Iron Knight",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 1,
+    "y": 97
+  },
+  "char_fg_pos": {
+    "x": 1,
+    "y": 97
+  },
+  "char_bg_scale": 143,
+  "char_fg_scale": 143,
+  "name_pos": {
+    "x": 0,
+    "y": 92
+  },
+  "name_scale": 57,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#db530a",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 3500,
+  "hp_bar_max": 3500,
+  "hp_bar_hue": 33,
+  "hp_bar_font_size": 31,
+  "lore": "Anchored by heavy steel, they stand firm against any impact. Their armor gleams with righteous light, but they are vulnerable to the heat that cooks them inside their shell and the lightning that bypasses their defense.",
+  "stats": {
+    "attack": 130,
+    "defense": 180,
+    "element_affinity": {
+      "earth": 30,
+      "fire": -15,
+      "ice": 10,
+      "light": 10,
+      "shadow": 0,
+      "wind": -20
+    },
+    "max_hp": 3500
+  },
+  "audio": {
+    "ActionReject": "/data/hero/iron-knight/audio/Iron_Knight_7_-_Hold_position..wav",
+    "CastingHighAffinity": "/data/hero/iron-knight/audio/Iron_Knight_2_-_By_steel_and_light!.wav",
+    "CastingLowAffinity": "/data/hero/iron-knight/audio/Iron_Knight_1_-_Steel_endures..wav",
+    "DamageBlocked": "/data/hero/iron-knight/audio/Iron_Knight_5_-_Your_strength_fails..wav",
+    "DamageCritical": "/data/hero/iron-knight/audio/Iron_Knight_4_-_Armor…_cracking!.wav",
+    "DamageNormal": "/data/hero/iron-knight/audio/Iron_Knight_3_-_I've_taken_worse..wav",
+    "Die": "/data/hero/iron-knight/audio/Iron_Knight_6_-_The_shield…_falls….wav"
+  },
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "shadow_scale": 100
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "full_name": "Time Slip",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -22,
+    "y": -15
+  },
+  "char_bg_scale": 135,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#6b97ff",
+  "description": "Bend the flow of the moment to act out of rhythm with normal combat timing.",
+  "cost": 4,
+  "element": [
+    "light",
+    "wind"
+  ],
+  "target_rule": "ally_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "ally",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": true,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1400,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "attack_buff",
+    "status_duration_ms": 5000,
+    "status_value": 18
+  }
+}

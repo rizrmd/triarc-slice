@@ -1,0 +1,45 @@
+{
+  "full_name": "Smoke Bomb",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -13
+  },
+  "char_bg_scale": 135,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#d5a8ff",
+  "description": "Burst into obscuring smoke that breaks clarity and creates a tactical opening.",
+  "cost": 3,
+  "element": [
+    "shadow",
+    "wind"
+  ],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1000,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "attack_buff",
+    "status_duration_ms": 4000,
+    "status_value": -15
+  }
+}

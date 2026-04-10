@@ -1,0 +1,12 @@
+[gd_scene load_steps=2 format=3 uid="uid://a1x8x8x8x8x8x"]
+
+[ext_resource type="Script" path="res://scripts/action_card.gd" id="1_action_card"]
+
+[node name="ActionCard" type="Button"]
+flat = true
+custom_minimum_size = Vector2(200, 300)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 200.0
+offset_bottom = 300.0
+script = ExtResource("1_action_card")

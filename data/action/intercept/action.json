@@ -1,0 +1,42 @@
+{
+  "full_name": "Intercept",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 4,
+    "y": -17
+  },
+  "char_bg_scale": 90,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#b3c9ff",
+  "description": "Step into harm's way and catch the attack line before it reaches a vulnerable ally.",
+  "cost": 3,
+  "element": ["ice"],
+  "target_rule": "ally_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "ally",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": true,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 800,
+    "effect_kind": "shield",
+    "base_power": 25,
+    "status_kind": null,
+    "status_duration_ms": 0,
+    "status_value": 0
+  }
+}

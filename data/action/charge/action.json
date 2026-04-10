@@ -1,0 +1,42 @@
+{
+  "full_name": "Charge",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -13
+  },
+  "char_bg_scale": 136,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#ffae00",
+  "description": "Rush forward in a direct assault, smashing into a single enemy with high-impact physical force.",
+  "cost": 3,
+  "element": ["fire"],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1000,
+    "effect_kind": "damage_and_status",
+    "base_power": 22,
+    "status_kind": "stun",
+    "status_duration_ms": 1500,
+    "status_value": 0
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "full_name": "Taunt",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -31,
+    "y": -20
+  },
+  "char_bg_scale": 136,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#fe9286",
+  "description": "Provoke the enemy into focusing attention on the caster.",
+  "cost": 2,
+  "element": ["fire"],
+  "target_rule": "self",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "ally",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": true,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 600,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "shield",
+    "status_duration_ms": 4000,
+    "status_value": 18
+  }
+}

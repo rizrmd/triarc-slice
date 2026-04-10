@@ -1,0 +1,41 @@
+{
+  "name": "time",
+  "width": 1410,
+  "height": 667,
+  "layers": [
+    {
+      "id": "layer-1774150294327",
+      "name": "time",
+      "type": "image",
+      "file": "time.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 1,
+      "y": 0,
+      "scale": 1.7482031249999999
+    },
+    {
+      "id": "layer-1774150916475",
+      "name": "text",
+      "type": "text",
+      "file": "",
+      "visible": true,
+      "opacity": 1,
+      "x": 300,
+      "y": 202,
+      "width": 861,
+      "height": 271,
+      "scale": 0.8138281249999999,
+      "text": "01:00",
+      "font_size": 274,
+      "color": "#ffffff",
+      "text_align": "center"
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    }
+  ]
+}

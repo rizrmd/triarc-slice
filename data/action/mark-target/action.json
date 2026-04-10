@@ -1,0 +1,42 @@
+{
+  "full_name": "Mark Target",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": 0,
+    "y": -15
+  },
+  "char_bg_scale": 136,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#f79f08",
+  "description": "Expose a target's weak point, setting them up for heavier punishment.",
+  "cost": 2,
+  "element": ["wind"],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 800,
+    "effect_kind": "status",
+    "base_power": 0,
+    "status_kind": "shield",
+    "status_duration_ms": 5000,
+    "status_value": -12
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "full_name": "Night Venom",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -9,
+    "y": 106
+  },
+  "char_fg_pos": {
+    "x": -9,
+    "y": 106
+  },
+  "char_bg_scale": 146,
+  "char_fg_scale": 146,
+  "name_pos": {
+    "x": 9,
+    "y": 91
+  },
+  "name_scale": 57,
+  "text_shadow_color": "#4b6600",
+  "tint": "#a9ffa3",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 151
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2500,
+  "hp_bar_max": 2500,
+  "hp_bar_hue": 88,
+  "hp_bar_font_size": 31,
+  "lore": "A creature of the dark and the deep caverns, utilizing natural toxins. Light reveals their position and strips away their advantage, while fire burns away their poisons.",
+  "stats": {
+    "attack": 170,
+    "defense": 95,
+    "element_affinity": {
+      "earth": 20,
+      "fire": -10,
+      "ice": 0,
+      "light": -25,
+      "shadow": 25,
+      "wind": 0
+    },
+    "max_hp": 2500
+  },
+  "audio": {
+    "ActionReject": "/data/hero/night-venom/audio/Night_Venom_7_-_Ssshh.._Wait..wav",
+    "CastingHighAffinity": "/data/hero/night-venom/audio/Night_Venom_2_-_Let_the_poison_Bloom!.wav",
+    "CastingLowAffinity": "/data/hero/night-venom/audio/Night_Venom_1_-_The_venom_spreads..wav",
+    "DamageBlocked": "/data/hero/night-venom/audio/Night_Venom_5_-_Predictable.wav",
+    "DamageCritical": "/data/hero/night-venom/audio/Night_Venom_4_-_You_burn_my_venom!.wav",
+    "DamageNormal": "/data/hero/night-venom/audio/Night_Venom_3_-_You_will_regret_that!.wav",
+    "Die": "/data/hero/night-venom/audio/Night_Venom_6_-_Darkness…_fades….wav"
+  },
+  "pose": null
+}

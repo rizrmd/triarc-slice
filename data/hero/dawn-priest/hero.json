@@ -1,0 +1,66 @@
+{
+  "full_name": "Dawn Priest",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 1,
+    "y": 236
+  },
+  "char_fg_pos": {
+    "x": 1,
+    "y": 236
+  },
+  "char_bg_scale": 220,
+  "char_fg_scale": 220,
+  "name_pos": {
+    "x": 10,
+    "y": 92
+  },
+  "name_scale": 57,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#ff9633",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2800,
+  "hp_bar_max": 2800,
+  "hp_bar_hue": 57,
+  "hp_bar_font_size": 31,
+  "lore": "A beacon of absolute purity, drawing strength from the sun's warmth and the holy light. Darkness cannot exist in their presence, and the cold of death is anathema to their radiant soul.",
+  "stats": {
+    "attack": 100,
+    "defense": 130,
+    "element_affinity": {
+      "earth": 0,
+      "fire": 15,
+      "ice": -10,
+      "light": 40,
+      "shadow": -35,
+      "wind": 0
+    },
+    "max_hp": 2800
+  },
+  "audio": {
+    "ActionReject": "/data/hero/dawn-priest/audio/Dawn_Priest_7_-__The_dawn_must_wait..wav",
+    "CastingHighAffinity": "/data/hero/dawn-priest/audio/Dawn_Priest_2_-_Radiance_flows_through_me..wav",
+    "CastingLowAffinity": "/data/hero/dawn-priest/audio/Dawn_Priest_1_-_My_blessing_weakens.wav",
+    "DamageBlocked": "/data/hero/dawn-priest/audio/Dawn_Priest_5_-_Your_darkness_fails.wav",
+    "DamageCritical": "/data/hero/dawn-priest/audio/Dawn_Priest_4_-_My_strength..._shaken!.wav",
+    "DamageNormal": "/data/hero/dawn-priest/audio/Dawn_Priest_3_-_The_dawn_still_guides_me.wav",
+    "Die": "/data/hero/dawn-priest/audio/Dawn_Priest_6_-_The_light..._denied..wav"
+  },
+  "pose": {
+    "char_fg_pos": {
+      "x": 0,
+      "y": 0
+    },
+    "char_fg_scale": 100,
+    "shadow_pos": {
+      "x": 0,
+      "y": 32
+    },
+    "shadow_scale": 100
+  }
+}

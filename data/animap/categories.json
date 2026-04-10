@@ -1,0 +1,20 @@
+{
+  "Gameplay": [
+    "time",
+    "info"
+  ],
+  "Home": [
+    "cards-button",
+    "find-match-button",
+    "heroes-button",
+    "logout-button",
+    "power-button",
+    "profile-button",
+    "setting-button",
+    "training-button"
+  ],
+  "Login": [
+    "google-sign-in",
+    "vg-logo"
+  ]
+}

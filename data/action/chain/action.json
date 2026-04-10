@@ -1,0 +1,49 @@
+{
+  "full_name": "Chain",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -15,
+    "y": 5
+  },
+  "char_bg_scale": 138,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#6b1802",
+  "description": "Lash the target with a heavy chain, dealing blunt physical damage and disrupting momentum.",
+  "cost": 2,
+  "element": ["ice"],
+  "target_rule": "enemy_single",
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": true,
+    "pose-char-fg": false,
+    "pose-frame": false,
+    "pose-mask-fg": false,
+    "pose-shadow": false
+  },
+  "gameplay": {
+    "casting_time_ms": 1000,
+    "effect_kind": "damage_and_status",
+    "base_power": 14,
+    "status_kind": "attack_buff",
+    "status_duration_ms": 3000,
+    "status_value": -8
+  }
+}

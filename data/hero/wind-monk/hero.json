@@ -1,0 +1,55 @@
+{
+  "full_name": "Wind Monk",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": -30,
+    "y": 271
+  },
+  "char_fg_pos": {
+    "x": -30,
+    "y": 271
+  },
+  "char_bg_scale": 195,
+  "char_fg_scale": 195,
+  "name_pos": {
+    "x": 0,
+    "y": 92
+  },
+  "name_scale": 53,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
+  "tint": "#f2ff3d",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 152
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 2700,
+  "hp_bar_max": 2700,
+  "hp_bar_hue": 84,
+  "hp_bar_font_size": 31,
+  "lore": "They are the wind itself—intangible and free, flowing like water. To be bound by the earth is to lose their essence, making them weak against solid, grounding attacks.",
+  "stats": {
+    "attack": 140,
+    "defense": 120,
+    "element_affinity": {
+      "earth": -25,
+      "fire": 0,
+      "ice": 0,
+      "light": 10,
+      "shadow": -5,
+      "wind": 35
+    },
+    "max_hp": 2700
+  },
+  "audio": {
+    "ActionReject": "/data/hero/wind-monk/audio/Wind_Monk_7_-_Let_the_wind_blow.wav",
+    "CastingHighAffinity": "/data/hero/wind-monk/audio/Wind_Monk_2_-_FLOW_without_end!.wav",
+    "CastingLowAffinity": "/data/hero/wind-monk/audio/Wind_Monk_1_-_Flow_can_sting!.wav",
+    "DamageBlocked": "/data/hero/wind-monk/audio/Wind_Monk_5_-_Your_force_passes_through..wav",
+    "DamageCritical": "/data/hero/wind-monk/audio/Wind_Monk_4_-_The_wind_bends..wav",
+    "DamageNormal": "/data/hero/wind-monk/audio/Wind_Monk_3_-_The_flow…_breaks!.wav",
+    "Die": "/data/hero/wind-monk/audio/Wind_Monk_6_-_I_become…_the_breeze….wav"
+  },
+  "pose": null
+}

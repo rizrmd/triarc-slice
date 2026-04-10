@@ -1,0 +1,54 @@
+{
+  "full_name": "Earth Warden",
+  "frame_image": "/assets/ui/hero-frame.webp",
+  "char_bg_pos": {
+    "x": 17,
+    "y": 206
+  },
+  "char_fg_pos": {
+    "x": 17,
+    "y": 206
+  },
+  "char_bg_scale": 197,
+  "char_fg_scale": 197,
+  "name_pos": {
+    "x": 0,
+    "y": 91
+  },
+  "name_scale": 57,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#fff56b",
+  "hp_bar_pos": {
+    "x": 0,
+    "y": 151
+  },
+  "hp_bar_scale": 250,
+  "hp_bar_current": 3600,
+  "hp_bar_max": 3600,
+  "hp_bar_hue": 85,
+  "hp_bar_font_size": 31,
+  "lore": "An avatar of the mountain, possessing the solidity of stone and the crushing weight of ice. Unshakeable and eternal, yet they cannot grasp the elusive nature of the wind, which erodes them over time.",
+  "stats": {
+    "attack": 120,
+    "defense": 170,
+    "element_affinity": {
+      "earth": 35,
+      "fire": 10,
+      "ice": 10,
+      "light": 0,
+      "shadow": -5,
+      "wind": -35
+    },
+    "max_hp": 3600
+  },
+  "audio": {
+    "ActionReject": "/data/hero/earth-warden/audio/Earth_Warden_7_-_The_earth_forbids_it..wav",
+    "CastingHighAffinity": "/data/hero/earth-warden/audio/Earth_Warden_2_-_The_mountain_awakens!.wav",
+    "CastingLowAffinity": "/data/hero/earth-warden/audio/Earth_Warden_1_-_The_earth_answers.wav",
+    "DamageBlocked": "/data/hero/earth-warden/audio/Earth_Warden_5_-_Like_wind_against_a_cliff..wav",
+    "DamageCritical": "/data/hero/earth-warden/audio/Earth_Warden_4_-_The_mountain…_cracks….wav",
+    "DamageNormal": "/data/hero/earth-warden/audio/Earth_Warden_3_-_I_endure..wav",
+    "Die": "/data/hero/earth-warden/audio/Earth_Warden_6_-_The_earth…_reclaims_me….wav"
+  },
+  "pose": null
+}

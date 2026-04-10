@@ -1,0 +1,35 @@
+{
+  "name": "google-sign-in",
+  "width": 2889,
+  "height": 791,
+  "layers": [
+    {
+      "id": "default",
+      "name": "default",
+      "type": "image",
+      "file": "default.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    },
+    {
+      "id": "clicked",
+      "name": "clicked",
+      "layer_overrides": {
+        "default": {
+          "brightness": 125,
+          "lightness": 60,
+          "y": 9.94140625
+        }
+      }
+    }
+  ]
+}

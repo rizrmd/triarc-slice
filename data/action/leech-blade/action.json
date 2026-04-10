@@ -1,0 +1,44 @@
+{
+  "full_name": "Leech Blade",
+  "frame_image": "/assets/ui/action-frame.webp",
+  "char_bg_pos": {
+    "x": -57,
+    "y": -13
+  },
+  "char_bg_scale": 135,
+  "name_pos": {
+    "x": 0,
+    "y": 500
+  },
+  "name_scale": 122,
+  "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "tint": "#ff2600",
+  "description": "Strike with a life-draining blade that siphons vitality from the enemy.",
+  "cost": 3,
+  "element": [
+    "shadow"
+  ],
+  "target_rule": "enemy_single",
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "name": true,
+    "mask-bg": true
+  },
+  "targeting": {
+    "side": "enemy",
+    "scope": "single",
+    "selection": "manual",
+    "allow_self": false,
+    "allow_dead": false
+  },
+  "text_shadow_size": 3,
+  "gameplay": {
+    "casting_time_ms": 1400,
+    "effect_kind": "damage_and_status",
+    "base_power": 20,
+    "status_kind": "hot",
+    "status_duration_ms": 4000,
+    "status_value": 8
+  }
+}

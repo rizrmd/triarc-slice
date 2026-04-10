@@ -1,0 +1,45 @@
+[gd_scene load_steps=2 format=3 uid="uid://h1x8x8x8x8x8x"]
+
+[ext_resource type="Script" path="res://scripts/hero.gd" id="1_hero"]
+
+[node name="Hero" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 324.0
+offset_bottom = 495.0
+script = ExtResource("1_hero")
+
+[node name="BGSprite" type="Sprite2D" parent="."]
+position = Vector2(162, 247)
+
+[node name="ShadowSprite" type="Sprite2D" parent="."]
+position = Vector2(162, 247)
+
+[node name="CharSprite" type="Sprite2D" parent="."]
+position = Vector2(162, 247)
+
+[node name="HPBar" type="Control" parent="."]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 460.0
+offset_right = 312.0
+offset_bottom = 487.0
+
+[node name="CastIndicator" type="Control" parent="."]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 430.0
+offset_right = 312.0
+offset_bottom = 470.0
+
+[node name="StatusContainer" type="HBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 12.0
+offset_top = 400.0
+offset_right = 312.0
+offset_bottom = 430.0
+theme_override_constants/separation = 5
+alignment = 1
+
+[node name="FloatingTextOrigin" type="Marker2D" parent="."]
+position = Vector2(162, 150)

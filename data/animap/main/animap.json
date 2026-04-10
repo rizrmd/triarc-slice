@@ -1,0 +1,73 @@
+{
+  "name": "main",
+  "width": 4320,
+  "height": 4110,
+  "layers": [
+    {
+      "id": "layer-1773846697714",
+      "name": "bg",
+      "type": "image",
+      "file": "layer-1773846697714.webp",
+      "visible": true,
+      "locked": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    },
+    {
+      "id": "layer-1773930763421",
+      "name": "flag",
+      "type": "video",
+      "file": "flag.ogv",
+      "visible": true,
+      "opacity": 1,
+      "x": 1219,
+      "y": 965,
+      "scale": 0.2510937499999999,
+      "loop": true,
+      "loop_start": 0,
+      "loop_end": 0
+    },
+    {
+      "id": "layer-1774009146653",
+      "name": "flag-mask",
+      "type": "mask",
+      "file": "flag-mask.webp",
+      "visible": true,
+      "targets": [
+        "layer-1773930763421"
+      ]
+    },
+    {
+      "id": "layer-1773851417394",
+      "name": "water",
+      "type": "video",
+      "file": "Water.ogv",
+      "visible": true,
+      "opacity": 1,
+      "x": 782.953125,
+      "y": 2013.60546875,
+      "scale": 1.6806640625,
+      "loop": true,
+      "loop_start": 0,
+      "loop_end": 0
+    },
+    {
+      "id": "layer-1773957581508",
+      "name": "water-mask",
+      "type": "mask",
+      "file": "water-mask.webp",
+      "visible": true,
+      "targets": [
+        "layer-1773851417394"
+      ]
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    }
+  ]
+}
