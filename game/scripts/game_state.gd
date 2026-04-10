@@ -2,7 +2,6 @@ extends Node
 ## GameState - Autoload for shared game data
 
 signal gameplay_aspect_changed(aspect_key: String)
-signal ws_message_received(msg: String)  # Forward WebSocket messages to gameplay
 
 # Player data
 var player_id: String = ""
@@ -15,7 +14,6 @@ var current_team: int = 0
 var match_state: Dictionary = {}
 var match_mode: String = "matchmaking" # "matchmaking" or "training"
 var return_to_hero_select_after_gameplay: bool = false
-var previous_view_before_gameplay: String = ""  # Track view before gameplay to return correctly
 
 # Hero selection
 var selected_heroes: Array[String] = []
@@ -23,15 +21,6 @@ const MAX_HEROES: int = 3
 
 # WebSocket reference (set by main.gd)
 var ws: WebSocketPeer = null
-
-# AnimapLoader instance passed from loading screen (for caching preloaded animaps)
-var animap_loader: AnimapLoader = null
-
-# Local mock mode for testing without server
-var local_mock_mode: bool = false
-
-# Scene caching — keep main scene alive while in gameplay
-var _cached_main_scene: Node = null
 
 # Hero definitions cache
 var hero_defs: Dictionary = {}
@@ -48,9 +37,6 @@ const _DEFAULT_GAMEPLAY_ASPECT := "9-16"
 
 func _ready():
 	_apply_display_aspect_policy()
-	# Clean up any stale animap loader from previous session
-	if animap_loader != null:
-		animap_loader = null
 	_load_game_layout()
 	_load_hero_definitions()
 	_load_action_definitions()
@@ -85,18 +71,15 @@ func _apply_display_aspect_policy() -> void:
 # --- Layout utilities ---
 
 func _load_game_layout() -> void:
-	var scenes := {}
-	for slug in ["startup", "login", "home", "gameplay", "postgame"]:
-		var path := "res://data/scene/%s/layout.json" % slug
-		var file = FileAccess.open(path, FileAccess.READ)
-		if not file:
-			continue
-		var json = JSON.new()
-		if json.parse(file.get_as_text()) == OK:
-			scenes[slug] = json.data
-		else:
-			push_warning("Failed to parse %s" % path)
-	_layout_data = {"scenes": scenes}
+	var file = FileAccess.open("res://data/game-layout.json", FileAccess.READ)
+	if not file:
+		push_warning("game-layout.json not found")
+		return
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK:
+		push_warning("Failed to parse game-layout.json")
+		return
+	_layout_data = json.data
 
 ## Find the aspect-ratio key in `boxes` closest to the device's current aspect.
 func find_best_aspect(boxes: Dictionary) -> String:
@@ -304,13 +287,6 @@ func resolve_box(box: Dictionary, viewport_size: Vector2, aspect_key: String = "
 		py = cy_norm * viewport_size.y - h / 2.0
 	return {"x": px, "y": py, "width": w, "height": h}
 
-## Apply a layout box to a Control node — resolves position & size from the box data.
-## Use this instead of manually setting position/size to avoid double-scaling bugs.
-func apply_box(box: Dictionary, control: Control, viewport_size: Vector2, aspect_key: String = "") -> void:
-	var r := resolve_box(box, viewport_size, aspect_key)
-	control.position = Vector2(r["x"], r["y"])
-	control.size = Vector2(r["width"], r["height"])
-
 func _uses_aspect_map(boxes: Dictionary) -> bool:
 	for key in boxes.keys():
 		if ASPECT_VIEWPORTS.has(str(key)):
@@ -456,75 +432,9 @@ func should_return_to_hero_select() -> bool:
 	return_to_hero_select_after_gameplay = false
 	return true
 
-## Hide and pause the current main scene, then load gameplay on top.
-func cache_main_and_enter_gameplay() -> void:
-	var root := get_tree().root
-	_cached_main_scene = get_tree().current_scene
-	_cached_main_scene.process_mode = Node.PROCESS_MODE_DISABLED
-	_cached_main_scene.visible = false
-
-	var gameplay = load("res://scenes/gameplay.tscn").instantiate()
-	root.add_child(gameplay)
-	get_tree().current_scene = gameplay
-
-## Remove gameplay and restore the cached main scene (or fall back to full reload).
-func return_to_main() -> void:
-	if _cached_main_scene:
-		var gameplay = get_tree().current_scene
-		if gameplay:
-			gameplay.queue_free()
-
-		_cached_main_scene.process_mode = Node.PROCESS_MODE_INHERIT
-		_cached_main_scene.visible = true
-		get_tree().current_scene = _cached_main_scene
-
-		if _cached_main_scene.has_method("resume_from_gameplay"):
-			_cached_main_scene.resume_from_gameplay()
-
-		_cached_main_scene = null
-	else:
-		get_tree().change_scene_to_file("res://scenes/main.tscn")
-
 func send_json(data: Dictionary) -> void:
-	if local_mock_mode:
-		# Handle mock mode locally
-		_handle_mock_message(data)
-		return
 	if ws and ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		ws.send_text(JSON.stringify(data))
-
-func _handle_mock_message(data: Dictionary) -> void:
-	# Route mock messages to appropriate handlers
-	var msg_type = data.get("type", "")
-	match msg_type:
-		"cast_action":
-			_handle_mock_cast_action(data)
-		"reroll_hand":
-			_handle_mock_reroll_hand(data)
-		"get_match_state":
-			_handle_mock_get_state(data)
-		"leave_match":
-			_handle_mock_leave_match(data)
-
-func _handle_mock_cast_action(data: Dictionary) -> void:
-	# Forward to gameplay node for local resolution
-	var gameplay = get_tree().get_first_node_in_group("gameplay")
-	if gameplay and gameplay.has_method("_on_mock_cast_action"):
-		gameplay._on_mock_cast_action(data)
-
-func _handle_mock_reroll_hand(data: Dictionary) -> void:
-	var gameplay = get_tree().get_first_node_in_group("gameplay")
-	if gameplay and gameplay.has_method("_on_mock_reroll_hand"):
-		gameplay._on_mock_reroll_hand(data)
-
-func _handle_mock_get_state(data: Dictionary) -> void:
-	# In mock mode, gameplay manages its own state
-	pass
-
-func _handle_mock_leave_match(data: Dictionary) -> void:
-	var gameplay = get_tree().get_first_node_in_group("gameplay")
-	if gameplay and gameplay.has_method("_on_back_pressed"):
-		gameplay._on_back_pressed()
 
 # --- Hero selection persistence ---
 

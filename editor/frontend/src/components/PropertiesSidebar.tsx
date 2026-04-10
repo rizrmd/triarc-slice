@@ -6,8 +6,11 @@ import { useState, useRef, useEffect } from "react";
 
 import type { Box } from "@/types";
 
+<<<<<<< HEAD
+=======
 type AnimapCategories = Record<string, string[]>;
 
+>>>>>>> origin/main
 const ANCHOR_OPTIONS = [
   'top-left', 'top-center', 'top-right',
   'center-left', 'center', 'center-right',
@@ -90,6 +93,11 @@ function PercentInput({ value, onChange, disabled, className }: { value: number,
 export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], actions = [], animaps = [], uiAssets = [], charAssets = [], placeAssets = [], multiSelectCount = 1, viewport = { width: 1080, height: 1920 } }: PropertiesSidebarProps) {
   const [copiedProp, setCopiedProp] = useState<string | null>(null);
   const [fullBoxClipboard, setFullBoxClipboard] = useState<Partial<Box> | null>(null);
+<<<<<<< HEAD
+  
+  const [assetCategory, setAssetCategory] = useState<'ui' | 'characters' | 'places' | 'pose' | 'animap'>('ui');
+
+=======
   const [animapCategories, setAnimapCategories] = useState<AnimapCategories>({});
   const [selectedAnimapCategory, setSelectedAnimapCategory] = useState<string>('');
   
@@ -110,10 +118,13 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
       .catch(err => console.error('Failed to fetch animap categories:', err));
   }, []);
 
+>>>>>>> origin/main
   // Sync category with current asset if present
   useEffect(() => {
     if (selectedBox?.animapSlug) {
       setAssetCategory('animap');
+<<<<<<< HEAD
+=======
       // Find the category that contains this animap
       for (const [cat, slugs] of Object.entries(animapCategories)) {
         if (slugs.includes(selectedBox.animapSlug)) {
@@ -121,6 +132,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           break;
         }
       }
+>>>>>>> origin/main
     } else if (selectedBox?.poseSlug) {
       setAssetCategory('pose');
     } else if (selectedBox?.asset) {
@@ -128,7 +140,11 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
        else if (selectedBox.asset.includes('/characters/')) setAssetCategory('characters');
        else if (selectedBox.asset.includes('/places/')) setAssetCategory('places');
     }
+<<<<<<< HEAD
+  }, [selectedBox?.id, selectedBox?.asset, selectedBox?.poseSlug, selectedBox?.animapSlug]); // Run when box or asset changes
+=======
   }, [selectedBox?.id, selectedBox?.asset, selectedBox?.poseSlug, selectedBox?.animapSlug, animapCategories]); // Run when box or asset changes
+>>>>>>> origin/main
 
   const currentAssets = assetCategory === 'ui' ? uiAssets : assetCategory === 'characters' ? charAssets : assetCategory === 'places' ? placeAssets : [];
 
@@ -230,8 +246,13 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
   };
 
   const handleCopyPosition = () => {
+<<<<<<< HEAD
+    const { x, y } = selectedBox;
+    setFullBoxClipboard({ x, y });
+=======
     const { anchor_offset_x, anchor_offset_y } = selectedBox;
     setFullBoxClipboard({ anchor_offset_x, anchor_offset_y });
+>>>>>>> origin/main
   };
 
   const handleCopySize = () => {
@@ -354,6 +375,18 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     <option value="animap">Animap</option>
                 </select>
                 {assetCategory === 'animap' ? (
+<<<<<<< HEAD
+                  <select
+                    className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
+                    value={selectedBox.animapSlug || ''}
+                    onChange={(e) => onUpdate(selectedBox.id, { animapSlug: e.target.value || undefined, asset: undefined, poseSlug: undefined })}
+                  >
+                    <option value="">(None)</option>
+                    {animaps.map(slug => (
+                      <option key={slug} value={slug}>{slug}</option>
+                    ))}
+                  </select>
+=======
                   <div className="flex flex-col gap-1.5 flex-1">
                     {/* Category dropdown */}
                     <select
@@ -390,6 +423,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                       ))}
                     </select>
                   </div>
+>>>>>>> origin/main
                 ) : assetCategory === 'pose' ? (
                   <select
                     className="flex-1 px-2 py-1.5 border rounded-md bg-background text-xs"
@@ -433,10 +467,17 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
           </select>
         </div>
 
+<<<<<<< HEAD
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-medium text-muted-foreground">Screen Anchor</Label>
+          <div className="flex items-center gap-2">
+            <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md shrink-0 ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
+=======
         <div className="flex gap-3">
           <div className="flex-1 space-y-1.5">
             <Label className="text-[11px] font-medium text-muted-foreground">Screen Anchor</Label>
             <div className={`grid grid-cols-3 gap-0.5 w-[84px] bg-muted p-1 rounded-md ${selectedBox.locked ? 'opacity-50 pointer-events-none' : ''}`}>
+>>>>>>> origin/main
               {ANCHOR_OPTIONS.map((option) => (
                 <button
                   key={option}
@@ -458,6 +499,9 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
               ))}
             </div>
             <span className="text-[11px] text-muted-foreground capitalize">
+<<<<<<< HEAD
+              {(selectedBox.screen_anchor || 'top-left').replace('-', ' ')}
+=======
               {(selectedBox.screen_anchor || 'top-left').replace(/-/g, ' ')}
             </span>
           </div>
@@ -486,6 +530,7 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
             </div>
             <span className="text-[11px] text-muted-foreground capitalize">
               {(selectedBox.pivot || 'top-left').replace(/-/g, ' ')}
+>>>>>>> origin/main
             </span>
           </div>
         </div>
@@ -526,8 +571,13 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
             </div>
           )}
 
+<<<<<<< HEAD
+          {(isHeroBox ? ['x', 'y'] : ['x', 'y', 'width', 'height']).map((p) => {
+            const prop = p as 'x' | 'y' | 'width' | 'height';
+=======
           {(isHeroBox ? ['anchor_offset_x', 'anchor_offset_y'] : ['anchor_offset_x', 'anchor_offset_y', 'width', 'height']).map((p) => {
             const prop = p as 'anchor_offset_x' | 'anchor_offset_y' | 'width' | 'height';
+>>>>>>> origin/main
             const isWidth = prop === 'width';
             const isHeight = prop === 'height';
             const isSizeProp = isWidth || isHeight;
@@ -564,7 +614,11 @@ export function PropertiesSidebar({ selectedBox, onUpdate, onClose, cards = [], 
                     }
                   }}
                 >
+<<<<<<< HEAD
+                  {prop}
+=======
                   {prop === 'anchor_offset_x' ? 'X' : prop === 'anchor_offset_y' ? 'Y' : prop}
+>>>>>>> origin/main
                 </Label>
                 {isPercentMode && percentKey ? (
                   <PercentInput

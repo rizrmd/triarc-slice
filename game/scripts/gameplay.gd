@@ -1,8 +1,6 @@
 extends Control
 ## Gameplay - Main battle scene with heroes, hand, and energy
 
-signal back_requested
-
 @onready var heroes_container: Control = $HeroesContainer
 @onready var hand_container: Control = $HandContainer
 @onready var hero_detail_placeholder: ColorRect = $UIOverlay/HeroDetailPlaceholder
@@ -53,11 +51,12 @@ var _info_drag_start_pos: Vector2 = Vector2.ZERO
 var _info_hover_target: Control = null
 var _info_drag_virtual_pos: Vector2 = Vector2.ZERO
 
-const INFO_DRAG_THRESHOLD := 8.0
+# Targeting state
+var _awaiting_target: bool = false
+var _targeting_card: ActionCard = null
+var _targeting_caster: Hero = null
 
-# Pre-targeting system - hero slot -> enemy slot mapping
-var _hero_targets: Dictionary = {}  # hero slot index -> enemy slot index
-var _default_targets: Dictionary = {0: 0, 1: 1, 2: 2}  # default: hero slot N targets enemy slot N
+const INFO_DRAG_THRESHOLD := 8.0
 
 # Time elapsed
 var _time_elapsed_sec: float = 0.0
@@ -77,9 +76,6 @@ var _next_ping_probe_at_ms: int = 0
 var _ping_samples: Array[int] = []
 var _display_ping_ms: int = -1
 
-# HP change filtering to prevent random/small damage ticks
-var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
-const MIN_DAMAGE_THRESHOLD := 10  # Ignore damage < 10 (likely DoT ticks or sync noise)
 func _ready():
 	add_to_group("gameplay")
 
@@ -88,9 +84,6 @@ func _ready():
 	reroll_button.button_up.connect(func(): reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0))
 	back_button.pressed.connect(_on_back_pressed)
 	GameState.gameplay_aspect_changed.connect(_on_gameplay_aspect_changed)
-
-	# Connect to GameState WebSocket messages
-	GameState.ws_message_received.connect(_on_ws_message)
 
 	_available_layout_aspects = _get_available_aspect_keys()
 	_refresh_layout_data()
@@ -102,7 +95,7 @@ func _ready():
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
 
-	# Request initial match state (normal online mode)
+	# Request initial match state
 	if not GameState.current_match_id.is_empty():
 		_pending_ping_sent_at_ms = _now_ms()
 		_next_ping_probe_at_ms = _pending_ping_sent_at_ms + PING_REQUEST_INTERVAL_MS
@@ -111,14 +104,14 @@ func _ready():
 			"match_id": GameState.current_match_id
 		})
 
-func _process(delta):
-	_update_time_elapsed(delta)
+func _process(_delta):
+	_update_time_elapsed(_delta)
 	if _dragging_info:
 		_update_info_drag()
 	if _dragging_card:
 		_update_drag_hover()
 
-	# Normal online mode - Poll WebSocket messages
+	# Poll and process WebSocket messages
 	if GameState.ws:
 		GameState.ws.poll()
 		var state = GameState.ws.get_ready_state()
@@ -133,7 +126,6 @@ func _process(delta):
 			_on_disconnected()
 
 func _input(event: InputEvent):
-	# Normal input handling
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			if _is_point_over_info_animap(event.position):
@@ -162,8 +154,25 @@ func _unhandled_input(event: InputEvent):
 			_toggle_dev_panel()
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var mouse_pos = get_global_mouse_position()
-		# Normal gameplay - click on ally hero (enemy clicks handled via hero_clicked signal)
+		
+		# Check if we're in targeting mode
+		if _awaiting_target:
+			print("[Gameplay] targeting mode - click at ", mouse_pos)
+			var clicked_enemy = _get_enemy_hero_at_point(mouse_pos)
+			print("[Gameplay] clicked enemy: ", clicked_enemy)
+			if clicked_enemy and not clicked_enemy.is_dead() and not clicked_enemy.is_casting():
+				_on_target_selected(clicked_enemy)
+				get_viewport().set_input_as_handled()
+				return
+			else:
+				# Clicked on invalid target - cancel targeting
+				print("[Gameplay] invalid target or empty, canceling targeting")
+				_cancel_targeting()
+				get_viewport().set_input_as_handled()
+				return
+		
 		var clicked_hero = _get_my_hero_at_point(mouse_pos)
+		print("[Gameplay] global click pos=", mouse_pos, " clicked_hero=", clicked_hero.hero_slug if clicked_hero else "none")
 		if clicked_hero:
 			_set_selected_hero(clicked_hero)
 		else:
@@ -203,6 +212,7 @@ func _update_game_state(data: Dictionary):
 	var hand_data = data.get("hand", [])
 	var casts = data.get("casts", [])
 	var statuses = data.get("statuses", [])
+	print("[Gameplay] _update_game_state: casts count=", casts.size(), " casts=", casts)
 
 	var match_started_at = int(match_data.get("started_at", 0))
 	if match_started_at > 0:
@@ -215,24 +225,11 @@ func _update_game_state(data: Dictionary):
 			_tween_energy(team_state.get("energy", 0))
 			max_energy = team_state.get("energy_max", 10)
 	
-	# Update heroes - with HP filtering to prevent random small damage
+	# Update heroes
 	for hero_data in heroes_data:
 		var slot = hero_data.get("slot_index", 0)
 		var team = hero_data.get("team", 0)
 		var is_enemy = (team != GameState.current_team)
-		var hero_id = hero_data.get("hero_instance_id", "")
-		
-		# Filter: Skip small HP changes that are likely DoT ticks or sync noise
-		if _last_known_hp.has(hero_id):
-			var old_hp = _last_known_hp[hero_id]
-			var new_hp = hero_data.get("hp_current", old_hp)
-			var delta = old_hp - new_hp
-			
-			# Ignore small damage (< 10) - likely DoT or server sync noise
-			if delta > 0 and delta < MIN_DAMAGE_THRESHOLD:
-				hero_data["hp_current"] = old_hp  # Keep old HP
-		
-		_last_known_hp[hero_id] = hero_data.get("hp_current", 0)
 		
 		var hero_node = _get_or_create_hero(slot, is_enemy, hero_data)
 		hero_node.update_state(hero_data)
@@ -267,9 +264,10 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 	var hero = HERO_SCENE.instantiate()
 	heroes_container.add_child(hero)
 	hero.setup(hero_data, is_enemy)
+	print("[Gameplay] _get_or_create_hero: slot=", slot, " is_enemy=", is_enemy, " hero_instance_id=", hero.hero_instance_id)
 	hero.hero_clicked.connect(_on_hero_clicked)
 
-	# Position and scale based on layout from data/scene/gameplay/layout.json
+	# Position and scale based on layout from game-layout.json
 	var vp_size = get_viewport().get_visible_rect().size
 	var key = "enemy%d" % slot if is_enemy else "hero%d" % slot
 	if _layout_boxes.has(key):
@@ -354,6 +352,8 @@ func _update_hand(hand_data: Array):
 			card.setup(card_data)
 			card.card_drag_started.connect(_on_card_drag_started)
 			card.card_drag_ended.connect(_on_card_drag_ended)
+			card.card_awaiting_target.connect(_on_card_awaiting_target)
+			card.card_cast_on_ally.connect(_on_card_cast_on_ally)
 
 			if _is_first_state_update:
 				card.modulate.a = 0.0
@@ -404,40 +404,47 @@ func _set_energy_fill(ratio: float):
 
 func _update_casting_indicators(casts: Array):
 	var now_ms = int(Time.get_unix_time_from_system() * 1000.0)
+	print("[Gameplay] _update_casting_indicators: now_ms=", now_ms, " casts.size()=", casts.size())
 
 	for cast in casts:
 		if cast.get("resolved", false):
+			print("[Gameplay] skipping cast - resolved=true")
 			continue
 
 		var cast_id = cast.get("cast_id", "")
 		var caster_id = cast.get("caster_hero_instance_id", "")
 		var started_at = int(cast.get("started_at", 0))
 		var resolves_at = int(cast.get("resolves_at", 0))
+		print("[Gameplay] cast: cast_id=", cast_id, " caster_id=", caster_id, " started_at=", started_at, " resolves_at=", resolves_at, " now_ms=", now_ms)
 
 		if resolves_at <= now_ms:
+			print("[Gameplay] skipping cast - resolves_at <= now_ms (", resolves_at, " <= ", now_ms, ")")
 			continue
 
 		var total_ms = resolves_at - started_at
 		var action_slug = cast.get("action_slug", "")
 		var hero = _find_hero_by_instance_id(caster_id)
+		print("[Gameplay] _update_casting_indicators: hero=", hero, " hero.instance_id=", hero.hero_instance_id if hero else "null")
 		if hero:
 			hero._show_casting(cast_id, total_ms, action_slug)
+		else:
+			print("[Gameplay] WARNING: hero not found for caster_id=", caster_id)
 
 func _find_hero_by_instance_id(instance_id: String) -> Node:
+	print("[Gameplay] _find_hero_by_instance_id: looking for ", instance_id)
 	for hero in my_heroes.values():
+		print("[Gameplay] _find_hero_by_instance_id: checking my_heroes hero=", hero.hero_slug, " instance_id=", hero.hero_instance_id)
 		if hero.hero_instance_id == instance_id:
 			return hero
 	for hero in enemy_heroes.values():
+		print("[Gameplay] _find_hero_by_instance_id: checking enemy_heroes hero=", hero.hero_slug, " instance_id=", hero.hero_instance_id)
 		if hero.hero_instance_id == instance_id:
 			return hero
+	print("[Gameplay] _find_hero_by_instance_id: NOT FOUND")
 	return null
 
-## Show casting indicator on hero (wrapper for hero._show_casting)
-func _show_casting_indicator(hero: Hero, action_slug: String):
-	var cast_duration_ms = 1500  # 1.5 detik cast time
-	hero._show_casting("cast_%s_%d" % [action_slug, Time.get_ticks_msec()], cast_duration_ms, action_slug)
-
 func _on_card_drag_started(_card):
+	print("[Gameplay] drag started action=", _card.action_slug, " slot=", _card.slot_index, " clearing selection")
 	_clear_selected_hero()
 	_dragging_card = _card
 	_hovered_hero = null
@@ -450,39 +457,107 @@ func _on_card_drag_ended(card, dropped_on_target):
 		_hover_tween.kill()
 	_clear_highlights()
 	if dropped_on_target:
-		# Cast action using pre-targeting system (preset target from hero selection)
-		_cast_action_with_preset_target(dropped_on_target, card)
+		# Track the used card so state_update won't recreate it
+		_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
+		# Remove the used card from hand
+		hand_cards.erase(card)
+		_layout_hand_cards(true)
+		card.queue_free()
+		# Auto-reroll when all cards are used (server grants free reroll)
+		if hand_cards.is_empty():
+			_reroll_entrance_pending = true
+			_used_hand_keys.clear()
+			_prev_server_keys.clear()
+			GameState.send_json({
+				"type": "reroll_hand",
+				"match_id": GameState.current_match_id
+			})
 
 func _highlight_valid_targets(_target_rule: String):
 	for hero in my_heroes.values():
 		hero.set_char_brightness(0.4)
 
-## Cast action using pre-targeting system (preset target from hero selection)
-func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
-	var target_slot = _get_hero_target(caster_hero.slot_index)
+func _on_card_cast_on_ally(card: ActionCard, caster: Hero):
+	print("[Gameplay] _on_card_cast_on_ally: action=", card.action_slug, " caster=", caster.hero_slug)
+	# Show pie animation immediately with default cast time
+	# The server will correct this via state_update with proper timing
+	# Use 1500ms as default (action cards typically have 1000-2000ms cast time)
+	var action_config = GameState.get_action_def(card.action_slug)
+	var cast_time_ms = 1500
+	if not action_config.is_empty():
+		cast_time_ms = int(action_config.get("casting_time_ms", 1500))
+	# Add small random offset to ensure unique cast_id
+	var cast_id = "local_cast_%d_%d" % [Time.get_ticks_msec(), randi() % 1000]
+	caster._show_casting(cast_id, cast_time_ms, card.action_slug)
+
+func _on_card_awaiting_target(card: ActionCard, caster: Hero):
+	print("[Gameplay] awaiting target for card=", card.action_slug, " caster=", caster.hero_slug, " target_rule=", card.target_rule)
+	# Clear any previous highlights from drag hover
+	_clear_highlights()
+	_awaiting_target = true
+	_targeting_card = card
+	_targeting_caster = caster
+	_highlight_enemy_targets(true)
+	_highlight_caster(caster, true)
+
+func _highlight_enemy_targets(highlight: bool):
+	for hero in enemy_heroes.values():
+		if highlight:
+			# Pulse animation to draw attention
+			hero.set_char_brightness(1.0)
+			hero.set_targetable(true)
+		else:
+			hero.set_char_brightness(1.0)
+			hero.set_targetable(false)
+
+func _highlight_caster(caster: Hero, highlight: bool):
+	# Dim the caster slightly to distinguish from potential targets
+	if highlight:
+		caster.set_char_brightness(0.7)
+	else:
+		caster.set_char_brightness(1.0)
+
+func _clear_targeting():
+	if _awaiting_target:
+		_highlight_enemy_targets(false)
+		if _targeting_caster:
+			_highlight_caster(_targeting_caster, false)
+	_awaiting_target = false
+	_targeting_card = null
+	_targeting_caster = null
+
+func _on_target_selected(enemy: Hero):
+	if not _awaiting_target or _targeting_card == null or _targeting_caster == null:
+		print("[Gameplay] _on_target_selected early return: awaiting=", _awaiting_target, " card=", _targeting_card, " caster=", _targeting_caster)
+		return
 	
-	# Show casting indicator on the caster hero
-	_show_casting_indicator(caster_hero, card.action_slug)
+	print("[Gameplay] target selected: enemy=", enemy.hero_slug, " slot=", enemy.slot_index)
+	
+	# Show pie animation on the caster (ally hero) immediately
+	var caster = _targeting_caster
+	var action_slug = _targeting_card.action_slug
+	var action_config = GameState.get_action_def(action_slug)
+	var cast_time_ms = 1500
+	if not action_config.is_empty():
+		cast_time_ms = int(action_config.get("casting_time_ms", 1500))
+	var cast_id = "local_cast_%d_%d" % [Time.get_ticks_msec(), randi() % 1000]
+	caster._show_casting(cast_id, cast_time_ms, action_slug)
+	
+	# Cast the action with the target
+	_targeting_card._cast_action(_targeting_caster, enemy.slot_index)
+	
+	# Complete the drag ended flow
+	var card = _targeting_card
+	_clear_targeting()
 	
 	# Track the used card so state_update won't recreate it
 	_used_hand_keys.append("%s:%d" % [card.action_slug, card.slot_index])
-	
-	# Remove card from hand
+	# Remove the used card from hand
 	hand_cards.erase(card)
 	_layout_hand_cards(true)
-	
-	# Send cast action with preset target
-	GameState.send_json({
-		"type": "cast_action",
-		"match_id": GameState.current_match_id,
-		"caster_slot": caster_hero.slot_index,
-		"hand_slot_index": card.slot_index,
-		"target_slot": target_slot
-	})
-	
 	card.queue_free()
 	
-	# Auto-reroll when all cards are used (server grants free reroll)
+	# Auto-reroll when all cards are used
 	if hand_cards.is_empty():
 		_reroll_entrance_pending = true
 		_used_hand_keys.clear()
@@ -639,76 +714,34 @@ func _clear_highlights():
 	for hero in my_heroes.values():
 		hero.set_char_brightness(1.0)
 
-## Get current target for a hero slot
-func _get_hero_target(hero_slot: int) -> int:
-	return _hero_targets.get(hero_slot, _default_targets.get(hero_slot, hero_slot))
-
-## Set target for a hero slot
-func _set_hero_target(hero_slot: int, enemy_slot: int):
-	_hero_targets[hero_slot] = enemy_slot
-	_update_target_indicators()
-
-## Update target indicators on all enemy heroes - show ALL set targets, persist even when deselected
-func _update_target_indicators():
-	# First, hide all target indicators on all enemies (both regular and pooled markers)
-	for hero in enemy_heroes.values():
-		hero.show_target_marker(false)
-		hero.show_target_info(false)
-		hero.hide_all_pooled_markers()
-	
-	# Only show markers if there is a selected ally hero
-	if _selected_hero == null or not is_instance_valid(_selected_hero):
-		return
-	
-	var selected_slot = _selected_hero.slot_index
-	
-	# Show target ONLY for the selected ally hero
-	if not _hero_targets.has(selected_slot):
-		return
-	
-	var target_slot = _hero_targets[selected_slot]
-	
-	if not enemy_heroes.has(target_slot):
-		return
-	
-	var target_enemy = enemy_heroes[target_slot]
-	# Show marker for the selected ally (offset_index = 0 since only one marker for selected hero)
-	target_enemy.show_target_marker_with_offset(true, selected_slot, 0, _selected_hero.hero_name)
-
 func _on_hero_clicked(hero: Hero):
-	
-	if hero.is_enemy:
-		# Enemy clicked - set as target for selected ally hero
-		if _selected_hero and not _selected_hero.is_dead():
-			_set_hero_target(_selected_hero.slot_index, hero.slot_index)
-		return
-	
-	if hero == null or hero.is_dead():
+	print("[Gameplay] hero_clicked hero=", hero.hero_slug, " slot=", hero.slot_index, " enemy=", hero.is_enemy, " dead=", hero.is_dead())
+	if hero == null or hero.is_enemy or hero.is_dead():
 		_clear_selected_hero()
 		return
 	_set_selected_hero(hero)
 
 func _set_selected_hero(hero: Hero):
 	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero == hero:
+		print("[Gameplay] toggle off hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_clear_selected_hero()
 		return
 	if _selected_hero and is_instance_valid(_selected_hero) and _selected_hero != hero:
+		print("[Gameplay] deselect previous hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
-		# Hide target info on previous hero (marker persists)
-		_selected_hero.show_target_info(false)
 	_selected_hero = hero
 	if _selected_hero and is_instance_valid(_selected_hero):
+		print("[Gameplay] select hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(true)
-		# DO NOT auto-set target - player must manually select target by clicking enemy
-		# Update target indicators to show current target (if any)
-		_update_target_indicators()
 	_update_hero_detail_placeholder()
 
 func _clear_selected_hero():
 	if _selected_hero and is_instance_valid(_selected_hero):
+		print("[Gameplay] clear selected hero=", _selected_hero.hero_slug, " slot=", _selected_hero.slot_index)
 		_selected_hero.set_selected(false)
+	else:
+		print("[Gameplay] clear selected hero=noop")
 	_selected_hero = null
-	_update_target_indicators()
 	_update_hero_detail_placeholder()
 
 func _update_hero_detail_placeholder():
@@ -763,14 +796,35 @@ func _get_hand_placeholder_rect() -> Rect2:
 func _get_my_hero_at_point(point: Vector2) -> Hero:
 	for hero in my_heroes.values():
 		if hero.get_global_rect().has_point(point):
+			print("[Gameplay] point over hero=", hero.hero_slug, " slot=", hero.slot_index)
 			return hero
 	return null
 
 func _get_enemy_hero_at_point(point: Vector2) -> Hero:
 	for hero in enemy_heroes.values():
 		if hero.get_global_rect().has_point(point):
+			print("[Gameplay] point over enemy=", hero.hero_slug, " slot=", hero.slot_index)
 			return hero
 	return null
+
+func _cancel_targeting():
+	if _targeting_card:
+		# Store reference before clearing targeting state
+		var card = _targeting_card
+		var start_pos = card.drag_start_pos
+		
+		# Snap card back to hand
+		card.visible = true
+		card.scale = Vector2(1.0, 1.0)
+		card.modulate.a = 1.0
+		card.z_index = 1
+		
+		var tween = create_tween()
+		tween.set_ease(Tween.EASE_OUT)
+		tween.set_trans(Tween.TRANS_BACK)
+		tween.tween_property(card, "global_position", start_pos, 0.3)
+	
+	_clear_targeting()
 
 func _layout_hand_cards(animated: bool):
 	var vp_size = get_viewport().get_visible_rect().size
@@ -832,18 +886,18 @@ func _on_back_pressed():
 		"match_id": GameState.current_match_id
 	})
 
-	GameState.return_to_hero_select_after_gameplay = false
+	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
-	GameState.return_to_main()
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _on_disconnected():
 	_pending_ping_sent_at_ms = -1
 	_ping_samples.clear()
 	_display_ping_ms = -1
 	_refresh_ping_label()
-	GameState.return_to_hero_select_after_gameplay = false
+	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
 	GameState.current_match_id = ""
-	GameState.return_to_main()
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _on_match_end(winner: int):
 	# Disable interactions
@@ -853,8 +907,8 @@ func _on_match_end(winner: int):
 
 	# Show result and return to main after delay
 	await get_tree().create_timer(3.0).timeout
-	GameState.return_to_hero_select_after_gameplay = false
-	GameState.return_to_main()
+	GameState.return_to_hero_select_after_gameplay = (GameState.match_mode == "training")
+	get_tree().change_scene_to_file("res://scenes/main.tscn")
 
 func _set_initial_positions():
 	if energy_bar == null or reroll_button == null or back_button == null:

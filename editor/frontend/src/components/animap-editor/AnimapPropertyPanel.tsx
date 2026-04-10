@@ -189,6 +189,12 @@ function VideoTimeline({
     const video = document.createElement('video');
     video.preload = 'auto';
     video.crossOrigin = 'anonymous';
+<<<<<<< HEAD
+    video.src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
+    video.onloadedmetadata = () => {
+      setDuration(video.duration);
+    };
+=======
     const src = `/api/animap-preview/${slug}/${file}?v=${fileVersion}`;
     console.log('[timeline] loading video', src);
     video.src = src;
@@ -197,6 +203,7 @@ function VideoTimeline({
       setDuration(video.duration);
     };
     video.onerror = () => console.error('[timeline] error loading', src, video.error?.message, video.error?.code);
+>>>>>>> origin/main
     videoRef.current = video;
     return () => { videoRef.current = null; };
   }, [file, slug, fileVersion]);
@@ -954,6 +961,38 @@ export function AnimapPropertyPanel({
                   Erase
                 </Button>
               </div>
+<<<<<<< HEAD
+              <div className="space-y-1">
+                <Label className="text-xs">Size: {brushSize}px</Label>
+                <Slider
+                  value={[brushSize]}
+                  onValueChange={([v]) => setBrushSize(v)}
+                  min={1}
+                  max={200}
+                  step={1}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Opacity: {(brushOpacity * 100).toFixed(0)}%</Label>
+                <Slider
+                  value={[brushOpacity]}
+                  onValueChange={([v]) => setBrushOpacity(v)}
+                  min={0.01}
+                  max={1}
+                  step={0.01}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Hardness: {(brushHardness * 100).toFixed(0)}%</Label>
+                <Slider
+                  value={[brushHardness]}
+                  onValueChange={([v]) => setBrushHardness(v)}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+              </div>
+=======
               <PropertyRow
                 label="Size"
                 value={brushSize}
@@ -987,6 +1026,7 @@ export function AnimapPropertyPanel({
                 step={0.01}
                 displayValue={`${(brushHardness * 100).toFixed(0)}%`}
               />
+>>>>>>> origin/main
             </div>
           </>
         )}

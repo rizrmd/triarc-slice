@@ -13,6 +13,17 @@ signal view_changed(view_name: String)
 @onready var sign_in_animap: AnimapPlayer = $LoginUI/SignInContainer/SignInAnimap
 @onready var overlay: ColorRect = $Overlay
 
+# Home UI Animap Players
+@onready var play_button_animap: AnimapPlayer = $HomeUI/PlayButtonContainer/PlayButtonAnimap
+@onready var training_button_animap: AnimapPlayer = $HomeUI/TrainingButtonContainer/TrainingButtonAnimap
+@onready var deck_button_animap: AnimapPlayer = $HomeUI/DeckButtonContainer/DeckButtonAnimap
+@onready var currency_gems_animap: AnimapPlayer = $HomeUI/CurrencyGemsContainer/CurrencyGemsAnimap
+@onready var currency_gold_animap: AnimapPlayer = $HomeUI/CurrencyGoldContainer/CurrencyGoldAnimap
+@onready var player_avatar_animap: AnimapPlayer = $HomeUI/PlayerAvatarContainer/PlayerAvatarAnimap
+@onready var player_name_animap: AnimapPlayer = $HomeUI/PlayerNameContainer/PlayerNameAnimap
+@onready var settings_button_animap: AnimapPlayer = $HomeUI/SettingsButtonContainer/SettingsButtonAnimap
+@onready var shop_button_animap: AnimapPlayer = $HomeUI/ShopButtonContainer/ShopButtonAnimap
+
 @onready var fade_rect: ColorRect = $FadeRect
 var _current_view: String = "login"
 
@@ -45,13 +56,13 @@ const VIEW_PAN_X := {
 }
 
 func _ready() -> void:
-	# Connect button signals for home UI
-	var find_match_btn: AnimapButton = home_ui.get_node("FindMatchButtonContainer/FindMatchButtonAnimap")
-	var training_btn: AnimapButton = home_ui.get_node("TrainingButtonContainer/TrainingButtonAnimap")
-	var logout_btn: AnimapButton = home_ui.get_node("LogoutButtonContainer/LogoutButtonAnimap")
-	find_match_btn.pressed.connect(_on_find_match_pressed)
-	training_btn.pressed.connect(_on_training_pressed)
-	logout_btn.pressed.connect(_on_logout_pressed)
+	# Connect Home UI animap button signals via gui_input
+	play_button_animap.gui_input.connect(_on_play_button_gui_input)
+	training_button_animap.gui_input.connect(_on_training_button_gui_input)
+	deck_button_animap.gui_input.connect(_on_deck_button_gui_input)
+	settings_button_animap.gui_input.connect(_on_settings_button_gui_input)
+	shop_button_animap.gui_input.connect(_on_shop_button_gui_input)
+	
 	hero_select_ui.back_requested.connect(func(): _show_view("home"))
 	hero_select_ui.find_match_requested.connect(func(): _show_view("find_match"))
 	find_match_ui.get_node("BackButton").pressed.connect(_on_back_pressed)
@@ -63,13 +74,18 @@ func _ready() -> void:
 	sign_in_animap.fit_mode = "contain"
 	sign_in_animap.load_animap("google-sign-in")
 
-	_apply_login_layout()
-	_apply_home_layout()
+	# Setup Home UI animaps (will be positioned by _apply_home_layout)
+	play_button_animap.fit_mode = "contain"
+	training_button_animap.fit_mode = "contain"
+	deck_button_animap.fit_mode = "contain"
+	currency_gems_animap.fit_mode = "contain"
+	currency_gold_animap.fit_mode = "contain"
+	player_avatar_animap.fit_mode = "contain"
+	player_name_animap.fit_mode = "contain"
+	settings_button_animap.fit_mode = "contain"
+	shop_button_animap.fit_mode = "contain"
 
-	# Load animaps AFTER layout is applied so fill mode and container sizes are set first
-	find_match_btn.load_animap("find-match-button")
-	training_btn.load_animap("training-button")
-	logout_btn.load_animap("logout-button")
+	_apply_login_layout()
 
 	# Initialize Google Sign-In: native plugin on Android, OAuth loopback on desktop
 	if Engine.has_singleton("GodotGoogleSignIn"):
@@ -131,27 +147,6 @@ func _ready() -> void:
 	tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
 	tween.tween_callback(func(): fade_rect.visible = false)
 
-## Called by GameState.return_to_main() to restore state after gameplay.
-func resume_from_gameplay() -> void:
-	# Sync WebSocket — gameplay may have disconnected
-	if GameState.ws and GameState.ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		_ws = GameState.ws
-	else:
-		_ws = null
-		if not _player_id.is_empty():
-			home_ui.get_node("TitleLabel").text = "Reconnecting..."
-			_connect_to_server()
-
-	var start_view := "hero_select" if GameState.should_return_to_hero_select() else "home"
-	_show_view(start_view, false)
-
-	# Fade in from black
-	fade_rect.visible = true
-	fade_rect.color.a = 1.0
-	var tween = create_tween()
-	tween.tween_property(fade_rect, "color:a", 0.0, 0.5)
-	tween.tween_callback(func(): fade_rect.visible = false)
-
 func _process(_delta: float) -> void:
 	if _ws:
 		_ws.poll()
@@ -167,19 +162,6 @@ func _process(_delta: float) -> void:
 			_ws = null
 			GameState.ws = null
 			_on_ws_disconnected()
-
-# --- Mockup Mode Toggle (F12) - DEPRECATED, now integrated in gameplay.gd ---
-# F12 in gameplay scene now toggles local mock mode directly
-
-func _input(event: InputEvent) -> void:
-	# F12 disabled - mock mode is now toggled within gameplay.gd itself
-	pass
-
-func _toggle_mockup_mode() -> void:
-	# DEPRECATED: Mock mode is now integrated in gameplay.gd
-	# Use F12 within gameplay scene to toggle mock mode
-	print("[Main] F12 pressed - Mock mode is now integrated in gameplay.gd")
-	print("[Main] Start a match first, then press F12 in gameplay to toggle mock mode")
 
 func _on_ws_disconnected() -> void:
 	match _current_view:
@@ -334,7 +316,7 @@ func _on_ws_message(msg: String) -> void:
 			if _current_view == "find_match":
 				find_match_ui.get_node("SearchingLabel").text = "Match found!"
 				await get_tree().create_timer(1.0).timeout
-			GameState.cache_main_and_enter_gameplay()
+			get_tree().change_scene_to_file("res://scenes/gameplay.tscn")
 		_:
 			print("[WS] ", msg_type, ": ", msg.left(200))
 
@@ -343,6 +325,18 @@ func _on_ws_message(msg: String) -> void:
 func _show_view(view_name: String, _animate: bool = true) -> void:
 	_current_view = view_name
 	_update_ui_visibility(view_name)
+	
+	# Apply layout from game-layout.json based on current view
+	match view_name:
+		"login":
+			_apply_login_layout()
+		"home":
+			_apply_home_layout()
+		"hero_select":
+			_apply_hero_select_layout()
+		"find_match":
+			_apply_find_match_layout()
+	
 	var state_id: String = VIEW_TO_ANIMAP_STATE.get(view_name, AnimapLoader.DEFAULT_STATE_ID)
 	if animap_player.has_state(state_id):
 		animap_player.set_state(state_id)
@@ -427,51 +421,258 @@ func _on_back_pressed() -> void:
 func _apply_login_layout() -> void:
 	var boxes = GameState.get_scene_boxes("login")
 	if boxes.is_empty():
+		push_warning("[Main] No login layout boxes found")
 		return
 	var vp_size = get_viewport().get_visible_rect().size
 
 	if boxes.has("logo"):
-		GameState.apply_box(boxes["logo"], login_ui.get_node("LogoContainer"), vp_size)
+		var r = GameState.resolve_box(boxes["logo"], vp_size)
+		var logo_container: Control = login_ui.get_node("LogoContainer")
+		logo_container.position = Vector2(r["x"], r["y"])
+		logo_container.size = Vector2(r["width"], r["height"])
 
 	if boxes.has("sign_in_button"):
-		GameState.apply_box(boxes["sign_in_button"], login_ui.get_node("SignInContainer"), vp_size)
+		var r = GameState.resolve_box(boxes["sign_in_button"], vp_size)
+		var sign_in_container: Control = login_ui.get_node("SignInContainer")
+		sign_in_container.position = Vector2(r["x"], r["y"])
+		sign_in_container.size = Vector2(r["width"], r["height"])
 
 	if boxes.has("status_label"):
-		GameState.apply_box(boxes["status_label"], login_ui.get_node("StatusLabel"), vp_size)
+		var r = GameState.resolve_box(boxes["status_label"], vp_size)
+		var status_label: Label = login_ui.get_node("StatusLabel")
+		status_label.position = Vector2(r["x"], r["y"])
+		status_label.size = Vector2(r["width"], r["height"])
 
 func _apply_home_layout() -> void:
 	var boxes = GameState.get_scene_boxes("home")
 	if boxes.is_empty():
+		push_warning("[Main] No home layout boxes found")
 		return
 	var vp_size = get_viewport().get_visible_rect().size
-	print("[Layout] Home viewport: ", vp_size)
 
-	var box_mappings := {
-		"title_label": "TitleLabel",
-		"find_match_button": "FindMatchButtonContainer",
-		"training_button": "TrainingButtonContainer",
-		"logout_button": "LogoutButtonContainer",
-	}
+	# Player Name Label (from profile-button animap)
+	if boxes.has("player_name"):
+		var r = GameState.resolve_box(boxes["player_name"], vp_size)
+		var container: Control = home_ui.get_node("PlayerNameContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["player_name"].get("animapSlug", "profile-button")
+		player_name_animap.load_animap(animap_slug)
 
-	var animap_btn_paths := {
-		"find_match_button": "FindMatchButtonContainer/FindMatchButtonAnimap",
-		"training_button": "TrainingButtonContainer/TrainingButtonAnimap",
-		"logout_button": "LogoutButtonContainer/LogoutButtonAnimap",
-	}
+	# Play Button (find-match-button)
+	if boxes.has("play_button"):
+		var r = GameState.resolve_box(boxes["play_button"], vp_size)
+		var container: Control = home_ui.get_node("PlayButtonContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["play_button"].get("animapSlug", "find-match-button")
+		play_button_animap.load_animap(animap_slug)
 
-	for box_id in boxes.keys():
-		if not box_mappings.has(box_id):
-			continue
-		var box_data: Dictionary = boxes[box_id]
-		GameState.apply_box(box_data, home_ui.get_node(box_mappings[box_id]), vp_size)
-		# Apply fill mode from layout to AnimapButton
-		if animap_btn_paths.has(box_id):
-			var fill_mode: String = str(box_data.get("fill", ""))
-			if not fill_mode.is_empty():
-				var btn: AnimapButton = home_ui.get_node(animap_btn_paths[box_id])
-				btn.set_fit_mode(fill_mode)
-		var resolved = GameState.resolve_box(box_data, vp_size)
-		print("[Layout] ", box_id, " -> pos=(", resolved["x"], ",", resolved["y"], ") size=(", resolved["width"], ",", resolved["height"], ")")
+	# Training Button (training-button)
+	if boxes.has("training_button"):
+		var r = GameState.resolve_box(boxes["training_button"], vp_size)
+		var container: Control = home_ui.get_node("TrainingButtonContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["training_button"].get("animapSlug", "training-button")
+		training_button_animap.load_animap(animap_slug)
+
+	# Deck Button (logout-button)
+	if boxes.has("deck_button"):
+		var r = GameState.resolve_box(boxes["deck_button"], vp_size)
+		var container: Control = home_ui.get_node("DeckButtonContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["deck_button"].get("animapSlug", "logout-button")
+		deck_button_animap.load_animap(animap_slug)
+
+	# Currency Gems (training-button)
+	if boxes.has("currency_gems"):
+		var r = GameState.resolve_box(boxes["currency_gems"], vp_size)
+		var container: Control = home_ui.get_node("CurrencyGemsContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["currency_gems"].get("animapSlug", "training-button")
+		currency_gems_animap.load_animap(animap_slug)
+
+	# Currency Gold (cards-button)
+	if boxes.has("currency_gold"):
+		var r = GameState.resolve_box(boxes["currency_gold"], vp_size)
+		var container: Control = home_ui.get_node("CurrencyGoldContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["currency_gold"].get("animapSlug", "cards-button")
+		currency_gold_animap.load_animap(animap_slug)
+
+	# Player Avatar (heroes-button)
+	if boxes.has("player_avatar"):
+		var r = GameState.resolve_box(boxes["player_avatar"], vp_size)
+		var container: Control = home_ui.get_node("PlayerAvatarContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["player_avatar"].get("animapSlug", "heroes-button")
+		player_avatar_animap.load_animap(animap_slug)
+
+	# Settings Button (setting-button)
+	if boxes.has("settings_button"):
+		var r = GameState.resolve_box(boxes["settings_button"], vp_size)
+		var container: Control = home_ui.get_node("SettingsButtonContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["settings_button"].get("animapSlug", "setting-button")
+		settings_button_animap.load_animap(animap_slug)
+
+	# Shop Button (power-button)
+	if boxes.has("shop_button"):
+		var r = GameState.resolve_box(boxes["shop_button"], vp_size)
+		var container: Control = home_ui.get_node("ShopButtonContainer")
+		container.position = Vector2(r["x"], r["y"])
+		container.size = Vector2(r["width"], r["height"])
+		var animap_slug = boxes["shop_button"].get("animapSlug", "power-button")
+		shop_button_animap.load_animap(animap_slug)
+
+# --- Home UI Animap Button Handlers ---
+
+func _on_play_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button_input(event, play_button_animap, "_on_play_button_action")
+
+func _on_training_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button_input(event, training_button_animap, "_on_training_button_action")
+
+func _on_deck_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button_input(event, deck_button_animap, "_on_deck_button_action")
+
+func _on_settings_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button_input(event, settings_button_animap, "_on_settings_button_action")
+
+func _on_shop_button_gui_input(event: InputEvent) -> void:
+	_handle_animap_button_input(event, shop_button_animap, "_on_shop_button_action")
+
+func _handle_animap_button_input(event: InputEvent, animap: AnimapPlayer, action_method: String) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			# Mouse down - animate to clicked state
+			if animap.has_state("clicked"):
+				animap.set_state("clicked")
+		else:
+			# Mouse up - animate back and execute action
+			if animap.has_state("clicked"):
+				animap.set_state("default")
+			# Execute the button's action
+			call(action_method)
+		animap.accept_event()
+	elif event is InputEventMouseMotion:
+		# Hover effects
+		var is_hovering = animap.get_global_rect().has_point(animap.get_global_mouse_position())
+		if is_hovering:
+			if animap.has_state("hover") and animap.get_state() != "clicked":
+				animap.set_state("hover")
+		else:
+			if animap.has_state("hover") and animap.get_state() == "hover":
+				animap.set_state("default")
+
+# --- Button Action Methods ---
+
+func _on_play_button_action() -> void:
+	print("[Main] Play button pressed")
+	_on_find_match_pressed()
+
+func _on_training_button_action() -> void:
+	print("[Main] Training button pressed")
+	_on_training_pressed()
+
+func _on_deck_button_action() -> void:
+	print("[Main] Deck button pressed")
+	# Opens hero selection for now
+	_on_find_match_pressed()
+
+func _on_settings_button_action() -> void:
+	print("[Main] Settings button pressed")
+	_show_settings_popup()
+
+func _on_shop_button_action() -> void:
+	print("[Main] Shop button pressed")
+	_show_shop_popup()
+
+# --- Placeholder Popup Functions ---
+
+var _settings_popup: PanelContainer = null
+var _shop_popup: PanelContainer = null
+
+func _show_settings_popup() -> void:
+	print("[Main] Settings button pressed")
+	# Create settings popup if not exists
+	if _settings_popup == null:
+		_settings_popup = _create_placeholder_popup("Settings", "Settings coming soon!")
+	if _settings_popup:
+		_toggle_popup(_settings_popup)
+
+func _show_shop_popup() -> void:
+	print("[Main] Shop button pressed")
+	# Create shop popup if not exists
+	if _shop_popup == null:
+		_shop_popup = _create_placeholder_popup("Shop", "Shop coming soon!")
+	if _shop_popup:
+		_toggle_popup(_shop_popup)
+
+func _create_placeholder_popup(title: String, message: String) -> PanelContainer:
+	var popup = PanelContainer.new()
+	popup.set_anchors_preset(Control.PRESET_CENTER)
+	popup.size = Vector2(400, 300)
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.1, 0.2, 0.95)
+	style.set_corner_radius_all(8)
+	style.set_border_width_all(2)
+	style.border_color = Color(0.3, 0.3, 0.5)
+	popup.add_theme_stylebox_override("panel", style)
+	
+	var vbox = VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	popup.add_child(vbox)
+	
+	var title_label = Label.new()
+	title_label.text = title
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_label.add_theme_font_size_override("font_size", 32)
+	vbox.add_child(title_label)
+	
+	var msg_label = Label.new()
+	msg_label.text = message
+	msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg_label.add_theme_font_size_override("font_size", 24)
+	vbox.add_child(msg_label)
+	
+	var close_btn = Button.new()
+	close_btn.text = "Close"
+	close_btn.pressed.connect(func(): _close_popup(popup))
+	vbox.add_child(close_btn)
+	
+	home_ui.add_child(popup)
+	return popup
+
+func _toggle_popup(popup: PanelContainer) -> void:
+	if popup == null:
+		return
+	# Close other popup if open
+	if popup == _settings_popup and _shop_popup != null:
+		_shop_popup.visible = false
+	elif popup == _shop_popup and _settings_popup != null:
+		_settings_popup.visible = false
+	
+	popup.visible = not popup.visible
+
+func _close_popup(popup: PanelContainer) -> void:
+	if popup:
+		popup.visible = false
+
+func _apply_hero_select_layout() -> void:
+	# Hero select scene manages its own layout via HeroSelectUI
+	pass
+
+func _apply_find_match_layout() -> void:
+	# Find match UI manages its own layout
+	pass
 
 # --- Credential persistence (desktop) ---
 

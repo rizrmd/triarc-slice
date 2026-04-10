@@ -3,30 +3,14 @@ extends Control
 
 @onready var video_player: VideoStreamPlayer = $VideoStreamPlayer
 
-# Animap loader for background preloading
-var _animap_loader: AnimapLoader = null
-
 func _ready() -> void:
 	_apply_layout()
 	video_player.finished.connect(_on_video_finished)
-	
-	# Start preloading animaps in background while video plays
-	_start_animap_preload()
-	
 	if video_player.stream:
 		video_player.play()
 	else:
 		push_warning("No video stream loaded, skipping to main scene")
 		_on_video_finished()
-
-func _start_animap_preload() -> void:
-	# Only create if not already available (e.g., returning from another scene)
-	if GameState.animap_loader == null:
-		_animap_loader = AnimapLoader.new()
-		# Preload the main animap in background - will be ready when transitioning to main scene
-		_animap_loader.preload_animap_async("main")
-	else:
-		_animap_loader = GameState.animap_loader
 
 func _apply_layout() -> void:
 	var boxes = GameState.get_scene_boxes("startup")
@@ -80,9 +64,6 @@ func _apply_layout() -> void:
 			video_player.stream = stream
 
 func _on_video_finished() -> void:
-	# Pass the loader to GameState so main scene can use it
-	GameState.animap_loader = _animap_loader
-	
 	var tween = create_tween()
 	tween.tween_property(video_player, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(func(): get_tree().change_scene_to_file("res://scenes/main.tscn"))

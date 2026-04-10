@@ -1,36 +1,21 @@
-; Engine configuration file.
-; It's best edited using the editor UI and not directly,
-; since the parameters that go here are not all obvious.
-;
-; Format:
-;   [section] ; section goes between []
-;   param=value ; assign values to parameters
-
-config_version=5
+; Engine configuration file
+; Do not edit manually
 
 [application]
 
 config/name="VanGambit"
 run/main_scene="res://scenes/loading.tscn"
-config/features=PackedStringArray("4.6")
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/show_image=false
-
-[autoload]
-
-GameState="*res://scripts/game_state.gd"
+boot_splash/minimum_display_time=0
 
 [display]
 
 window/size/viewport_width=1080
 window/size/viewport_height=1920
+window/handheld/orientation=1
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-window/handheld/orientation=1
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/GodotGoogleSignIn/plugin.cfg", "res://addons/effekseer/plugin.cfg")
 
 [gui]
 
@@ -38,7 +23,15 @@ theme/custom_font="res://fonts/Volkhov-Regular.ttf"
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
-textures/canvas_textures/default_texture_filter=2
-textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+textures/canvas_textures/default_texture_filter=1
+textures/vram_compression/import_etc2_astc=true
+renderer/rendering_method="gl_compatibility"
+
+[autoload]
+
+GameState="*res://scripts/game_state.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/GodotGoogleSignIn/plugin.cfg")

@@ -4,6 +4,16 @@
     "info"
   ],
   "Home": [
+<<<<<<< HEAD
+    "cards-button",
+    "find-match-button",
+    "heroes-button",
+    "logout-button",
+    "power-button",
+    "profile-button",
+    "setting-button",
+    "training-button"
+=======
     "profile-button",
     "training-button",
     "setting-button-button",
@@ -12,6 +22,7 @@
     "heroes-button",
     "logout-button",
     "cards-button"
+>>>>>>> origin/main
   ],
   "Login": [
     "google-sign-in",

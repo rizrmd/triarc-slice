@@ -27,8 +27,12 @@
         "default": {
           "brightness": 125,
           "lightness": 60,
+<<<<<<< HEAD
+          "y": 9.94140625
+=======
           "x": 1,
           "y": 19.109375
+>>>>>>> origin/main
         }
       }
     }

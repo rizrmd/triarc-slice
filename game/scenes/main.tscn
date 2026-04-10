@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_0wfyh"]
 [ext_resource type="PackedScene" path="res://scenes/animap_player.tscn" id="2_animap"]
-[ext_resource type="PackedScene" path="res://scenes/animap_button.tscn" id="2_animap_btn"]
 [ext_resource type="PackedScene" path="res://scenes/hero_select.tscn" id="3_hero_select"]
 
 [node name="Main" type="Control" unique_id=1533509242]
@@ -92,60 +91,129 @@ layout_mode = 0
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -100.0
-offset_top = 50.0
+offset_top = 400.0
 offset_right = 100.0
-offset_bottom = 100.0
-theme_override_font_sizes/font_size = 28
+offset_bottom = 460.0
+theme_override_font_sizes/font_size = 48
 text = "Home"
 horizontal_alignment = 1
 
-[node name="FindMatchButtonContainer" type="Control" parent="HomeUI"]
+[node name="PlayButtonContainer" type="Control" parent="HomeUI"]
 layout_mode = 0
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -277.0
-offset_top = 632.0
-offset_right = 277.0
-offset_bottom = 830.0
-mouse_filter = 0
+offset_left = 273.0
+offset_top = 593.0
+offset_right = 785.0
+offset_bottom = 826.0
+mouse_filter = 2
 
-[node name="FindMatchButtonAnimap" parent="HomeUI/FindMatchButtonContainer" instance=ExtResource("2_animap_btn")]
+[node name="PlayButtonAnimap" parent="HomeUI/PlayButtonContainer" instance=ExtResource("2_animap")]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-fit_mode = "contain"
 
 [node name="TrainingButtonContainer" type="Control" parent="HomeUI"]
 layout_mode = 0
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -200.5
-offset_top = 850.0
-offset_right = 200.5
-offset_bottom = 1032.0
-mouse_filter = 0
+offset_left = 294.0
+offset_top = 816.0
+offset_right = 759.0
+offset_bottom = 1005.0
+mouse_filter = 2
 
-[node name="TrainingButtonAnimap" parent="HomeUI/TrainingButtonContainer" instance=ExtResource("2_animap_btn")]
+[node name="TrainingButtonAnimap" parent="HomeUI/TrainingButtonContainer" instance=ExtResource("2_animap")]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-fit_mode = "contain"
 
-[node name="LogoutButtonContainer" type="Control" parent="HomeUI"]
+[node name="CurrencyGemsContainer" type="Control" parent="HomeUI"]
 layout_mode = 0
-anchor_left = 0.5
-anchor_right = 0.5
-offset_left = -200.5
-offset_top = 1050.0
-offset_right = 200.5
-offset_bottom = 1219.0
-mouse_filter = 0
+offset_left = 294.0
+offset_top = 816.0
+offset_right = 759.0
+offset_bottom = 1005.0
+mouse_filter = 2
 
-[node name="LogoutButtonAnimap" parent="HomeUI/LogoutButtonContainer" instance=ExtResource("2_animap_btn")]
+[node name="CurrencyGemsAnimap" parent="HomeUI/CurrencyGemsContainer" instance=ExtResource("2_animap")]
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-fit_mode = "contain"
+
+[node name="DeckButtonContainer" type="Control" parent="HomeUI"]
+layout_mode = 0
+offset_left = 290.0
+offset_top = 1033.0
+offset_right = 782.0
+offset_bottom = 1222.0
+mouse_filter = 2
+
+[node name="DeckButtonAnimap" parent="HomeUI/DeckButtonContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="CurrencyGoldContainer" type="Control" parent="HomeUI"]
+layout_mode = 0
+offset_left = 607.0
+offset_top = 1334.0
+offset_right = 1053.0
+offset_bottom = 1570.0
+mouse_filter = 2
+
+[node name="CurrencyGoldAnimap" parent="HomeUI/CurrencyGoldContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="PlayerAvatarContainer" type="Control" parent="HomeUI"]
+layout_mode = 0
+offset_left = 70.0
+offset_top = 1320.0
+offset_right = 549.0
+offset_bottom = 1559.0
+mouse_filter = 2
+
+[node name="PlayerAvatarAnimap" parent="HomeUI/PlayerAvatarContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="PlayerNameContainer" type="Control" parent="HomeUI"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 7.0
+offset_right = 215.0
+offset_bottom = 146.0
+mouse_filter = 2
+
+[node name="PlayerNameAnimap" parent="HomeUI/PlayerNameContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="SettingsButtonContainer" type="Control" parent="HomeUI"]
+layout_mode = 0
+offset_left = 903.0
+offset_top = 6.0
+offset_right = 1071.0
+offset_bottom = 165.0
+mouse_filter = 2
+
+[node name="SettingsButtonAnimap" parent="HomeUI/SettingsButtonContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ShopButtonContainer" type="Control" parent="HomeUI"]
+layout_mode = 0
+offset_left = 743.0
+offset_top = 0.0
+offset_right = 921.0
+offset_bottom = 156.0
+mouse_filter = 2
+
+[node name="ShopButtonAnimap" parent="HomeUI/ShopButtonContainer" instance=ExtResource("2_animap")]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
 
 [node name="HeroSelectUI" parent="." instance=ExtResource("3_hero_select")]
 visible = false

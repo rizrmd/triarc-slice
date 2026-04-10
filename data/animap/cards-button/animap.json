@@ -4,7 +4,11 @@
   "height": 1920,
   "layers": [
     {
+<<<<<<< HEAD
+      "id": "layer-1775746402426",
+=======
       "id": "layer-1775554631840",
+>>>>>>> origin/main
       "name": "cards",
       "type": "image",
       "file": "cards.webp",

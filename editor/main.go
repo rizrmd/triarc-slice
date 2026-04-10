@@ -281,7 +281,10 @@ type convertTask struct {
 }
 
 var convertTasks sync.Map
+<<<<<<< HEAD
+=======
 var previewInFlight sync.Map // tracks WebM preview generation in progress (key = webmPath)
+>>>>>>> origin/main
 
 func getVideoDuration(ffmpegBin, filePath string) float64 {
 	cmd := exec.Command(ffmpegBin, "-i", filePath)
@@ -354,6 +357,17 @@ func convertVideoToOGV(taskID, ffmpegBin, srcPath, dstPath string) {
 		return
 	}
 
+<<<<<<< HEAD
+	// Generate preview .webm before marking done so it's cached when the frontend requests it
+	convertTasks.Store(taskID, &convertTask{Progress: 99})
+	if previewBin, err := getFFmpegPath(); err == nil {
+		webmPath := dstPath[:len(dstPath)-4] + ".preview.webm"
+		previewCmd := exec.Command(previewBin, "-y", "-i", dstPath,
+			"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+			"-an",
+			webmPath)
+		if output, err := previewCmd.CombinedOutput(); err != nil {
+=======
 	// Mark conversion done immediately; preview WebM will be generated on first request
 	file := filepath.Base(dstPath)
 	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: file})
@@ -391,10 +405,17 @@ func generateWebMPreview(taskID, ogvPath string) {
 			"-an",
 			webmPath)
 		if output, err := cmd.CombinedOutput(); err != nil {
+>>>>>>> origin/main
 			log.Printf("Preview generation failed: %v\n%s", err, output)
 		} else {
 			log.Printf("Preview generated: %s", webmPath)
 		}
+<<<<<<< HEAD
+	}
+
+	file := filepath.Base(dstPath)
+	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: file})
+=======
 		return
 	}
 
@@ -447,6 +468,7 @@ func generateWebMPreview(taskID, ogvPath string) {
 
 	log.Printf("Preview generated: %s", webmPath)
 	convertTasks.Store(taskID, &convertTask{Progress: 100, Done: true, File: filepath.Base(ogvPath)})
+>>>>>>> origin/main
 }
 
 func convertStatusHandler(w http.ResponseWriter, r *http.Request) {
@@ -509,6 +531,27 @@ func animapPreviewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+<<<<<<< HEAD
+	// Transcode .ogv -> .webm
+	ffmpegBin, err := getFFmpegPath()
+	if err != nil {
+		http.Error(w, "ffmpeg not available", http.StatusInternalServerError)
+		return
+	}
+
+	cmd := exec.Command(ffmpegBin, "-y", "-i", srcPath,
+		"-c:v", "libvpx", "-crf", "10", "-b:v", "2M",
+		"-an",
+		webmPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Preview transcode failed: %v\n%s", err, output)
+		http.Error(w, "Transcode failed", http.StatusInternalServerError)
+		return
+	}
+
+	http.ServeFile(w, r, webmPath)
+=======
 	// Start background WebM generation if not already in progress
 	if _, alreadyRunning := previewInFlight.LoadOrStore(webmPath, true); !alreadyRunning {
 		go func() {
@@ -532,6 +575,7 @@ func animapPreviewHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Serve OGV directly while WebM is being generated
 	http.ServeFile(w, r, srcPath)
+>>>>>>> origin/main
 }
 
 func resolvePath(path string) string {
@@ -591,7 +635,11 @@ func main() {
 	http.HandleFunc("/api/animap-layer/", animapLayerHandler)
 	http.HandleFunc("/api/animap-convert-status/", convertStatusHandler)
 	http.HandleFunc("/api/animap-preview/", animapPreviewHandler)
+<<<<<<< HEAD
+	http.HandleFunc("/api/game-layout", gameLayoutHandler)
+=======
 	http.HandleFunc("/api/scene/", sceneLayoutHandler)
+>>>>>>> origin/main
 	http.HandleFunc("/api/assets/", assetsListHandler)
 	assetsDir := resolvePath("./assets")
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(assetsDir))))
@@ -834,9 +882,12 @@ func animapHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+<<<<<<< HEAD
+=======
 		// Sync to game/data/ for game.exe
 		syncAnimapToGame(slug)
 
+>>>>>>> origin/main
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 
@@ -981,6 +1032,10 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "Failed to save video", http.StatusInternalServerError)
 					return
 				}
+<<<<<<< HEAD
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".ogv"})
+=======
 				// Sync to game/data/ for game.exe
 				syncAnimapToGame(slug)
 				// Generate WebM preview with progress tracking
@@ -989,6 +1044,7 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 				go generateWebMPreview(taskID, target)
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{"status": "converting", "task": taskID})
+>>>>>>> origin/main
 			}
 		} else {
 			// Image/mask — convert to webp
@@ -997,8 +1053,11 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Failed to save image: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+<<<<<<< HEAD
+=======
 			// Sync to game/data/ for game.exe
 			syncAnimapToGame(slug)
+>>>>>>> origin/main
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".webp"})
 		}
@@ -1008,11 +1067,14 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 		for _, f := range oldFiles {
 			os.Remove(f)
 		}
+<<<<<<< HEAD
+=======
 		// Also remove preview files (e.g. name.preview.webm)
 		previewFiles, _ := filepath.Glob(filepath.Join(animapDir, layerId+".preview.*"))
 		for _, f := range previewFiles {
 			os.Remove(f)
 		}
+>>>>>>> origin/main
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 
@@ -1594,6 +1656,10 @@ func heroAudioHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+<<<<<<< HEAD
+func gameLayoutHandler(w http.ResponseWriter, r *http.Request) {
+	layoutPath := filepath.Join(resolvePath("./data"), "game-layout.json")
+=======
 // syncAnimapToGame copies an animap folder from data/animap/{slug} to game/data/animap/{slug}
 // This ensures game.exe can access the animap assets after editing in editor.exe
 func syncAnimapToGame(slug string) {
@@ -1657,14 +1723,21 @@ func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	slug := parts[0]
 	layoutPath := filepath.Join(resolvePath("./data"), "scene", slug, "layout.json")
+>>>>>>> origin/main
 
 	switch r.Method {
 	case http.MethodGet:
 		data, err := os.ReadFile(layoutPath)
 		if err != nil {
 			if os.IsNotExist(err) {
+<<<<<<< HEAD
+				// Return default layout if not found
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte("{}"))
+=======
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte(`{"background":"","boxes":{}}`))
+>>>>>>> origin/main
 				return
 			}
 			http.Error(w, "Failed to read layout data", http.StatusInternalServerError)
@@ -1680,6 +1753,10 @@ func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+<<<<<<< HEAD
+		// Ensure directory exists
+=======
+>>>>>>> origin/main
 		if err := os.MkdirAll(filepath.Dir(layoutPath), 0755); err != nil {
 			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
 			return
@@ -1699,6 +1776,8 @@ func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+<<<<<<< HEAD
+=======
 		// Also sync to game/data/ for game.exe
 		gameLayoutPath := filepath.Join(resolvePath("./game/data"), "scene", slug, "layout.json")
 		if err := os.MkdirAll(filepath.Dir(gameLayoutPath), 0755); err == nil {
@@ -1715,6 +1794,7 @@ func sceneLayoutHandler(w http.ResponseWriter, r *http.Request) {
 			syncAnimapsInLayout(layoutMap)
 		}
 
+>>>>>>> origin/main
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
 

@@ -30,6 +30,7 @@ var _current_brightness: float = 1.0
 var _is_selected: bool = false
 var _selection_strength: float = 0.0
 var _drag_dim_strength: float = 0.0
+var _is_targetable: bool = false
 var _frame_base_modulate: Color = Color.WHITE
 var _cast_pie: CastPie = null
 var _cast_action_label: Label = null
@@ -46,12 +47,6 @@ var _bar_label: Label
 var _hp_bar_hue: float = 0.0
 var _hp_bar_font_size: float = 31.0
 var _name_label: Label
-
-# Target indicator for pre-targeting system
-var _target_indicator: Control = null
-var _target_tween: Tween = null
-var _target_info_panel: PanelContainer = null
-var _target_name_label: Label = null
 
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -199,8 +194,6 @@ func apply_layout_size(layout_size: Vector2):
 			0 + float(name_pos_cfg.get("x", 0)) * ref_sx,
 			center.y + float(name_pos_cfg.get("y", 0)) * ref_sy - _name_label.size.y / 2.0
 		)
-	# Position target UI elements
-	_position_target_ui(layout_size)
 
 func _apply_pose_layout(layout_size: Vector2, center: Vector2):
 	if _hero_config == null:
@@ -529,230 +522,6 @@ func _show_floating_text(amount: int):
 	else:
 		text.show_damage(abs(amount))
 
-## Take damage - reduces HP and shows floating text
-func take_damage(amount: int):
-	if is_dead():
-		return
-	
-	current_hp = max(0, current_hp - amount)
-	_update_hp_display()
-	_show_floating_text(-amount)
-	
-	# Check for death
-	if current_hp <= 0:
-		is_alive = false
-		_set_dead_visuals()
-		print("[Hero] ", hero_slug, " died!")
-
-## Show DoT applied indicator
-func show_dot_applied(dot_type: String, damage_per_tick: int, ticks: int):
-	# Show floating text for DoT application
-	var dot_text = FloatingText.new()
-	dot_text.position = floating_text_origin.position
-	add_child(dot_text)
-	dot_text.show_dot_damage(dot_type, damage_per_tick, ticks)
-
-## Show/hide target marker (red circle/arrow above hero)
-func show_target_marker(show: bool, is_primary: bool = true):
-	print("[Marker] show_target_marker called: show=", show, " hero=", hero_slug)
-	if not show:
-		if _target_indicator:
-			_target_indicator.modulate.a = 0.0
-		return
-	
-	# Create indicator if needed
-	if not _target_indicator:
-		print("[Marker] Creating _target_indicator for hero=", hero_slug)
-		_target_indicator = _create_target_indicator()
-	
-	# Position indicator above the hero using global position
-	var global_pos = get_global_position()
-	_target_indicator.global_position = Vector2(global_pos.x - 30, global_pos.y - 70)
-	_target_indicator.modulate.a = 1.0
-	print("[Marker] _target_indicator positioned: ", _target_indicator.global_position, " modulate=", _target_indicator.modulate)
-	
-	# Pulse animation
-	if _target_tween and _target_tween.is_valid():
-		_target_tween.kill()
-	_target_tween = create_tween().set_loops()
-	_target_tween.set_trans(Tween.TRANS_SINE)
-	_target_tween.set_ease(Tween.EASE_IN_OUT)
-	_target_tween.tween_property(_target_indicator, "scale", Vector2(1.15, 1.15), 0.3)
-	_target_tween.tween_property(_target_indicator, "scale", Vector2(1.0, 1.0), 0.3)
-
-## Show target marker with offset for multiple sources targeting same enemy
-## source_slot: the ally hero slot that is targeting this enemy
-## offset_index: index among all allies targeting this same enemy (0, 1, 2)
-var _marker_pool: Dictionary = {}  # source_slot -> Control node
-
-func show_target_marker_with_offset(show: bool, source_slot: int, offset_index: int, ally_name: String):
-	if not show:
-		# Hide all markers
-		for key in _marker_pool.keys():
-			_marker_pool[key].modulate.a = 0.0
-		return
-	
-	# Create or reuse indicator for this source slot
-	if not _marker_pool.has(source_slot):
-		print("[Marker] Creating new pooled indicator for source_slot=", source_slot, " hero=", hero_slug)
-		_marker_pool[source_slot] = _create_indicator_for_pool()
-	
-	var indicator = _marker_pool[source_slot]
-	print("[Marker] Using indicator: ", indicator, " visible=", indicator.visible, " modulate=", indicator.modulate)
-	
-	# Position relative to this hero (indicator is child of hero)
-	var offset_x = (source_slot - 1) * 50  # -50, 0, +50 based on slot
-	var offset_y = -70 - (offset_index * 35)  # Stack vertically if multiple
-	indicator.position = Vector2(-30 + offset_x, offset_y)
-	indicator.modulate.a = 1.0
-	print("[Marker] After set: indicator.pos=", indicator.position, " modulate.a=", indicator.modulate.a)
-	
-	# Pulse animation
-	if _target_tween and _target_tween.is_valid():
-		_target_tween.kill()
-	_target_tween = create_tween().set_loops()
-	_target_tween.set_trans(Tween.TRANS_SINE)
-	_target_tween.set_ease(Tween.EASE_IN_OUT)
-	_target_tween.tween_property(indicator, "scale", Vector2(1.15, 1.15), 0.3)
-	_target_tween.tween_property(indicator, "scale", Vector2(1.0, 1.0), 0.3)
-
-## Hide all pooled markers
-func hide_all_pooled_markers():
-	for key in _marker_pool.keys():
-		_marker_pool[key].modulate.a = 0.0
-
-## Create indicator node for the marker pool
-func _create_indicator_for_pool() -> Control:
-	print("[Marker] _create_indicator_for_pool called for hero=", hero_slug)
-	
-	# Create indicator as a child of this hero
-	var indicator = Control.new()
-	indicator.name = "PooledTargetIndicator"
-	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	indicator.size = Vector2(60, 60)
-	indicator.z_index = 500  # High z_index
-	
-	# Red circle background
-	var circle = ColorRect.new()
-	circle.name = "Circle"
-	circle.color = Color(1.0, 0.2, 0.2, 0.9)
-	circle.size = Vector2(60, 60)
-	circle.position = Vector2.ZERO
-	
-	# Exclamation mark
-	var arrow = Label.new()
-	arrow.name = "Arrow"
-	arrow.text = "!"
-	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	arrow.position = Vector2.ZERO
-	arrow.size = Vector2(60, 60)
-	arrow.add_theme_font_size_override("font_size", 36)
-	arrow.add_theme_color_override("font_color", Color.WHITE)
-	arrow.add_theme_color_override("font_outline_color", Color(0.5, 0, 0, 1))
-	arrow.add_theme_constant_override("outline_size", 3)
-	
-	indicator.add_child(circle)
-	indicator.add_child(arrow)
-	
-	# Add as child of this hero (not HeroesContainer) to inherit transform
-	add_child(indicator)
-	# Start with modulate.a = 0 (hidden)
-	indicator.modulate.a = 0.0
-	print("[Marker] Indicator created: ", indicator, " parent=", indicator.get_parent())
-	
-	return indicator
-
-## Show/hide target info panel with enemy name
-func show_target_info(show: bool, enemy_name: String = ""):
-	if not show:
-		if _target_info_panel:
-			_target_info_panel.visible = false
-		return
-	
-	# Create panel if needed
-	if not _target_info_panel:
-		_target_info_panel = _create_target_info_panel()
-	
-	_target_info_panel.visible = true
-	if enemy_name != "":
-		_target_name_label.text = "-> " + enemy_name
-
-## Create target indicator visual (red circle above hero)
-## Note: This is added to the hero's parent (HeroesContainer) to avoid clipping
-func _create_target_indicator() -> Control:
-	var indicator = Control.new()
-	indicator.name = "TargetIndicator"
-	indicator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	indicator.size = Vector2(60, 60)
-	
-	# Red circle
-	var circle = ColorRect.new()
-	circle.name = "Circle"
-	circle.color = Color(1.0, 0.2, 0.2, 0.9)
-	circle.size = Vector2(60, 60)
-	circle.position = Vector2.ZERO
-	
-	# Add an exclamation mark
-	var arrow = Label.new()
-	arrow.name = "Arrow"
-	arrow.text = "!"
-	arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	arrow.position = Vector2.ZERO
-	arrow.size = Vector2(60, 60)
-	arrow.add_theme_font_size_override("font_size", 36)
-	arrow.add_theme_color_override("font_color", Color.WHITE)
-	arrow.add_theme_color_override("font_outline_color", Color(0.5, 0, 0, 1))
-	arrow.add_theme_constant_override("outline_size", 3)
-	
-	indicator.add_child(circle)
-	indicator.add_child(arrow)
-	
-	# Add to hero's parent instead of hero itself to avoid clip_children clipping
-	var parent_node = get_parent()
-	parent_node.add_child(indicator)
-	print("[Marker] Added indicator to parent: ", parent_node.name, " for hero ", hero_slug)
-	
-	return indicator
-
-## Create target info panel showing the targeted enemy name
-func _create_target_info_panel() -> PanelContainer:
-	var panel = PanelContainer.new()
-	panel.name = "TargetInfoPanel"
-	panel.visible = false
-	
-	var style = StyleBoxFlat.new()
-	style.bg_color = Color(0.2, 0.1, 0.1, 0.85)  # Dark red background
-	style.set_corner_radius_all(6)
-	style.set_content_margin_all(8)
-	panel.add_theme_stylebox_override("panel", style)
-	
-	_target_name_label = Label.new()
-	_target_name_label.name = "TargetNameLabel"
-	_target_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_target_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_target_name_label.add_theme_font_size_override("font_size", 22)
-	_target_name_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.7, 1.0))
-	panel.add_child(_target_name_label)
-	
-	add_child(panel)
-	
-	return panel
-
-## Position target UI elements based on hero layout size
-func _position_target_ui(layout_size: Vector2):
-	if _target_indicator:
-		var indicator_size = Vector2(60, 60)
-		_target_indicator.position = Vector2((layout_size.x - indicator_size.x) / 2, -indicator_size.y - 10)
-	
-	# Position target info panel at bottom center of hero
-	if _target_info_panel:
-		var panel_width = 200.0
-		var panel_height = 40.0
-		_target_info_panel.position = Vector2((layout_size.x - panel_width) / 2, layout_size.y - panel_height - 10)
-		_target_info_panel.size = Vector2(panel_width, panel_height)
-
 func _build_cast_indicator():
 	# Pie chart with action image background
 	_cast_pie = CastPie.new()
@@ -779,8 +548,10 @@ func _resize_cast_indicator(pie_size: float):
 		_cast_action_label.add_theme_font_size_override("font_size", max(8, int(pie_size * 0.5)))
 
 func _show_casting(cast_id: String, duration_ms: int, action_slug: String = ""):
+	print("[Hero] _show_casting: hero=", hero_slug, " cast_id=", cast_id, " duration_ms=", duration_ms, " action_slug=", action_slug)
 	# Skip if already animating this same cast
 	if cast_id == _current_cast_id and _tween_cast and _tween_cast.is_valid():
+		print("[Hero] _show_casting: skipping (already animating same cast)")
 		return
 	_current_cast_id = cast_id
 	if _tween_cast and _tween_cast.is_valid():
@@ -852,6 +623,36 @@ func set_drag_dimmed(dimmed: bool):
 		_refresh_selection_visuals()
 		return
 	_apply_brightness(0.4 if dimmed else 1.0)
+
+func set_targetable(targetable: bool):
+	print("[Hero] set_targetable: ", hero_slug, " targetable=", targetable)
+	if _is_targetable == targetable:
+		return
+	_is_targetable = targetable
+	if _tween_selection and _tween_selection.is_valid():
+		_tween_selection.kill()
+	# Pulse effect for targeting - animate brightness
+	var target_brightness = 1.3 if targetable else 1.0
+	var tween = create_tween().set_parallel(true)
+	tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+	tween.tween_method(_apply_brightness, _current_brightness, target_brightness, 0.2)
+	tween.tween_callback(_on_targetable_pulse_complete if targetable else _on_targetable_end)
+	
+	# Also pulse the frame
+	if shadow_sprite.texture:
+		var frame_tween = create_tween().set_parallel(true)
+		var target_modulate = Color(1.2, 0.4, 0.4, 1.0) if targetable else _frame_base_modulate
+		frame_tween.tween_property(shadow_sprite, "modulate", target_modulate, 0.2)
+
+func _on_targetable_pulse_complete():
+	# After pulse up, settle back to slightly above normal
+	if _is_targetable:
+		var tween = create_tween()
+		tween.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+		tween.tween_method(_apply_brightness, 1.3, 1.15, 0.3)
+
+func _on_targetable_end():
+	_apply_brightness(1.0)
 
 func _apply_brightness(value: float):
 	_current_brightness = value
@@ -966,33 +767,8 @@ class FloatingText:
 		modulate = Color.GREEN
 		_animate()
 	
-	func show_dot_damage(dot_type: String, damage_per_tick: int, ticks: int):
-		# Show DoT application text - purple for poison
-		match dot_type:
-			"poison":
-				modulate = Color(0.6, 0.2, 0.8, 1.0)  # Purple
-				text = "☠️ POISON\n-%d/tick (%d)" % [damage_per_tick, ticks]
-			"burn":
-				modulate = Color(1.0, 0.4, 0.0, 1.0)  # Orange
-				text = "🔥 BURN\n-%d/tick (%d)" % [damage_per_tick, ticks]
-			"bleed":
-				modulate = Color(0.8, 0.0, 0.0, 1.0)  # Red
-				text = "🩸 BLEED\n-%d/tick (%d)" % [damage_per_tick, ticks]
-			_:
-				modulate = Color.PURPLE
-				text = "DoT\n-%d/tick (%d)" % [damage_per_tick, ticks]
-		
-		add_theme_font_size_override("font_size", 28)
-		_animate_dot()
-	
 	func _animate():
 		var tween = create_tween()
 		tween.parallel().tween_property(self, "position:y", position.y - 100, 1.0)
 		tween.parallel().tween_property(self, "modulate:a", 0.0, 1.0)
-		tween.tween_callback(queue_free)
-	
-	func _animate_dot():
-		var tween = create_tween()
-		tween.parallel().tween_property(self, "position:y", position.y - 80, 1.2)
-		tween.parallel().tween_property(self, "modulate:a", 0.0, 1.2)
 		tween.tween_callback(queue_free)

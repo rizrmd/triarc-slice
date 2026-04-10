@@ -4,7 +4,11 @@
   "height": 1920,
   "layers": [
     {
+<<<<<<< HEAD
+      "id": "layer-1775746882241",
+=======
       "id": "layer-1775554405279",
+>>>>>>> origin/main
       "name": "training",
       "type": "image",
       "file": "training.webp",
