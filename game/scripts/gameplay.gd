@@ -1618,7 +1618,7 @@ func _populate_action_dropdown():
 		return
 	_action_popup = PopupMenu.new()
 	_action_popup.hide_on_checkable_item_selection = false
-	_action_popup.id_pressed.connect(_on_action_popup_id_pressed)
+	_action_popup.index_pressed.connect(_on_action_popup_index_pressed)
 	action_dropdown.add_child(_action_popup)
 	var action_slugs = GameState.action_defs.keys()
 	action_slugs.sort()
@@ -1640,8 +1640,7 @@ func _toggle_action_popup():
 		_action_popup.size = Vector2i(int(btn_rect.size.x), 0)
 		_action_popup.popup()
 
-func _on_action_popup_id_pressed(id: int):
-	var idx = _action_popup.get_item_index(id)
+func _on_action_popup_index_pressed(idx: int):
 	_action_popup.toggle_item_checked(idx)
 	# Rebuild pool from checked items
 	_debug_action_pool.clear()
@@ -1684,7 +1683,7 @@ func _populate_enemy_dropdown():
 		return
 	_enemy_popup = PopupMenu.new()
 	_enemy_popup.hide_on_checkable_item_selection = false
-	_enemy_popup.id_pressed.connect(_on_enemy_popup_id_pressed)
+	_enemy_popup.index_pressed.connect(_on_enemy_popup_index_pressed)
 	enemy_dropdown.add_child(_enemy_popup)
 
 func _rebuild_enemy_popup():
@@ -1721,15 +1720,20 @@ func _toggle_enemy_popup():
 		_enemy_popup.size = Vector2i(int(btn_rect.size.x), 0)
 		_enemy_popup.popup()
 
-func _on_enemy_popup_id_pressed(id: int):
-	var idx = _enemy_popup.get_item_index(id)
+func _on_enemy_popup_index_pressed(idx: int):
 	var slug: String = _enemy_popup.get_item_metadata(idx)
 	if _enemy_popup.is_item_checked(idx):
 		_enemy_popup.set_item_checked(idx, false)
 		_debug_enemy_heroes.erase(slug)
 	else:
 		if _debug_enemy_heroes.size() >= 3:
-			return
+			# Replace oldest: uncheck it, remove from list
+			var oldest_slug = _debug_enemy_heroes[0]
+			for i in range(_enemy_popup.item_count):
+				if _enemy_popup.get_item_metadata(i) == oldest_slug:
+					_enemy_popup.set_item_checked(i, false)
+					break
+			_debug_enemy_heroes.remove_at(0)
 		_enemy_popup.set_item_checked(idx, true)
 		_debug_enemy_heroes.append(slug)
 	# Update button text
