@@ -25,6 +25,14 @@
     "scope": "single",
     "selection": "manual"
   },
+  "gameplay": {
+    "casting_time_ms": 1000,
+    "effect_kind": "damage",
+    "base_power": 45,
+    "status_kind": null,
+    "status_duration_ms": 0,
+    "status_value": 0
+  },
   "visible_layers": {
     "card": true,
     "char-bg": true,
