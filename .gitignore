@@ -2,8 +2,9 @@ bin/
 *.DS_Store
 
 # Build artifacts / compiled binaries
-*.exe
-*.macos
+# (game.exe and game.macos are tracked for releases)
+bin/
+*.DS_Store
 editor/frontend/dist/
 game/game_launcher/
 

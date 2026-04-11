@@ -317,6 +317,8 @@ export function AnimapPreview({
       opacity: layer.opacity ?? 1,
       filter: cssFilter,
       pointerEvents: 'none',
+      maxWidth: 'none',
+      maxHeight: 'none',
       ...maskStyle,
     };
 
@@ -346,6 +348,7 @@ export function AnimapPreview({
           playsInline
           preload="metadata"
           onLoadedMetadata={(event) => {
+            console.log("AnimapPreview video loaded metadata", layer.id, event.currentTarget.videoWidth, event.currentTarget.videoHeight);
             setLayerMediaSize(layer.id, event.currentTarget.videoWidth, event.currentTarget.videoHeight);
           }}
           style={{ ...baseStyle, display: 'block' }}

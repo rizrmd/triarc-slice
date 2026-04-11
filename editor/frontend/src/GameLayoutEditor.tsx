@@ -319,14 +319,21 @@ function migrateLayout(data: any): GameLayout {
   const backgrounds = data.backgrounds || {};
   const sourceBoxes = getSourceBoxes(data);
   const boxes: Record<string, Record<string, Box>> = {};
-  Object.entries(sourceBoxes).forEach(([aspectKey, value]) => {
+  
+  ASPECT_PRESETS.forEach(preset => {
+    const aspectKey = preset.slug;
     const aspectViewport = getViewportForAspect(aspectKey) || DEFAULT_VIEWPORT;
     const aspectBoxes: Record<string, Box> = {};
-    Object.entries(value as Record<string, Box>).forEach(([id, boxValue]) => {
+    
+    // Fallback to DEFAULT_ASPECT if this aspect is missing in source data
+    const sourceForAspect = sourceBoxes[aspectKey] || sourceBoxes[DEFAULT_ASPECT] || {};
+    
+    Object.entries(sourceForAspect).forEach(([id, boxValue]) => {
       aspectBoxes[id] = migrateBox(boxValue as Box, aspectViewport);
     });
     boxes[aspectKey] = aspectBoxes;
   });
+
   const migratedBackgrounds = migrateBackgrounds(backgrounds);
   return {
     background: normalizeBgName(data.background || migratedBackgrounds[DEFAULT_ASPECT] || migratedBackgrounds[Object.keys(migratedBackgrounds)[0]] || ''),
@@ -972,15 +979,20 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(data => {
         const migrated = migrateLayout(data);
-        const currentBoxes = migrated.boxes?.[aspectSlug] || {};
-        const merged = mergeWithDefaults(
-          Object.keys(currentBoxes).length > 0 ? currentBoxes : makeDefaultBoxes(sceneSlug),
-          sceneSlug,
-        );
-        Object.keys(merged).forEach((key) => {
-          merged[key] = { ...merged[key], ...resolveBoxFrame(merged[key]) };
+        
+        ASPECT_PRESETS.forEach(preset => {
+          const pSlug = preset.slug;
+          const pViewport = getViewportForAspect(pSlug) || DEFAULT_VIEWPORT;
+          const currentBoxes = migrated.boxes?.[pSlug] || {};
+          const merged = mergeWithDefaults(
+            Object.keys(currentBoxes).length > 0 ? currentBoxes : makeDefaultBoxes(sceneSlug),
+            sceneSlug,
+          );
+          Object.keys(merged).forEach((key) => {
+            merged[key] = { ...merged[key], ...resolveBoxFrame(merged[key], pViewport) };
+          });
+          migrated.boxes[pSlug] = merged;
         });
-        migrated.boxes = { ...migrated.boxes, [aspectSlug]: merged };
 
         layoutRef.current = migrated;
         skipAutoSaveRef.current = true;
@@ -1588,46 +1600,85 @@ export default function GameLayoutEditor() {
                       )}
 
                       {box.asset && (
-                        <div className="absolute inset-0 pointer-events-none select-none">
-                          <img
-                            src={box.asset}
-                            className={`w-full h-full ${box.fill === 'cover' ? 'object-cover' : box.fill === 'stretch' ? 'object-fill' : box.fill === 'none' ? 'object-none' : 'object-contain'}`}
-                            alt=""
-                            onLoad={(e) => {
-                              if (!box.locked) {
-                                const img = e.currentTarget;
-                                const ratio = img.naturalHeight / img.naturalWidth;
-                                const currentRatio = box.height / box.width;
-                                if (Math.abs(currentRatio - ratio) > 0.01) {
-                                  setTimeout(() => {
-                                    updateLayout(prev => {
-                                      const boxes = getBoxes(prev);
-                                      const currentBox = boxes[box.id];
-                                      if (!currentBox) return prev;
+                          <div className="absolute inset-0 pointer-events-none select-none">
+                            {box.asset.match(/\.(ogv|mp4|webm)$/i) ? (
+                              <video
+                                src={box.asset}
+                                className={`w-full h-full ${box.fill === 'cover' ? 'object-cover' : box.fill === 'stretch' ? 'object-fill' : box.fill === 'none' ? 'object-none' : 'object-contain'}`}
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                onLoadedMetadata={(e) => {
+                                  if (!box.locked) {
+                                    const video = e.currentTarget;
+                                    const ratio = video.videoHeight / video.videoWidth;
+                                    const currentRatio = box.height / box.width;
+                                    if (Math.abs(currentRatio - ratio) > 0.01) {
+                                      setTimeout(() => {
+                                        updateLayout(prev => {
+                                          const boxes = getBoxes(prev);
+                                          const currentBox = boxes[box.id];
+                                          if (!currentBox) return prev;
+                                          const targetHeight = Math.round(currentBox.width * ratio);
+                                          if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
+                                          const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
+                                          return setBoxes(prev, {
+                                            ...boxes,
+                                            [box.id]: updateBoxGeometry(currentBox, {
+                                              x: currentBox.x,
+                                              y: adjustedY,
+                                              width: currentBox.width,
+                                              height: targetHeight,
+                                            })
+                                          });
+                                        }, { recordHistory: false });
+                                      }, 0);
+                                    }
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <img
+                                src={box.asset}
+                                className={`w-full h-full ${box.fill === 'cover' ? 'object-cover' : box.fill === 'stretch' ? 'object-fill' : box.fill === 'none' ? 'object-none' : 'object-contain'}`}
+                                alt=""
+                                onLoad={(e) => {
+                                  if (!box.locked) {
+                                    const img = e.currentTarget;
+                                    const ratio = img.naturalHeight / img.naturalWidth;
+                                    const currentRatio = box.height / box.width;
+                                    if (Math.abs(currentRatio - ratio) > 0.01) {
+                                      setTimeout(() => {
+                                        updateLayout(prev => {
+                                          const boxes = getBoxes(prev);
+                                          const currentBox = boxes[box.id];
+                                          if (!currentBox) return prev;
 
-                                      const targetHeight = Math.round(currentBox.width * ratio);
-                                      if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
+                                          const targetHeight = Math.round(currentBox.width * ratio);
+                                          if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
 
-                                      const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
-                                      console.log(`[aspectRatio:asset] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}`);
+                                          const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
+                                          console.log(layout); console.log(`[aspectRatio:asset] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}`);
 
-                                      return setBoxes(prev, {
-                                        ...boxes,
-                                        [box.id]: updateBoxGeometry(currentBox, {
-                                          x: currentBox.x,
-                                          y: adjustedY,
-                                          width: currentBox.width,
-                                          height: targetHeight,
-                                        })
-                                      });
-                                    }, { recordHistory: false });
-                                  }, 0);
-                                }
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
+                                          return setBoxes(prev, {
+                                            ...boxes,
+                                            [box.id]: updateBoxGeometry(currentBox, {
+                                              x: currentBox.x,
+                                              y: adjustedY,
+                                              width: currentBox.width,
+                                              height: targetHeight,
+                                            })
+                                          });
+                                        }, { recordHistory: false });
+                                      }, 0);
+                                    }
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
+                        )}
                     </Rnd>
                   );
                 })()

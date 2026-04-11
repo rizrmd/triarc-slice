@@ -12,7 +12,9 @@
       "opacity": 1,
       "x": 6,
       "y": -1,
-      "scale": 1
+      "scale": 1,
+      "width": 320,
+      "height": 517
     },
     {
       "id": "char-fg",
@@ -23,7 +25,9 @@
       "opacity": 1,
       "x": 0,
       "y": 0,
-      "scale": 1
+      "scale": 1,
+      "width": 320,
+      "height": 517
     }
   ],
   "states": [

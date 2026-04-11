@@ -193,8 +193,12 @@ func _create_image_layer(layer: Dictionary) -> Control:
 	if ResourceLoader.exists(texture_path):
 		node.texture = load(texture_path)
 		if node.texture != null:
-			var tex_size := node.texture.get_size()
-			node.size = tex_size
+			var lw := float(layer.get("width", 0))
+			var lh := float(layer.get("height", 0))
+			if lw > 0.0 and lh > 0.0:
+				node.size = Vector2(lw, lh)
+			else:
+				node.size = node.texture.get_size()
 
 	return node
 
@@ -297,7 +301,12 @@ func _apply_layer_static(node: Control, layer: Dictionary) -> void:
 	if node is TextureRect:
 		var texture_node := node as TextureRect
 		if texture_node.texture != null:
-			texture_node.size = texture_node.texture.get_size()
+			var lw := float(layer.get("width", 0))
+			var lh := float(layer.get("height", 0))
+			if lw > 0.0 and lh > 0.0:
+				texture_node.size = Vector2(lw, lh)
+			else:
+				texture_node.size = texture_node.texture.get_size()
 	elif node is Label:
 		var label_node := node as Label
 		label_node.size = Vector2(float(layer.get("width", 480.0)), float(layer.get("height", 160.0)))

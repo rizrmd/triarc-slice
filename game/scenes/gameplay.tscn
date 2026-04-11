@@ -92,11 +92,15 @@ stretch_mode = 5
 material = SubResource("mat_energy_fill")
 
 [node name="CurrentLabel" type="Label" parent="UIOverlay/EnergyBar"]
-offset_left = 278.0
-offset_top = 113.0
-offset_right = 398.0
-offset_bottom = 173.0
-theme_override_font_sizes/font_size = 46
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.571
+anchor_right = 0.76
+anchor_top = 0.269
+anchor_bottom = 0.451
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 72
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 4
 text = "10"
@@ -104,28 +108,36 @@ horizontal_alignment = 1
 vertical_alignment = 2
 
 [node name="SlashLabel" type="Label" parent="UIOverlay/EnergyBar"]
-offset_left = 357.0
-offset_top = 143.0
-offset_right = 377.0
-offset_bottom = 171.0
-theme_override_font_sizes/font_size = 28
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.75
+anchor_right = 0.758
+anchor_top = 0.269
+anchor_bottom = 0.451
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 36
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 3
 text = "/"
 horizontal_alignment = 1
-vertical_alignment = 0
+vertical_alignment = 2
 
 [node name="MaxLabel" type="Label" parent="UIOverlay/EnergyBar"]
-offset_left = 377.0
-offset_top = 143.0
-offset_right = 457.0
-offset_bottom = 171.0
-theme_override_font_sizes/font_size = 28
+layout_mode = 1
+anchors_preset = 10
+anchor_left = 0.80
+anchor_right = 0.82
+anchor_top = 0.35
+anchor_bottom = 0.48
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 36
 theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
 theme_override_constants/outline_size = 3
 text = "10"
 horizontal_alignment = 0
-vertical_alignment = 0
+vertical_alignment = 2
 
 [node name="RerollButton" type="TextureButton" parent="UIOverlay"]
 offset_left = 960.0
