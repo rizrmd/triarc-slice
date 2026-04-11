@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 )
 
@@ -44,6 +46,9 @@ func main() {
 
 	// Clean stale Android build artifacts that cause UID duplicate warnings
 	cleanAndroidBuildArtifacts(gameDir)
+
+	// Invalidate Godot import cache for changed assets only
+	invalidateChangedAssets(gameDir)
 
 	// Always ensure assets are up to date
 	fmt.Println("Verifying project assets...")
@@ -235,6 +240,133 @@ func cleanAndroidBuildArtifacts(gameDir string) {
 		if _, err := os.Stat(dir); err == nil {
 			fmt.Println("Cleaning stale Android build artifacts:", dir)
 			os.RemoveAll(dir)
+		}
+	}
+}
+
+// assetManifest maps relative file paths to their last-seen mod time (UnixNano).
+type assetManifest map[string]int64
+
+func manifestPath(gameDir string) string {
+	return filepath.Join(gameDir, ".godot", "asset_manifest.json")
+}
+
+func loadManifest(gameDir string) assetManifest {
+	data, err := os.ReadFile(manifestPath(gameDir))
+	if err != nil {
+		return nil
+	}
+	var m assetManifest
+	if json.Unmarshal(data, &m) != nil {
+		return nil
+	}
+	return m
+}
+
+func saveManifest(gameDir string, m assetManifest) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	os.MkdirAll(filepath.Dir(manifestPath(gameDir)), 0755)
+	os.WriteFile(manifestPath(gameDir), data, 0644)
+}
+
+// invalidateChangedAssets compares current asset mod times against a stored
+// manifest and removes the Godot .import sidecar + cached .ctex/.sample files
+// only for assets that changed, were added, or were deleted.
+func invalidateChangedAssets(gameDir string) {
+	old := loadManifest(gameDir)
+	current := make(assetManifest)
+	importedDir := filepath.Join(gameDir, ".godot", "imported")
+
+	// Asset directories to track (resolved through symlinks via gameDir)
+	assetRoots := []string{
+		filepath.Join(gameDir, "data"),
+		filepath.Join(gameDir, "assets"),
+	}
+
+	// Build current manifest
+	for _, root := range assetRoots {
+		filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info.IsDir() {
+				return nil
+			}
+			ext := strings.ToLower(filepath.Ext(path))
+			// Skip Godot-generated sidecar files
+			if ext == ".import" || ext == ".uid" {
+				return nil
+			}
+			rel, _ := filepath.Rel(gameDir, path)
+			current[rel] = info.ModTime().UnixNano()
+			return nil
+		})
+	}
+
+	// First launch — no manifest yet, let Godot handle everything normally
+	if old == nil {
+		saveManifest(gameDir, current)
+		return
+	}
+
+	var changed []string
+
+	// Detect changed or new files
+	for path, modTime := range current {
+		if oldTime, exists := old[path]; !exists || oldTime != modTime {
+			changed = append(changed, path)
+		}
+	}
+	// Detect deleted files
+	for path := range old {
+		if _, exists := current[path]; !exists {
+			changed = append(changed, path)
+		}
+	}
+
+	if len(changed) == 0 {
+		return
+	}
+
+	fmt.Printf("Invalidating %d changed asset(s)...\n", len(changed))
+	for _, rel := range changed {
+		abs := filepath.Join(gameDir, rel)
+		importFile := abs + ".import"
+
+		// Parse the .import file to find the cached imported file path
+		removeImportedFiles(importFile, importedDir)
+
+		// Remove the .import sidecar so Godot reimports this asset
+		os.Remove(importFile)
+	}
+
+	saveManifest(gameDir, current)
+}
+
+// removeImportedFiles reads a .import sidecar and deletes the corresponding
+// files from .godot/imported/ (the .ctex/.sample and its .md5 companion).
+func removeImportedFiles(importFile string, importedDir string) {
+	data, err := os.ReadFile(importFile)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "path=") && !strings.HasPrefix(line, "dest_files=") {
+			continue
+		}
+		// Extract filenames like "res://.godot/imported/foo.webp-abc123.ctex"
+		for _, part := range strings.Split(line, "\"") {
+			if !strings.Contains(part, ".godot/imported/") {
+				continue
+			}
+			// Get just the filename after the last /
+			base := filepath.Base(part)
+			cached := filepath.Join(importedDir, base)
+			os.Remove(cached)
+			// Also remove the companion .md5 file
+			md5File := filepath.Join(importedDir, strings.TrimSuffix(base, filepath.Ext(base))+".md5")
+			os.Remove(md5File)
 		}
 	}
 }

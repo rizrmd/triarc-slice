@@ -160,6 +160,9 @@ export function AnimapPreview({
       if (layer.type === 'text') {
         baseWidth = layer.width ?? 480;
         baseHeight = layer.height ?? 160;
+      } else if (layer.width && layer.height) {
+        baseWidth = layer.width;
+        baseHeight = layer.height;
       } else {
         const mediaSize = mediaSizes[layer.id];
         if (!mediaSize || mediaSize.width <= 0 || mediaSize.height <= 0) {
@@ -323,6 +326,9 @@ export function AnimapPreview({
     };
 
     if (layer.type === 'image' && layer.file) {
+      const imgStyle: CSSProperties = { ...baseStyle, display: 'block' };
+      if (layer.width) imgStyle.width = layer.width;
+      if (layer.height) imgStyle.height = layer.height;
       return (
         <img
           key={layer.id}
@@ -332,7 +338,7 @@ export function AnimapPreview({
           onLoad={(event) => {
             setLayerMediaSize(layer.id, event.currentTarget.naturalWidth, event.currentTarget.naturalHeight);
           }}
-          style={{ ...baseStyle, display: 'block' }}
+          style={imgStyle}
         />
       );
     }

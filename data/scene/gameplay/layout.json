@@ -18,7 +18,7 @@
         "width": 246,
         "width_percent": 16,
         "x": 78,
-        "y": 1414
+        "y": 1415
       },
       "action2": {
         "actionSlug": "blizzard",
@@ -36,7 +36,7 @@
         "width": 246,
         "width_percent": 16,
         "x": 361,
-        "y": 1474
+        "y": 1475
       },
       "action3": {
         "actionSlug": "shadowstep",
@@ -54,7 +54,7 @@
         "width": 246,
         "width_percent": 16,
         "x": 645,
-        "y": 1414
+        "y": 1415
       },
       "action4": {
         "actionSlug": "smoke-bomb",
@@ -72,7 +72,7 @@
         "width": 246,
         "width_percent": 16,
         "x": 928,
-        "y": 1474
+        "y": 1475
       },
       "action5": {
         "actionSlug": "ice-nova",
@@ -90,7 +90,7 @@
         "width": 246,
         "width_percent": 16,
         "x": 1211,
-        "y": 1414
+        "y": 1415
       },
       "battery": {
         "anchor_offset_x": -164,
@@ -121,12 +121,13 @@
         "screen_relative": true,
         "width": 399,
         "width_percent": 26,
-        "x": 1015,
+        "x": 1016,
         "y": 228
       },
       "enemy2": {
         "anchor_offset_x": -19,
         "anchor_offset_y": -141,
+        "fill": "cover",
         "height": 655,
         "height_percent": 32,
         "id": "enemy2",
@@ -137,7 +138,7 @@
         "screen_relative": true,
         "width": 399,
         "width_percent": 26,
-        "x": 549,
+        "x": 550,
         "y": 228
       },
       "enemy3": {
@@ -154,15 +155,15 @@
         "screen_relative": true,
         "width": 399,
         "width_percent": 26,
-        "x": 82,
+        "x": 83,
         "y": 228
       },
       "energy": {
         "anchor_offset_x": -1,
-        "anchor_offset_y": 133,
+        "anchor_offset_y": 96,
         "asset": "/assets/ui/bar/energy-full.webp",
-        "height": 451,
-        "height_percent": 22,
+        "height": 377,
+        "height_percent": 18.4,
         "id": "energy",
         "label": "Energy Bar",
         "pivot": "bottom-left",
@@ -171,7 +172,7 @@
         "width": 562,
         "width_percent": 36.6,
         "x": -1,
-        "y": 1730
+        "y": 1767
       },
       "hero1": {
         "anchor_offset_x": -438,
@@ -238,15 +239,15 @@
         "screen_relative": true,
         "width": 233,
         "width_percent": 15.2,
-        "x": 762,
+        "x": 763,
         "y": 1833
       },
       "reroll": {
-        "anchor_offset_x": -42,
-        "anchor_offset_y": -11,
+        "anchor_offset_x": -5,
+        "anchor_offset_y": 3,
         "asset": "/assets/ui/btns/re-roll.webp",
-        "height": 227,
-        "height_percent": 11.1,
+        "height": 244,
+        "height_percent": 11.9,
         "id": "reroll",
         "label": "RE-ROLL",
         "pivot": "bottom-right",
@@ -254,8 +255,8 @@
         "screen_relative": true,
         "width": 272,
         "width_percent": 17.7,
-        "x": 1222,
-        "y": 1810
+        "x": 1259,
+        "y": 1807
       },
       "settings": {
         "anchor_offset_x": 14,
@@ -286,7 +287,7 @@
         "screen_relative": true,
         "width": 389,
         "width_percent": 25.3,
-        "x": 574,
+        "x": 575,
         "y": 63
       }
     },
@@ -687,7 +688,7 @@
       },
       "enemy1": {
         "anchor_offset_x": 362,
-        "anchor_offset_y": -193,
+        "anchor_offset_y": -189,
         "fill": "cover",
         "height": 475,
         "height_percent": 19.8,
@@ -700,11 +701,12 @@
         "width": 334,
         "width_percent": 30.9,
         "x": 735,
-        "y": 532
+        "y": 536
       },
       "enemy2": {
-        "anchor_offset_x": -2,
+        "anchor_offset_x": 0,
         "anchor_offset_y": -193,
+        "fill": "cover",
         "height": 475,
         "height_percent": 19.8,
         "id": "enemy2",
@@ -715,7 +717,7 @@
         "screen_relative": true,
         "width": 334,
         "width_percent": 30.9,
-        "x": 371,
+        "x": 373,
         "y": 532
       },
       "enemy3": {
@@ -737,10 +739,10 @@
       },
       "energy": {
         "anchor_offset_x": -33,
-        "anchor_offset_y": -10,
+        "anchor_offset_y": -17,
         "asset": "/assets/ui/bar/energy-full.webp",
-        "height": 389,
-        "height_percent": 16.2,
+        "height": 374,
+        "height_percent": 15.6,
         "id": "energy",
         "label": "Energy Bar",
         "pivot": "bottom-left",
@@ -749,7 +751,7 @@
         "width": 558,
         "width_percent": 51.7,
         "x": -33,
-        "y": 2001
+        "y": 2009
       },
       "hero1": {
         "anchor_offset_x": -354,
