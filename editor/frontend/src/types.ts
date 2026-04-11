@@ -130,12 +130,12 @@ export interface PoseConfig {
 
 export type CharLayer = 'char-bg' | 'char-fg';
 export type PoseLayer = 'pose-char-fg' | 'pose-shadow';
-export type MaskLayer = 'mask-bg' | 'mask-fg' | 'pose-mask-fg';
+export type MaskLayer = 'mask-bg' | 'mask-fg';
 export type TextLayer = 'name';
 export type BarLayer = 'hp-bar';
 export type CharProperty = 'x' | 'y' | 'scale';
-export type LayerId = 'char-bg' | 'mask-bg' | 'card' | 'mask-fg' | 'char-fg' | 'name' | 'hp-bar' | 'canvas' | 'pose-frame' | 'pose-char-fg' | 'pose-shadow' | 'pose-mask-fg';
-export type AssetPickerTarget = CharLayer | 'card' | PoseLayer | null;
+export type LayerId = 'char-bg' | 'mask-bg' | 'card' | 'mask-fg' | 'char-fg' | 'name' | 'hp-bar' | 'canvas';
+export type AssetPickerTarget = CharLayer | 'card' | null;
 export type AssetItem = { name: string; url: string };
 
 export type VisibleLayers = {
@@ -146,17 +146,6 @@ export type VisibleLayers = {
   'char-fg': boolean;
   name: boolean;
   'hp-bar': boolean;
-  'pose-char-fg': boolean;
-  'pose-frame': boolean;
-  'pose-mask-fg': boolean;
-  'pose-shadow': boolean;
-};
-
-export type PoseVisibleLayers = {
-  'pose-frame': boolean;
-  'pose-char-fg': boolean;
-  'pose-mask-fg': boolean;
-  'pose-shadow': boolean;
 };
 
 export interface Box {

@@ -138,10 +138,6 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
             'char-fg': !isAction,
             name: !isAction,
             'hp-bar': !isAction,
-            'pose-char-fg': !isAction,
-            'pose-frame': !isAction,
-            'pose-mask-fg': !isAction,
-            'pose-shadow': !isAction,
           };
           const normalized = {
             ...data,

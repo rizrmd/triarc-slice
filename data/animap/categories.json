@@ -16,5 +16,24 @@
   "Login": [
     "google-sign-in",
     "vg-logo"
+  ],
+  "Pose": [
+    "pose-arc-strider",
+    "pose-arcane-paladin",
+    "pose-blood-alchemist",
+    "pose-dawn-priest",
+    "pose-demon-empress",
+    "pose-earth-warden",
+    "pose-flame-warlock",
+    "pose-frost-queen",
+    "pose-gunslinger",
+    "pose-iron-knight",
+    "pose-necromancer",
+    "pose-night-venom",
+    "pose-princess-emberheart",
+    "pose-spellblade-empress",
+    "pose-storm-ranger",
+    "pose-tyrant-overlord",
+    "pose-wind-monk"
   ]
 }

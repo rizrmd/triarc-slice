@@ -1,0 +1,35 @@
+{
+  "name": "Pose: Gunslinger",
+  "width": 320,
+  "height": 517,
+  "layers": [
+    {
+      "id": "shadow",
+      "name": "Shadow",
+      "type": "image",
+      "file": "shadow.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    },
+    {
+      "id": "char-fg",
+      "name": "Character",
+      "type": "image",
+      "file": "char-fg.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 0,
+      "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    }
+  ]
+}

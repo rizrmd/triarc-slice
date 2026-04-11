@@ -1022,10 +1022,8 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type CardMaskPayload struct {
-	MaskBg     string `json:"mask_bg"`
-	MaskFg     string `json:"mask_fg"`
-	PoseMaskBg string `json:"pose_mask_bg"`
-	PoseMaskFg string `json:"pose_mask_fg"`
+	MaskBg string `json:"mask_bg"`
+	MaskFg string `json:"mask_fg"`
 }
 
 func decodeMaskDataURL(value string) ([]byte, error) {
@@ -1106,14 +1104,6 @@ func cardMaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "FG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := saveMask(payload.PoseMaskBg, "pose-mask-bg.webp"); err != nil {
-		http.Error(w, "Pose BG: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := saveMask(payload.PoseMaskFg, "pose-mask-fg.webp"); err != nil {
-		http.Error(w, "Pose FG: "+err.Error(), http.StatusBadRequest)
-		return
-	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
@@ -1179,14 +1169,6 @@ func actionMaskHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "FG: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := saveMask(payload.PoseMaskBg, "pose-mask-bg.webp"); err != nil {
-		http.Error(w, "Pose BG: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := saveMask(payload.PoseMaskFg, "pose-mask-fg.webp"); err != nil {
-		http.Error(w, "Pose FG: "+err.Error(), http.StatusBadRequest)
-		return
-	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
@@ -1203,7 +1185,7 @@ func parseCharRequestPath(path string) (string, string, bool) {
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
 		return "", "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" && layer != "card" && layer != "pose-char-fg" && layer != "pose-shadow" {
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
 		return "", "", false
 	}
 	return slug, layer, true
@@ -1228,7 +1210,7 @@ func parseCardCharSelectPath(path string) (string, string, bool) {
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
 		return "", "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" && layer != "card" && layer != "pose-char-fg" && layer != "pose-shadow" {
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
 		return "", "", false
 	}
 	return slug, layer, true

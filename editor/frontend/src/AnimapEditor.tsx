@@ -1,345 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { AnimapConfig } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Loader2, Redo2, Save, Undo2 } from 'lucide-react';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
 import { AnimapCanvas } from '@/components/animap-editor/AnimapCanvas';
 import { AnimapPropertyPanel } from '@/components/animap-editor/AnimapPropertyPanel';
-import {
-  DEFAULT_STATE_ID,
-  getAnimapState,
-  getEffectiveLayer,
-  normalizeAnimapConfig,
-} from '@/lib/animap-state';
-
-function cloneConfig(c: AnimapConfig): AnimapConfig {
-  return JSON.parse(JSON.stringify(c));
-}
+import { useAnimapEditor } from '@/lib/useAnimapEditor';
 
 export default function AnimapEditor() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const editor = useAnimapEditor(slug);
 
-  const [config, setConfig] = useState<AnimapConfig | null>(null);
-  const [initialConfig, setInitialConfig] = useState<AnimapConfig | null>(null);
-  const [undoStack, setUndoStack] = useState<AnimapConfig[]>([]);
-  const [redoStack, setRedoStack] = useState<AnimapConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
-  const [selectedStateId, setSelectedStateId] = useState(DEFAULT_STATE_ID);
-  const [fileVersion, setFileVersion] = useState(0);
-  const [convertProgress, setConvertProgress] = useState<number | null>(null);
-
-  const zoomStorageKey = 'animap-editor-zoom';
-  const [canvasZoom, setCanvasZoom] = useState(() => {
-    const saved = localStorage.getItem(zoomStorageKey);
-    return saved ? parseInt(saved, 10) : 100;
-  });
-  const panStorageKey = 'animap-editor-pan';
-  const [canvasPan, setCanvasPan] = useState(() => {
-    const saved = localStorage.getItem(panStorageKey);
-    if (saved) {
-      try { return JSON.parse(saved); } catch { /* ignore */ }
-    }
-    return { x: 0, y: 0 };
-  });
-
-  // Mask drawing state
-  const [brushSize, setBrushSize] = useState(40);
-  const [brushOpacity, setBrushOpacity] = useState(1.0);
-  const [brushHardness, setBrushHardness] = useState(0.8);
-  const [brushMode, setBrushMode] = useState<'paint' | 'erase'>('paint');
-  const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [maskDirty, setMaskDirty] = useState(false);
-  const activeVideoRef = useRef<HTMLVideoElement | null>(null);
-  const [showSizeEdit, setShowSizeEdit] = useState(false);
-  const [editWidth, setEditWidth] = useState('');
-  const [editHeight, setEditHeight] = useState('');
-
-  const hasUnsavedChanges = config && initialConfig
-    ? JSON.stringify(config) !== JSON.stringify(initialConfig) || maskDirty
-    : false;
-
-  const pushUndo = (snapshot: AnimapConfig) => {
-    setUndoStack((prev) => [...prev.slice(-49), cloneConfig(snapshot)]);
-    setRedoStack([]);
-  };
-
-  const commitConfig = useCallback((updater: (prev: AnimapConfig) => AnimapConfig) => {
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const next = updater(prev);
-      if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
-      pushUndo(prev);
-      return next;
-    });
-  }, []);
-
-  const handleUndo = useCallback(() => {
-    if (undoStack.length === 0) return;
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const previous = undoStack[undoStack.length - 1];
-      setUndoStack((s) => s.slice(0, -1));
-      setRedoStack((s) => [...s.slice(-49), cloneConfig(prev)]);
-      return cloneConfig(previous);
-    });
-  }, [undoStack]);
-
-  const handleRedo = useCallback(() => {
-    if (redoStack.length === 0) return;
-    setConfig((prev) => {
-      if (!prev) return prev;
-      const next = redoStack[redoStack.length - 1];
-      setRedoStack((s) => s.slice(0, -1));
-      setUndoStack((s) => [...s.slice(-49), cloneConfig(prev)]);
-      return cloneConfig(next);
-    });
-  }, [redoStack]);
-
-  // Load config
-  useEffect(() => {
-    if (!slug) return;
-    fetch(`/api/animap/${slug}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Not found');
-        return res.json();
-      })
-      .then((data: AnimapConfig) => {
-        const normalized = normalizeAnimapConfig(data);
-        setConfig(normalized);
-        setInitialConfig(cloneConfig(normalized));
-        if (normalized.layers.length > 0) {
-          setSelectedLayerId(normalized.layers[0].id);
-        }
-        setSelectedStateId(DEFAULT_STATE_ID);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-        setSaveError('Failed to load animap');
-      });
-  }, [slug]);
-
-  // Upload mask canvas to server. Returns new filename on success, null on failure.
-  // Saves raw strokes: white where painted, transparent elsewhere.
-  // Video layers use canvas destination-out to hide painted areas.
-  const saveMaskCanvas = useCallback(async (layerId: string): Promise<string | null> => {
-    if (!slug || !maskCanvasRef.current || !config) return null;
-    const blob = await new Promise<Blob | null>((resolve) =>
-      maskCanvasRef.current!.toBlob(resolve, 'image/webp', 0.9)
-    );
-    if (!blob) return null;
-    const layer = config.layers.find((l) => l.id === layerId);
-    const fd = new FormData();
-    fd.append('file', blob, `${layerId}.webp`);
-    if (layer?.name) fd.append('name', layer.name);
-    if (layer?.file) fd.append('old_file', layer.file);
-    const res = await fetch(`/api/animap-layer/${slug}/${layerId}`, {
-      method: 'POST',
-      body: fd,
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    setFileVersion((v) => v + 1);
-    return data.file as string;
-  }, [slug, config]);
-
-  // Save
-  const handleSave = useCallback(async () => {
-    if (!config || !slug) return;
-    setSaving(true);
-    setSaveError(null);
-
-    try {
-      let configToSave = config;
-
-      // Save mask if dirty
-      if (maskDirty && selectedLayerId) {
-        const selectedLayer = config.layers.find((l) => l.id === selectedLayerId);
-        if (selectedLayer?.type === 'mask') {
-          const newFile = await saveMaskCanvas(selectedLayerId);
-          if (newFile) {
-            configToSave = {
-              ...configToSave,
-              layers: configToSave.layers.map((l) =>
-                l.id === selectedLayerId ? { ...l, file: newFile } : l
-              ),
-            };
-          }
-        }
-      }
-
-      // Save config
-      configToSave = normalizeAnimapConfig(configToSave);
-      const res = await fetch(`/api/animap/${slug}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configToSave),
-      });
-      if (!res.ok) throw new Error('Save failed');
-      setConfig(configToSave);
-      setInitialConfig(cloneConfig(configToSave));
-      setMaskDirty(false);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }, [config, slug, maskDirty, selectedLayerId, saveMaskCanvas]);
-
-  // Auto-save mask when switching away from a mask layer
-  const handleSelectLayer = useCallback(async (id: string | null) => {
-    if (maskDirty && selectedLayerId && selectedLayerId !== id && maskCanvasRef.current && config) {
-      const currentLayer = config.layers.find((l) => l.id === selectedLayerId);
-      if (currentLayer?.type === 'mask') {
-        const newFile = await saveMaskCanvas(selectedLayerId);
-        if (newFile) {
-          setConfig((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              layers: prev.layers.map((l) =>
-                l.id === selectedLayerId ? { ...l, file: newFile } : l
-              ),
-            };
-          });
-        }
-        setMaskDirty(false);
-      }
-    }
-    setSelectedLayerId(id);
-  }, [maskDirty, selectedLayerId, config, saveMaskCanvas]);
-
-  // Auto-save: debounce 1s after config or mask changes
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!config || !slug || loading) return;
-    const configChanged = initialConfig && JSON.stringify(config) !== JSON.stringify(initialConfig);
-    if (!configChanged && !maskDirty) return;
-
-    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      handleSave();
-    }, 1000);
-
-    return () => {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    };
-  }, [config, slug, loading, maskDirty]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleRedo();
-        } else {
-          handleUndo();
-        }
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (
-          document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.tagName === 'TEXTAREA'
-        )
-          return;
-        if (selectedLayerId && config) {
-          commitConfig((prev) => ({
-            ...prev,
-            layers: prev.layers.filter((l) => l.id !== selectedLayerId),
-          }));
-          handleSelectLayer(null);
-        }
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, handleUndo, handleRedo, selectedLayerId, config, commitConfig, handleSelectLayer]);
-
-  // Persist zoom & pan
-  useEffect(() => {
-    localStorage.setItem(zoomStorageKey, String(canvasZoom));
-  }, [canvasZoom]);
-
-  useEffect(() => {
-    localStorage.setItem(panStorageKey, JSON.stringify(canvasPan));
-  }, [canvasPan]);
-
-  const handleLayerUpload = async (layerId: string, file: File) => {
-    if (!slug || !config) return;
-    const layer = config.layers.find((l) => l.id === layerId);
-    const fd = new FormData();
-    fd.append('file', file);
-    if (layer?.name) fd.append('name', layer.name);
-    if (layer?.file) fd.append('old_file', layer.file);
-    console.log('[upload] starting', { layerId, fileName: file.name, size: file.size, type: file.type, layerName: layer?.name, oldFile: layer?.file });
-    try {
-      setConvertProgress(-1);
-      const res = await fetch(`/api/animap-layer/${slug}/${layerId}`, {
-        method: 'POST',
-        body: fd,
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      const data = await res.json();
-      console.log('[upload] response', data);
-
-      if (data.status === 'converting' && data.task) {
-        // Poll for conversion progress
-        setConvertProgress(0);
-        const pollProgress = async (): Promise<string> => {
-          while (true) {
-            await new Promise((r) => setTimeout(r, 500));
-            const statusRes = await fetch(`/api/animap-convert-status/${data.task}`);
-            if (!statusRes.ok) throw new Error('Conversion status check failed');
-            const status = await statusRes.json();
-            console.log('[upload] poll', status);
-            setConvertProgress(status.progress);
-            if (status.done) {
-              if (status.error) throw new Error(status.error);
-              console.log('[upload] conversion done, file:', status.file);
-              return status.file;
-            }
-          }
-        };
-        const fileName = await pollProgress();
-        setConvertProgress(null);
-        console.log('[upload] setting layer file to:', fileName);
-        commitConfig((prev) => ({
-          ...prev,
-          layers: prev.layers.map((l) =>
-            l.id === layerId ? { ...l, file: fileName } : l
-          ),
-        }));
-      } else {
-        setConvertProgress(null);
-        console.log('[upload] saved directly, file:', data.file);
-        commitConfig((prev) => ({
-          ...prev,
-          layers: prev.layers.map((l) =>
-            l.id === layerId ? { ...l, file: data.file } : l
-          ),
-        }));
-      }
-      setFileVersion((v) => v + 1);
-      console.log('[upload] fileVersion bumped');
-    } catch (err) {
-      console.error('[upload] failed', err);
-      setConvertProgress(null);
-      alert('Upload failed: ' + (err instanceof Error ? err.message : String(err)));
-    }
-  };
-
-  if (loading) {
+  if (editor.loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
@@ -350,11 +23,11 @@ export default function AnimapEditor() {
     );
   }
 
-  if (!config) {
+  if (!editor.config) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-muted-foreground">
-          {saveError || 'Animap not found'}
+          {editor.saveError || 'Animap not found'}
           <Button variant="link" onClick={() => navigate('/animaps')} className="ml-2">
             Back
           </Button>
@@ -363,9 +36,7 @@ export default function AnimapEditor() {
     );
   }
 
-  const selectedLayerBase = config.layers.find((l) => l.id === selectedLayerId) || null;
-  const selectedLayer = selectedLayerBase ? getEffectiveLayer(config, selectedLayerBase, selectedStateId) : null;
-  const selectedState = getAnimapState(config, selectedStateId);
+  const { config } = editor;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -381,30 +52,30 @@ export default function AnimapEditor() {
               variant="secondary"
               className="text-xs cursor-pointer hover:bg-muted"
               onClick={() => {
-                setEditWidth(String(config.width));
-                setEditHeight(String(config.height));
-                setShowSizeEdit(!showSizeEdit);
+                editor.setEditWidth(String(config.width));
+                editor.setEditHeight(String(config.height));
+                editor.setShowSizeEdit(!editor.showSizeEdit);
               }}
             >
               {config.width}x{config.height}
             </Badge>
-            {showSizeEdit && (
+            {editor.showSizeEdit && (
               <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-lg shadow-lg p-3 space-y-2 w-48">
                 <div className="flex items-center gap-2">
                   <label className="text-xs w-6">W</label>
                   <input
                     type="number"
                     className="h-7 w-full rounded border bg-background px-2 text-xs"
-                    value={editWidth}
-                    onChange={(e) => setEditWidth(e.target.value)}
+                    value={editor.editWidth}
+                    onChange={(e) => editor.setEditWidth(e.target.value)}
                     min={1}
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        const w = parseInt(editWidth) || config.width;
-                        const h = parseInt(editHeight) || config.height;
-                        commitConfig((prev) => ({ ...prev, width: w, height: h }));
-                        setShowSizeEdit(false);
+                        const w = parseInt(editor.editWidth) || config.width;
+                        const h = parseInt(editor.editHeight) || config.height;
+                        editor.commitConfig((prev) => ({ ...prev, width: w, height: h }));
+                        editor.setShowSizeEdit(false);
                       }
                     }}
                   />
@@ -414,15 +85,15 @@ export default function AnimapEditor() {
                   <input
                     type="number"
                     className="h-7 w-full rounded border bg-background px-2 text-xs"
-                    value={editHeight}
-                    onChange={(e) => setEditHeight(e.target.value)}
+                    value={editor.editHeight}
+                    onChange={(e) => editor.setEditHeight(e.target.value)}
                     min={1}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
-                        const w = parseInt(editWidth) || config.width;
-                        const h = parseInt(editHeight) || config.height;
-                        commitConfig((prev) => ({ ...prev, width: w, height: h }));
-                        setShowSizeEdit(false);
+                        const w = parseInt(editor.editWidth) || config.width;
+                        const h = parseInt(editor.editHeight) || config.height;
+                        editor.commitConfig((prev) => ({ ...prev, width: w, height: h }));
+                        editor.setShowSizeEdit(false);
                       }
                     }}
                   />
@@ -431,17 +102,17 @@ export default function AnimapEditor() {
                   <button
                     className="flex-1 h-7 rounded bg-primary text-primary-foreground text-xs hover:bg-primary/90"
                     onClick={() => {
-                      const w = parseInt(editWidth) || config.width;
-                      const h = parseInt(editHeight) || config.height;
-                      commitConfig((prev) => ({ ...prev, width: w, height: h }));
-                      setShowSizeEdit(false);
+                      const w = parseInt(editor.editWidth) || config.width;
+                      const h = parseInt(editor.editHeight) || config.height;
+                      editor.commitConfig((prev) => ({ ...prev, width: w, height: h }));
+                      editor.setShowSizeEdit(false);
                     }}
                   >
                     Apply
                   </button>
                   <button
                     className="h-7 px-2 rounded border text-xs hover:bg-muted"
-                    onClick={() => setShowSizeEdit(false)}
+                    onClick={() => editor.setShowSizeEdit(false)}
                   >
                     Cancel
                   </button>
@@ -449,7 +120,7 @@ export default function AnimapEditor() {
               </div>
             )}
           </div>
-          {hasUnsavedChanges && (
+          {editor.hasUnsavedChanges && (
             <Badge variant="outline" className="text-xs text-yellow-500 border-yellow-500">
               Unsaved
             </Badge>
@@ -459,8 +130,8 @@ export default function AnimapEditor() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleUndo}
-            disabled={undoStack.length === 0}
+            onClick={editor.handleUndo}
+            disabled={editor.undoStack.length === 0}
             title="Undo (Ctrl+Z)"
           >
             <Undo2 className="h-4 w-4" />
@@ -468,21 +139,21 @@ export default function AnimapEditor() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={handleRedo}
-            disabled={redoStack.length === 0}
+            onClick={editor.handleRedo}
+            disabled={editor.redoStack.length === 0}
             title="Redo (Ctrl+Shift+Z)"
           >
             <Redo2 className="h-4 w-4" />
           </Button>
           <Button
             size="sm"
-            onClick={handleSave}
-            disabled={saving}
+            onClick={editor.handleSave}
+            disabled={editor.saving}
           >
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {editor.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save
           </Button>
-          {saveError && <span className="text-xs text-destructive">{saveError}</span>}
+          {editor.saveError && <span className="text-xs text-destructive">{editor.saveError}</span>}
         </div>
       </header>
 
@@ -491,64 +162,64 @@ export default function AnimapEditor() {
         {/* Left: Layer Panel */}
         <div className="w-64 flex-shrink-0 overflow-y-auto border-r">
           <AnimapLayerPanel
-            slug={slug || ''}
+            slug={editor.slug}
             config={config}
-            selectedLayerId={selectedLayerId}
-            selectedStateId={selectedStateId}
-            setSelectedStateId={setSelectedStateId}
-            setSelectedLayerId={handleSelectLayer}
-            commitConfig={commitConfig}
-            canvasZoom={canvasZoom}
-            setCanvasZoom={setCanvasZoom}
-            setCanvasPan={setCanvasPan}
+            selectedLayerId={editor.selectedLayerId}
+            selectedStateId={editor.selectedStateId}
+            setSelectedStateId={editor.setSelectedStateId}
+            setSelectedLayerId={editor.handleSelectLayer}
+            commitConfig={editor.commitConfig}
+            canvasZoom={editor.canvasZoom}
+            setCanvasZoom={editor.setCanvasZoom}
+            setCanvasPan={editor.setCanvasPan}
           />
         </div>
 
         {/* Center: Canvas */}
         <div className="flex-1 overflow-hidden">
           <AnimapCanvas
-            slug={slug || ''}
+            slug={editor.slug}
             config={config}
-            selectedStateId={selectedStateId}
-            selectedLayerId={selectedLayerId}
-            commitConfig={commitConfig}
-            canvasZoom={canvasZoom}
-            setCanvasZoom={setCanvasZoom}
-            canvasPan={canvasPan}
-            setCanvasPan={setCanvasPan}
-            fileVersion={fileVersion}
-            brushSize={brushSize}
-            brushOpacity={brushOpacity}
-            brushHardness={brushHardness}
-            brushMode={brushMode}
-            maskCanvasRef={maskCanvasRef}
-            setMaskDirty={setMaskDirty}
-            activeVideoRef={activeVideoRef}
+            selectedStateId={editor.selectedStateId}
+            selectedLayerId={editor.selectedLayerId}
+            commitConfig={editor.commitConfig}
+            canvasZoom={editor.canvasZoom}
+            setCanvasZoom={editor.setCanvasZoom}
+            canvasPan={editor.canvasPan}
+            setCanvasPan={editor.setCanvasPan}
+            fileVersion={editor.fileVersion}
+            brushSize={editor.brushSize}
+            brushOpacity={editor.brushOpacity}
+            brushHardness={editor.brushHardness}
+            brushMode={editor.brushMode}
+            maskCanvasRef={editor.maskCanvasRef}
+            setMaskDirty={editor.setMaskDirty}
+            activeVideoRef={editor.activeVideoRef}
           />
         </div>
 
         {/* Right: Property Panel */}
         <div className="w-72 flex-shrink-0 overflow-y-auto border-l">
           <AnimapPropertyPanel
-            slug={slug || ''}
+            slug={editor.slug}
             config={config}
-            selectedState={selectedState}
-            selectedStateId={selectedStateId}
-            selectedLayer={selectedLayer}
-            selectedLayerBase={selectedLayerBase}
-            commitConfig={commitConfig}
-            onUpload={handleLayerUpload}
-            fileVersion={fileVersion}
-            brushSize={brushSize}
-            setBrushSize={setBrushSize}
-            brushOpacity={brushOpacity}
-            setBrushOpacity={setBrushOpacity}
-            brushHardness={brushHardness}
-            setBrushHardness={setBrushHardness}
-            brushMode={brushMode}
-            setBrushMode={setBrushMode}
-            convertProgress={convertProgress}
-            activeVideoRef={activeVideoRef}
+            selectedState={editor.selectedState!}
+            selectedStateId={editor.selectedStateId}
+            selectedLayer={editor.selectedLayer}
+            selectedLayerBase={editor.selectedLayerBase}
+            commitConfig={editor.commitConfig}
+            onUpload={editor.handleLayerUpload}
+            fileVersion={editor.fileVersion}
+            brushSize={editor.brushSize}
+            setBrushSize={editor.setBrushSize}
+            brushOpacity={editor.brushOpacity}
+            setBrushOpacity={editor.setBrushOpacity}
+            brushHardness={editor.brushHardness}
+            setBrushHardness={editor.setBrushHardness}
+            brushMode={editor.brushMode}
+            setBrushMode={editor.setBrushMode}
+            convertProgress={editor.convertProgress}
+            activeVideoRef={editor.activeVideoRef}
           />
         </div>
       </div>

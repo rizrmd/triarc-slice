@@ -1,0 +1,35 @@
+{
+  "name": "Pose: Arcane Paladin",
+  "width": 320,
+  "height": 517,
+  "layers": [
+    {
+      "id": "shadow",
+      "name": "Shadow",
+      "type": "image",
+      "file": "shadow.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 1.2,
+      "y": 67.17,
+      "scale": 0.98
+    },
+    {
+      "id": "char-fg",
+      "name": "Character",
+      "type": "image",
+      "file": "char-fg.webp",
+      "visible": true,
+      "opacity": 1,
+      "x": 0,
+      "y": 63,
+      "scale": 1
+    }
+  ],
+  "states": [
+    {
+      "id": "default",
+      "name": "Default"
+    }
+  ]
+}

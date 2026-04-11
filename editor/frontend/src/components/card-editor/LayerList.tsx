@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Layers, Sparkles, Type, Activity, Ghost, User, Square } from 'lucide-react';
+import { Image, Layers, Sparkles, Type, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ interface LayerListProps<T extends Record<string, boolean>> {
   setCanvasPan: (pan: { x: number; y: number }) => void;
   onResetZoom?: () => void;
   showCardLayers?: boolean;
-  showPoseLayers?: boolean;
 }
 
 export function LayerList<T extends Record<string, boolean>>({
@@ -31,7 +30,6 @@ export function LayerList<T extends Record<string, boolean>>({
   setCanvasPan,
   onResetZoom,
   showCardLayers = true,
-  showPoseLayers = true,
 }: LayerListProps<T>) {
   const toggleLayer = (layer: string, checked: boolean) => {
     setVisibleLayers((prev) => ({
@@ -101,16 +99,6 @@ export function LayerList<T extends Record<string, boolean>>({
                 {renderLayerItem('mask-bg', 'mask-bg', Image)}
               </>
             )}
-          </>
-        )}
-
-        {/* Pose Layers */}
-        {showPoseLayers && (
-          <>
-            {renderLayerItem('pose-frame', 'Frame', Square)}
-            {renderLayerItem('pose-shadow', 'Shadow', Ghost)}
-            {renderLayerItem('pose-char-fg', 'Character', User)}
-            {renderLayerItem('pose-mask-fg', 'Mask', Image)}
           </>
         )}
 

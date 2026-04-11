@@ -35,7 +35,7 @@ var _cast_pie: CastPie = null
 var _cast_action_label: Label = null
 var _current_cast_id: String = ""
 var _hero_config: Dictionary = {}
-var _mask_shader: Shader
+var _pose_animap: AnimapPlayer = null
 var _card_shader: Shader
 var _empty_mask: ImageTexture
 var _bar_fill_shader: Shader
@@ -60,18 +60,6 @@ func _ready():
 	_build_cast_indicator()
 	_build_hp_bar()
 	_update_hp_display()
-	_mask_shader = Shader.new()
-	_mask_shader.code = """shader_type canvas_item;
-uniform sampler2D mask_tex;
-uniform float brightness : hint_range(0.0, 1.0) = 1.0;
-void fragment() {
-	vec4 col = texture(TEXTURE, UV);
-	vec4 mask = texture(mask_tex, UV);
-	col.a *= (1.0 - mask.a);
-	col.rgb *= brightness;
-	COLOR = col;
-}
-"""
 	_card_shader = Shader.new()
 	_card_shader.code = """shader_type canvas_item;
 uniform sampler2D mask_tex;
@@ -202,44 +190,15 @@ func apply_layout_size(layout_size: Vector2):
 	# Position target UI elements
 	_position_target_ui(layout_size)
 
-func _apply_pose_layout(layout_size: Vector2, center: Vector2):
-	if _hero_config == null:
+func _apply_pose_layout(layout_size: Vector2, _center: Vector2):
+	if _pose_animap == null:
 		return
-	var ref_sx = layout_size.x / POSE_REF_SIZE.x
-	var ref_sy = layout_size.y / POSE_REF_SIZE.y
-	var pose = _hero_config.get("pose", {})
-	if pose == null:
-		pose = {}
-
+	_pose_animap.position = Vector2.ZERO
+	_pose_animap.size = layout_size
+	# Hide unused Sprite2D nodes in pose mode
 	bg_sprite.visible = false
-
-	# Shadow
-	var shadow_pos = pose.get("shadow_pos", {"x": 0, "y": 0})
-	var shadow_scale_pct = float(pose.get("shadow_scale", 100)) / 100.0
-	if shadow_sprite.texture:
-		var tex_size = shadow_sprite.texture.get_size()
-		shadow_sprite.scale = Vector2(
-			layout_size.x * shadow_scale_pct / tex_size.x,
-			layout_size.y * shadow_scale_pct / tex_size.y
-		)
-	shadow_sprite.position = center + Vector2(
-		float(shadow_pos.get("x", 0)) * ref_sx,
-		float(shadow_pos.get("y", 0)) * ref_sy
-	)
-
-	# Character
-	var char_pos = pose.get("char_fg_pos", {"x": 0, "y": 0})
-	var char_scale_pct = float(pose.get("char_fg_scale", 100)) / 100.0
-	if char_sprite.texture:
-		var tex_size = char_sprite.texture.get_size()
-		char_sprite.scale = Vector2(
-			layout_size.x * char_scale_pct / tex_size.x,
-			layout_size.y * char_scale_pct / tex_size.y
-		)
-	char_sprite.position = center + Vector2(
-		float(char_pos.get("x", 0)) * ref_sx,
-		float(char_pos.get("y", 0)) * ref_sy
-	)
+	shadow_sprite.visible = false
+	char_sprite.visible = false
 
 func _apply_card_layout(layout_size: Vector2, center: Vector2):
 	if _hero_config == null:
@@ -432,22 +391,11 @@ func _load_sprites():
 		_load_card_sprites()
 
 func _load_pose_sprites():
-	var base_path = "res://data/hero/%s/img/" % hero_slug
-
-	var shadow_path = base_path + "pose-shadow.webp"
-	if ResourceLoader.exists(shadow_path):
-		shadow_sprite.texture = load(shadow_path)
-
-	var char_path = base_path + "pose-char-fg.webp"
-	if ResourceLoader.exists(char_path):
-		char_sprite.texture = load(char_path)
-
-	var mask_path = base_path + "pose-mask-fg.webp"
-	if ResourceLoader.exists(mask_path):
-		var mat = ShaderMaterial.new()
-		mat.shader = _mask_shader
-		mat.set_shader_parameter("mask_tex", load(mask_path))
-		char_sprite.material = mat
+	var animap_scene = preload("res://scenes/animap_player.tscn")
+	_pose_animap = animap_scene.instantiate()
+	add_child(_pose_animap)
+	move_child(_pose_animap, 0)
+	_pose_animap.load_animap("pose-%s" % hero_slug)
 
 func _load_card_sprites():
 	var base_path = "res://data/hero/%s/img/" % hero_slug
@@ -515,9 +463,12 @@ func _update_hp_display():
 		_bar_label.text = "%d / %d" % [current_hp, max_hp]
 
 func _set_dead_visuals():
-	char_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
-	bg_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
-	shadow_sprite.visible = false
+	if _pose_animap:
+		_pose_animap.modulate = Color(0.3, 0.3, 0.3, 0.5)
+	else:
+		char_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
+		bg_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
+		shadow_sprite.visible = false
 
 func _show_floating_text(amount: int):
 	var text = FloatingText.new()
@@ -866,19 +817,14 @@ func _set_selection_strength(value: float):
 
 func _refresh_selection_visuals():
 	var combined_dim = max(_selection_strength, _drag_dim_strength)
-	var bg_brightness = _current_brightness * lerpf(1.0, 0.35, combined_dim)
-	if bg_sprite.material is ShaderMaterial:
-		(bg_sprite.material as ShaderMaterial).set_shader_parameter("brightness", bg_brightness)
-	if char_sprite.material is ShaderMaterial:
-		(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", _current_brightness)
 	if is_enemy:
 		var pose_factor: float = lerpf(1.0, 0.4, _drag_dim_strength)
-		if char_sprite.material is ShaderMaterial:
-			(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", pose_factor)
-		char_sprite.modulate = Color.WHITE
-		if shadow_sprite.texture:
-			shadow_sprite.modulate = Color(pose_factor, pose_factor, pose_factor, 1.0)
+		if _pose_animap:
+			_pose_animap.modulate = Color(pose_factor, pose_factor, pose_factor, 1.0)
 	else:
+		var bg_brightness = _current_brightness * lerpf(1.0, 0.35, combined_dim)
+		if bg_sprite.material is ShaderMaterial:
+			(bg_sprite.material as ShaderMaterial).set_shader_parameter("brightness", bg_brightness)
 		if char_sprite.material is ShaderMaterial:
 			(char_sprite.material as ShaderMaterial).set_shader_parameter("brightness", _current_brightness)
 		char_sprite.modulate = Color.WHITE
