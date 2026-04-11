@@ -1,1 +1,0 @@
-const e=[{slug:`9-16`,label:`9:16`,desc:`Standard Phone`,width:1080,height:1920},{slug:`9-20`,label:`9:20`,desc:`Tall Phone`,width:1080,height:2400},{slug:`3-4`,label:`3:4`,desc:`Tablet`,width:1536,height:2048}];function t(t){return e.find(e=>e.slug===t)}export{t as n,e as t};

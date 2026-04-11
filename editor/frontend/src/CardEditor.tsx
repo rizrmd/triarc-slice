@@ -1832,7 +1832,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
             </TabsContent>
           )}
 
-          <TabsContent value="stats">
+          <TabsContent value="stats" forceMount className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
             {isAction ? (
               <ActionStatsTab config={config as unknown as ActionConfig} onChange={commitConfig as any} />
             ) : (
