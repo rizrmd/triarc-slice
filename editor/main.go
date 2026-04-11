@@ -114,6 +114,16 @@ type ActionConfig struct {
 	TargetRule      string           `json:"target_rule"`
 	Targeting       *ActionTargeting `json:"targeting,omitempty"`
 	VisibleLayers   map[string]bool  `json:"visible_layers,omitempty"`
+	Gameplay        *ActionGameplay   `json:"gameplay,omitempty"`
+}
+
+type ActionGameplay struct {
+	CastingTimeMs  int     `json:"casting_time_ms"`
+	EffectKind     string  `json:"effect_kind"`
+	BasePower      int     `json:"base_power"`
+	StatusKind     *string `json:"status_kind,omitempty"`
+	StatusDurationMs int   `json:"status_duration_ms,omitempty"`
+	StatusValue    int     `json:"status_value,omitempty"`
 }
 
 type ActionTargeting struct {
@@ -1460,6 +1470,18 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[actionHandler] Failed to create directory: %v", err)
 			http.Error(w, "Failed to create directory", http.StatusInternalServerError)
 			return
+		}
+
+		// Merge with existing config to preserve gameplay data
+		existingData, err := os.ReadFile(actionPath)
+		if err == nil && len(existingData) > 0 {
+			var existing ActionConfig
+			if json.Unmarshal(existingData, &existing) == nil {
+				// Preserve existing gameplay if new config doesn't have valid gameplay data
+				if config.Gameplay == nil || config.Gameplay.CastingTimeMs == 0 {
+					config.Gameplay = existing.Gameplay
+				}
+			}
 		}
 
 		// Write formatted JSON
