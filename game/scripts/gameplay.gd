@@ -14,6 +14,10 @@ signal back_requested
 @onready var info_animap: AnimapPlayer = $InfoAnimap
 @onready var time_animap: AnimapPlayer = $TimeAnimap
 
+# Target warning label
+var _target_warning_label: Label = null
+var _target_warning_hero_slot: int = -1  # Track which hero slot the warning is for
+
 const HERO_SCENE = preload("res://scenes/hero.tscn")
 const ACTION_CARD_SCENE = preload("res://scenes/action_card.tscn")
 const HAND_REFLOW_DURATION := 0.22
@@ -57,8 +61,7 @@ var _info_drag_virtual_pos: Vector2 = Vector2.ZERO
 const INFO_DRAG_THRESHOLD := 8.0
 
 # Pre-targeting system - hero slot -> enemy slot mapping
-var _hero_targets: Dictionary = {}  # hero slot index -> enemy slot index
-var _default_targets: Dictionary = {0: 0, 1: 1, 2: 2}  # default: hero slot N targets enemy slot N
+var _hero_targets: Dictionary = {}  # hero slot index -> enemy slot index (only set when player explicitly selects)
 
 # Time elapsed
 var _time_elapsed_sec: float = 0.0
@@ -127,6 +130,7 @@ func _ready():
 	_apply_layout(false)
 	_create_ping_label()
 	_create_dev_panel()
+	_create_target_warning_label()
 	_setup_info_animap()
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
@@ -277,6 +281,9 @@ func _update_game_state(data: Dictionary):
 	# Update casting indicators
 	_update_casting_indicators(casts)
 	
+	# Update target warning visibility
+	_update_target_warning()
+	
 	# Trigger entrance animation on first state update
 	if _is_first_state_update:
 		_is_first_state_update = false
@@ -398,8 +405,6 @@ func _update_hand(hand_data: Array):
 			card.size = target_size
 			card.position = target_pos
 			card.setup(card_data)
-			card.card_drag_started.connect(_on_card_drag_started)
-			card.card_drag_ended.connect(_on_card_drag_ended)
 
 			if _is_first_state_update:
 				card.modulate.a = 0.0
@@ -417,6 +422,12 @@ func _update_hand(hand_data: Array):
 			# Always animate card to new position for proper reflow
 			card.position = card.position  # Reset to trigger position change
 			_move_hand_card(card, target_pos, true)
+
+		# Connect signals for ALL cards (both new and reused) - only if not already connected
+		if not card.card_drag_started.is_connected(_on_card_drag_started):
+			card.card_drag_started.connect(_on_card_drag_started)
+			card.card_drag_ended.connect(_on_card_drag_ended)
+			card.card_drop_invalid.connect(_on_card_drop_invalid)
 
 		card.set_enabled(card.can_afford(current_energy))
 		if is_instance_valid(card) and not card.is_queued_for_deletion():
@@ -525,6 +536,11 @@ func _cleanup_expired_casts():
 		_casting_action_slugs.erase(action_slug)
 		_casting_by_hero.erase(hero_id)
 		_casting_heroes.erase(hero_id)
+		# Clear _current_cast_id on the hero node to prevent desync with is_casting()
+		var hero_node = _find_hero_by_instance_id(hero_id)
+		if hero_node:
+			hero_node._current_cast_id = ""
+			hero_node._cast_indicator.visible = false
 		# Add cooldown to block server casts for 2 seconds (same as local cast skip)
 		_hero_cooldown_until[hero_id] = current_time_ms + 2000
 	
@@ -541,8 +557,8 @@ func _process_queued_casts():
 		var action_slug = queued.get("action_slug", "")
 		var hero: Hero = queued.get("hero")
 		
-		# Check if this hero is still casting
-		if _casting_heroes.has(hero.hero_instance_id):
+		# Check if this hero is still casting (check BOTH tracking dict AND _current_cast_id for desync safety)
+		if _casting_heroes.has(hero.hero_instance_id) or hero._current_cast_id != "":
 			remaining_queue.append(queued)  # Hero still busy
 			continue
 		
@@ -572,8 +588,9 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 
 ## Show casting indicator on hero (wrapper for hero._show_casting)
 func _show_casting_indicator(hero: Hero, action_slug: String):
-	# Check if this hero is already casting - if so, queue this cast
-	if _casting_heroes.has(hero.hero_instance_id):
+	# Check if this hero is already casting (check BOTH tracking dict AND _current_cast_id for desync safety)
+	# This prevents starting a new cast when server busy state is active but _casting_heroes wasn't updated
+	if _casting_heroes.has(hero.hero_instance_id) or hero._current_cast_id != "":
 		_queued_casts.append({"hero": hero, "action_slug": action_slug, "timestamp": Time.get_ticks_msec()})
 		return
 	
@@ -611,12 +628,31 @@ func _on_card_drag_ended(card, dropped_on_target):
 		_hover_tween.kill()
 	_clear_highlights()
 	if dropped_on_target:
+		# Check if player has explicitly set a target for this hero
+		var hero_slot = dropped_on_target.slot_index
+		var has_explicit_target = _hero_targets.has(hero_slot)
+		
+		if not has_explicit_target:
+			# Hero doesn't have explicitly set target - snap card back and show warning
+			_show_single_target_warning(dropped_on_target)
+			_snap_card_back(card)
+			return
+		
+		# Hide card before casting (card will disappear)
+		card.visible = false
+		
 		# Cast action using pre-targeting system (preset target from hero selection)
 		_cast_action_with_preset_target(dropped_on_target, card)
 
 func _highlight_valid_targets(_target_rule: String):
 	for hero in my_heroes.values():
 		hero.set_char_brightness(0.4)
+
+func _on_card_drop_invalid(card: Control, attempted_hero: Control):
+	# Check if the hero has explicitly set target - if not, show warning
+	if not _hero_targets.has(attempted_hero.slot_index):
+		_show_single_target_warning(attempted_hero)
+		_snap_card_back(card)
 
 ## Cast action using pre-targeting system (preset target from hero selection)
 func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
@@ -809,9 +845,9 @@ func _clear_highlights():
 	for hero in my_heroes.values():
 		hero.set_char_brightness(1.0)
 
-## Get current target for a hero slot
+## Get current target for a hero slot (-1 if not set)
 func _get_hero_target(hero_slot: int) -> int:
-	return _hero_targets.get(hero_slot, _default_targets.get(hero_slot, hero_slot))
+	return _hero_targets.get(hero_slot, -1)  # -1 means no target set
 
 
 
@@ -819,6 +855,10 @@ func _get_hero_target(hero_slot: int) -> int:
 func _set_hero_target(hero_slot: int, enemy_slot: int):
 	_hero_targets[hero_slot] = enemy_slot
 	_update_target_indicators()
+	# Hide warning if this hero was the one showing the warning
+	if _target_warning_hero_slot == hero_slot:
+		_fade_out_target_warning()
+	_update_target_warning()  # Hide warning if all targets are now set
 
 ## Update target indicators on all enemy heroes - show ALL set targets, persist even when deselected
 func _update_target_indicators():
@@ -874,6 +914,7 @@ func _set_selected_hero(hero: Hero):
 		# DO NOT auto-set target - player must manually select target by clicking enemy
 		# Update target indicators to show current target (if any)
 		_update_target_indicators()
+	_update_target_warning()
 	_update_hero_detail_placeholder()
 
 func _clear_selected_hero():
@@ -1394,6 +1435,109 @@ func _create_ping_label():
 		_ping_label.modulate.a = 0.0
 	$UIOverlay.add_child(_ping_label)
 	_refresh_ping_label()
+
+func _create_target_warning_label():
+	if _target_warning_label:
+		return
+	_target_warning_label = Label.new()
+	_target_warning_label.name = "TargetWarningLabel"
+	_target_warning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_target_warning_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_target_warning_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_target_warning_label.add_theme_font_size_override("font_size", 26)
+	_target_warning_label.add_theme_color_override("font_color", Color(1.0, 0.6, 0.2, 1.0))  # Orange warning
+	_target_warning_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	_target_warning_label.add_theme_constant_override("outline_size", 4)
+	_target_warning_label.text = "Pilih target enemy untuk hero ally sebelum menggunakan card!"
+	_target_warning_label.visible = false
+	_target_warning_label.z_index = 100
+	_target_warning_label.set_anchors_preset(Control.PRESET_CENTER)
+	_target_warning_label.offset_top = -200
+	_target_warning_label.offset_bottom = -150
+	_target_warning_label.offset_left = -350
+	_target_warning_label.offset_right = 350
+	$UIOverlay.add_child(_target_warning_label)
+
+func _update_target_warning():
+	if not _target_warning_label:
+		return
+	# Only hide warning if it's showing for a specific hero that now has target
+	# Do NOT show warning automatically - warning is only shown when card is dropped without target
+	if _target_warning_hero_slot >= 0:
+		if _hero_targets.has(_target_warning_hero_slot):
+			# Hero now has explicit target, hide warning
+			_target_warning_hero_slot = -1
+			_target_warning_label.visible = false
+
+func _all_allies_have_targets() -> bool:
+	# Check if all ally heroes have explicitly set targets
+	for hero in my_heroes.values():
+		if hero.is_dead():
+			continue  # Skip dead heroes
+		# Check if player has explicitly set a target for this hero
+		if not _hero_targets.has(hero.slot_index):
+			return false
+	return true
+
+func _show_target_warning_animation():
+	if not _target_warning_label:
+		return
+	_target_warning_label.visible = true
+	_target_warning_label.modulate.a = 1.0
+	_target_warning_label.scale = Vector2(0.8, 0.8)
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_BACK)
+	tween.tween_property(_target_warning_label, "scale", Vector2(1.1, 1.1), 0.15)
+	tween.tween_property(_target_warning_label, "scale", Vector2(1.0, 1.0), 0.1)
+	# Auto-hide after 2 seconds
+	await get_tree().create_timer(2.0).timeout
+	_fade_out_target_warning()
+
+func _fade_out_target_warning():
+	if not _target_warning_label:
+		return
+	_target_warning_hero_slot = -1  # Clear hero tracking
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.tween_property(_target_warning_label, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(func():
+		if _target_warning_label:
+			_target_warning_label.visible = false
+	)
+
+func _show_single_target_warning(hero: Hero):
+	if not _target_warning_label:
+		return
+	_target_warning_label.text = "Select enemy target for %s first!" % hero.hero_name
+	_target_warning_label.visible = true
+	_target_warning_label.modulate.a = 1.0
+	_target_warning_label.scale = Vector2(0.8, 0.8)
+	_target_warning_hero_slot = hero.slot_index  # Track which hero this warning is for
+	
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_BACK)
+	tween.tween_property(_target_warning_label, "scale", Vector2(1.1, 1.1), 0.15)
+	tween.tween_property(_target_warning_label, "scale", Vector2(1.0, 1.0), 0.1)
+
+func _snap_card_back(card: Control):
+	card.scale = Vector2(1.0, 1.0)
+	card.modulate.a = 1.0
+	card.z_index = 1
+	var tween = create_tween()
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_BACK)
+	# Get target position from slot
+	var vp_size = get_viewport().get_visible_rect().size
+	var key = "action%d" % card.slot_index
+	if _layout_boxes.has(key):
+		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
+		tween.tween_property(card, "global_position", Vector2(r["x"], r["y"]), 0.3)
+	else:
+		# Fallback to original position
+		tween.tween_property(card, "position", card.position, 0.3)
 
 func _update_ping_probe():
 	if GameState.current_match_id.is_empty():

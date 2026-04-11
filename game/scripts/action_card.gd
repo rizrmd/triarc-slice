@@ -3,6 +3,7 @@ extends Button
 
 signal card_drag_started(card: Button)
 signal card_drag_ended(card: Button, dropped_on_hero: Control)
+signal card_drop_invalid(card: Button, attempted_hero: Control)  # When drop on valid-looking hero but fails validation
 
 var action_slug: String = ""
 var action_name: String = ""
@@ -315,16 +316,17 @@ func _end_drag():
 	var valid_drop = _is_valid_target(dropped_on)
 
 	if valid_drop and dropped_on:
-		# Hide immediately — before any property resets that could flash
-		visible = false
-		# Emit signal to let gameplay handle casting (for target selection support)
-		# Pass the Hero object, not boolean
+		# Emit signal to let gameplay handle casting
+		# Gameplay will hide the card if cast succeeds
 		card_drag_ended.emit(self, dropped_on)
 	else:
 		scale = Vector2(1.0, 1.0)
 		modulate.a = 1.0
 		z_index = 1
 		_snap_back()
+		# Emit signal with the attempted hero (even if validation failed)
+		if dropped_on != null:
+			card_drop_invalid.emit(self, dropped_on)
 		card_drag_ended.emit(self, null)
 
 func _get_drop_target() -> Control:

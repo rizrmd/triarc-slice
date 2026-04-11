@@ -193,8 +193,8 @@ func apply_layout_size(layout_size: Vector2):
 func _apply_pose_layout(layout_size: Vector2, _center: Vector2):
 	if _pose_animap == null:
 		return
-	_pose_animap.position = Vector2.ZERO
-	_pose_animap.size = layout_size
+	_pose_animap.anchors_preset = Control.PRESET_FULL_RECT
+	_pose_animap.set_deferred("size", layout_size)
 	# Hide unused Sprite2D nodes in pose mode
 	bg_sprite.visible = false
 	shadow_sprite.visible = false
