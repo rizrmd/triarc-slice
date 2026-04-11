@@ -381,7 +381,12 @@ export function AnimapCanvas({
                   src={fileUrl}
                   alt={layer.name}
                   draggable={false}
-                  style={{ display: 'block' }}
+                  style={{
+                    display: 'block',
+                    width: layer.width ?? undefined,
+                    height: layer.height ?? undefined,
+                    objectFit: 'cover',
+                  }}
                 />
               </div>
             );

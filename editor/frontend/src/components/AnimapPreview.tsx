@@ -326,7 +326,7 @@ export function AnimapPreview({
     };
 
     if (layer.type === 'image' && layer.file) {
-      const imgStyle: CSSProperties = { ...baseStyle, display: 'block' };
+      const imgStyle: CSSProperties = { ...baseStyle, display: 'block', objectFit: 'cover' };
       if (layer.width) imgStyle.width = layer.width;
       if (layer.height) imgStyle.height = layer.height;
       return (
