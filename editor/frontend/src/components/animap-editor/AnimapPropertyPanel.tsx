@@ -738,8 +738,10 @@ export function AnimapPropertyPanel({
               <img
                 src={fileUrl}
                 alt={selectedLayer.name}
-                className="mt-2 w-full rounded border object-contain"
+                title="Click to open full resolution"
+                className="mt-2 w-full rounded border object-contain cursor-pointer hover:opacity-80 transition-opacity"
                 style={{ maxHeight: 120 }}
+                onClick={() => window.open(`/data/animap/${slug}/${selectedLayer.file}`, '_blank')}
               />
             )}
           </div>

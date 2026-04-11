@@ -41,6 +41,8 @@ void fragment() {
 		COLOR = vec4(0.0);
 	} else {
 		COLOR = texture(TEXTURE, luv);
+		// Clip top of card where frame border is transparent
+		COLOR.a *= smoothstep(0.015, 0.035, UV.y);
 	}
 }
 """

@@ -1079,11 +1079,12 @@ func _set_initial_positions():
 	if _layout_boxes.has("energy"):
 		var r = GameState.resolve_box(_layout_boxes["energy"], vp_size, _layout_aspect_key)
 		energy_bar.position = Vector2(r["x"], r["y"])
-		# Size uses intrinsic texture dimensions, not layout JSON width/height
+		energy_bar.size = Vector2(r["width"], r["height"])
 	if _layout_boxes.has("reroll"):
 		var r = GameState.resolve_box(_layout_boxes["reroll"], vp_size, _layout_aspect_key)
 		reroll_button.position = Vector2(r["x"], r["y"])
-		reroll_button.scale = Vector2(1.15, 1.15)
+		reroll_button.size = Vector2(r["width"], r["height"])
+		reroll_button.scale = Vector2(1.0, 1.0)
 		reroll_button.pivot_offset = reroll_button.size / 2.0
 	if _layout_boxes.has("settings"):
 		var r = GameState.resolve_box(_layout_boxes["settings"], vp_size, _layout_aspect_key)

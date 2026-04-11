@@ -1185,7 +1185,7 @@ func parseCharRequestPath(path string) (string, string, bool) {
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
 		return "", "", false
 	}
-	if layer != "char-bg" && layer != "char-fg" && layer != "card" {
+	if layer != "char-bg" && layer != "char-fg" && layer != "card" && layer != "pose-char-fg" && layer != "pose-shadow" {
 		return "", "", false
 	}
 	return slug, layer, true
@@ -1617,13 +1617,31 @@ func syncAnimapsInLayout(layout map[string]interface{}) {
 	if !ok {
 		return
 	}
+
+	var syncBoxMap func(map[string]interface{})
+	syncBoxMap = func(boxMap map[string]interface{}) {
+		if animapSlug, ok := boxMap["animapSlug"].(string); ok && animapSlug != "" {
+			syncAnimapToGame(animapSlug)
+		}
+	}
+
 	for _, box := range boxes {
 		boxMap, ok := box.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if animapSlug, ok := boxMap["animapSlug"].(string); ok && animapSlug != "" {
-			syncAnimapToGame(animapSlug)
+
+		if _, hasAnimap := boxMap["animapSlug"]; hasAnimap {
+			syncBoxMap(boxMap)
+			continue
+		}
+
+		for _, nested := range boxMap {
+			nestedMap, ok := nested.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			syncBoxMap(nestedMap)
 		}
 	}
 }

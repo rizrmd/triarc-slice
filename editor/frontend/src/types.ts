@@ -175,7 +175,7 @@ export interface Box {
 
 export interface GameLayout {
   background?: string;
-  boxes: Record<string, Box>;
+  boxes: Record<string, Record<string, Box>>;
 }
 
 export interface GameLayoutFile {
