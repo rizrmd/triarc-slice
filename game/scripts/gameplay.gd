@@ -9,7 +9,12 @@ signal back_requested
 @onready var energy_bar: TextureRect = $UIOverlay/EnergyBar
 @onready var reroll_button: TextureButton = $UIOverlay/RerollButton
 @onready var back_button: Button = $UIOverlay/BackButton
-@onready var action_dropdown: OptionButton = $UIOverlay/ActionDropdown
+@onready var action_dropdown: Button = $UIOverlay/ActionDropdown
+@onready var enemy_dropdown: Button = $UIOverlay/EnemyDropdown
+@onready var apply_enemies_btn: Button = $UIOverlay/ApplyEnemies
+var _action_popup: PopupMenu
+var _enemy_popup: PopupMenu
+var _original_enemy_heroes: Array[String] = []
 @onready var fade_rect: ColorRect = $UIOverlay/FadeRect
 @onready var info_animap: AnimapPlayer = $InfoAnimap
 @onready var time_animap: AnimapPlayer = $TimeAnimap
@@ -81,8 +86,10 @@ var _next_ping_probe_at_ms: int = 0
 var _ping_samples: Array[int] = []
 var _display_ping_ms: int = -1
 
-# Debug action dropdown - the single override action to apply to ALL cards
+# Debug action dropdown - pool of actions to override cards with (empty = all)
 var _debug_override_action: String = ""
+var _debug_action_pool: Array[String] = []
+var _debug_enemy_heroes: Array[String] = []
 
 # HP change filtering to prevent random/small damage ticks
 var _last_known_hp: Dictionary = {}  # hero_instance_id -> hp
@@ -116,9 +123,11 @@ func _ready():
 	reroll_button.button_up.connect(func(): reroll_button.modulate = Color(1.0, 1.0, 1.0, 1.0))
 	back_button.pressed.connect(_on_back_pressed)
 	if action_dropdown != null:
-		action_dropdown.item_selected.connect(_on_action_dropdown_selected)
-	else:
-		print("[DEBUG] DROPDOWN IS NULL!")
+		action_dropdown.pressed.connect(_toggle_action_popup)
+	if enemy_dropdown != null:
+		enemy_dropdown.pressed.connect(_toggle_enemy_popup)
+	if apply_enemies_btn != null:
+		apply_enemies_btn.pressed.connect(_restart_training_with_enemies)
 	GameState.gameplay_aspect_changed.connect(_on_gameplay_aspect_changed)
 
 	# Connect to GameState WebSocket messages
@@ -135,6 +144,7 @@ func _ready():
 	_setup_time_animap()
 	_update_hero_detail_placeholder()
 	_populate_action_dropdown()
+	_populate_enemy_dropdown()
 
 	# Request initial match state (normal online mode)
 	if not GameState.current_match_id.is_empty():
@@ -219,7 +229,6 @@ func _on_ws_message(msg: String):
 		"state_update":
 			_update_game_state(data)
 		"match_found":
-			# Match already started, we're in gameplay
 			pass
 		"error":
 			pass  # Silently ignore server errors for now
@@ -298,7 +307,14 @@ func _get_or_create_hero(slot: int, is_enemy: bool, hero_data: Dictionary) -> No
 	var dict = enemy_heroes if is_enemy else my_heroes
 
 	if dict.has(slot):
-		return dict[slot]
+		var existing = dict[slot]
+		# If hero slug changed (e.g. enemy swap), recreate
+		var new_slug = hero_data.get("hero_slug", "")
+		if not new_slug.is_empty() and existing.hero_slug != new_slug:
+			existing.queue_free()
+			dict.erase(slot)
+		else:
+			return existing
 
 	# Create new hero
 	var hero = HERO_SCENE.instantiate()
@@ -387,17 +403,21 @@ func _update_hand(hand_data: Array):
 
 		var r = GameState.resolve_box(_layout_boxes[key], vp_size, _layout_aspect_key)
 		
-		# Apply debug override if active - modify card_data before setup
-		if not _debug_override_action.is_empty():
-			card_data["action_slug"] = _debug_override_action
-			card_data["action_name"] = _debug_override_action.replace("-", " ").capitalize()
-		
 		var card: Control = existing_by_slot.get(slot_index, null)
-		
+
 		var target_pos = Vector2(r["x"], r["y"])
 		var target_size = Vector2(r["width"], r["height"])
 
 		if card == null:
+			# Apply debug override only when creating new cards
+			if not _debug_action_pool.is_empty():
+				var pool_action = _get_random_pool_action()
+				card_data["action_slug"] = pool_action
+				card_data["action_name"] = pool_action.replace("-", " ").capitalize()
+			elif not _debug_override_action.is_empty():
+				card_data["action_slug"] = _debug_override_action
+				card_data["action_name"] = _debug_override_action.replace("-", " ").capitalize()
+
 			card = ACTION_CARD_SCENE.instantiate()
 			hand_container.add_child(card)
 
@@ -416,9 +436,6 @@ func _update_hand(hand_data: Array):
 			existing_by_slot.erase(slot_index)
 			reused_cards.append(card)  # Mark as reused
 			card.size = target_size
-			# Re-apply setup to update action_slug if override is active
-			if not _debug_override_action.is_empty():
-				card.setup(card_data)
 			# Always animate card to new position for proper reflow
 			card.position = card.position  # Reset to trigger position change
 			_move_hand_card(card, target_pos, true)
@@ -436,7 +453,7 @@ func _update_hand(hand_data: Array):
 	# When override is active, skip stale card cleanup because existing_by_key
 	# has wrong keys (doesn't account for override). We use slot-based matching
 	# via existing_by_slot which handles stale cards properly.
-	if _debug_override_action.is_empty():
+	if _debug_override_action.is_empty() and _debug_action_pool.is_empty():
 		# Only queue_free cards that were NOT reused
 		var stale_count = 0
 		for stale_card in existing_by_key.values():
@@ -658,8 +675,8 @@ func _on_card_drop_invalid(card: Control, attempted_hero: Control):
 func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
 	var target_slot = _get_hero_target(caster_hero.slot_index)
 	
-	# Get the actual action to send - use override if set, otherwise use card's original
-	var action_to_send = _debug_override_action if not _debug_override_action.is_empty() else card.action_slug
+	# Get the actual action to send - use card's action_slug (already overridden if pool/override active)
+	var action_to_send = card.action_slug
 	
 	# Show casting indicator on the caster hero
 	_show_casting_indicator(caster_hero, action_to_send)
@@ -1599,48 +1616,176 @@ func _now_ms() -> int:
 func _populate_action_dropdown():
 	if action_dropdown == null:
 		return
-	action_dropdown.clear()
-	# Add placeholder first
-	action_dropdown.add_item("Select Action", 0)
-	action_dropdown.set_item_metadata(0, "")
-	# Add all action names from GameState
+	_action_popup = PopupMenu.new()
+	_action_popup.hide_on_checkable_item_selection = false
+	_action_popup.id_pressed.connect(_on_action_popup_id_pressed)
+	action_dropdown.add_child(_action_popup)
 	var action_slugs = GameState.action_defs.keys()
 	action_slugs.sort()
-	var id = 1
-	for slug in action_slugs:
+	for i in range(action_slugs.size()):
+		var slug = action_slugs[i]
 		var def = GameState.action_defs[slug]
-		var name = def.get("name", slug.replace("-", " ").capitalize())
-		action_dropdown.add_item(name, id)
-		action_dropdown.set_item_metadata(id, slug)
-		id += 1
+		var aname = def.get("name", slug.replace("-", " ").capitalize())
+		_action_popup.add_check_item(aname, i)
+		_action_popup.set_item_metadata(i, slug)
 
-func _on_action_dropdown_selected(index: int):
-	if action_dropdown == null:
+func _toggle_action_popup():
+	if _action_popup == null:
 		return
-	var action_slug: String = action_dropdown.get_item_metadata(index)
-	if action_slug.is_empty():
+	if _action_popup.visible:
+		_action_popup.hide()
+	else:
+		var btn_rect = action_dropdown.get_global_rect()
+		_action_popup.position = Vector2i(int(btn_rect.position.x), int(btn_rect.end.y))
+		_action_popup.size = Vector2i(int(btn_rect.size.x), 0)
+		_action_popup.popup()
+
+func _on_action_popup_id_pressed(id: int):
+	var idx = _action_popup.get_item_index(id)
+	_action_popup.toggle_item_checked(idx)
+	# Rebuild pool from checked items
+	_debug_action_pool.clear()
+	for i in range(_action_popup.item_count):
+		if _action_popup.is_item_checked(i):
+			_debug_action_pool.append(_action_popup.get_item_metadata(i))
+	# Update button text
+	if _debug_action_pool.is_empty():
 		_debug_override_action = ""
-		_update_hand_cards_action("")
-		return
-	
-	# When override changes, force full hand rebuild by clearing all state
+		action_dropdown.text = "Actions: All"
+	else:
+		_debug_override_action = _debug_action_pool[0]
+		action_dropdown.text = "Actions: %d" % _debug_action_pool.size()
+	_force_hand_rebuild()
+
+func _force_hand_rebuild():
 	_used_hand_keys.clear()
 	_prev_server_keys.clear()
-	_debug_override_action = action_slug
-	
-	# Clear all cards immediately - don't try to reuse
 	for card in hand_cards:
 		if is_instance_valid(card) and card.get_parent() == hand_container:
 			hand_container.remove_child(card)
 			card.queue_free()
 	hand_cards.clear()
 
-func _update_hand_cards_action(action_slug: String):
-	if action_slug.is_empty():
-		_debug_override_action = ""
+func _get_random_pool_action() -> String:
+	if _debug_action_pool.is_empty():
+		return ""
+	return _debug_action_pool[randi() % _debug_action_pool.size()]
+
+func _get_current_enemy_slugs() -> Array[String]:
+	var slugs: Array[String] = []
+	for hero in enemy_heroes.values():
+		if is_instance_valid(hero):
+			slugs.append(hero.hero_slug)
+	return slugs
+
+func _populate_enemy_dropdown():
+	# Just create the popup — items are populated on first open
+	if enemy_dropdown == null:
+		return
+	_enemy_popup = PopupMenu.new()
+	_enemy_popup.hide_on_checkable_item_selection = false
+	_enemy_popup.id_pressed.connect(_on_enemy_popup_id_pressed)
+	enemy_dropdown.add_child(_enemy_popup)
+
+func _rebuild_enemy_popup():
+	_enemy_popup.clear()
+	var hero_slugs = GameState.hero_defs.keys()
+	hero_slugs.sort()
+	var current_enemies = _get_current_enemy_slugs()
+	# Init from current enemies if first open
+	if _debug_enemy_heroes.is_empty():
+		_debug_enemy_heroes = current_enemies.duplicate()
+	if _original_enemy_heroes.is_empty():
+		_original_enemy_heroes = current_enemies.duplicate()
+	for i in range(hero_slugs.size()):
+		var slug = hero_slugs[i]
+		var def = GameState.hero_defs[slug]
+		var hname = def.get("name", slug.replace("-", " ").capitalize())
+		_enemy_popup.add_check_item(hname, i)
+		_enemy_popup.set_item_metadata(i, slug)
+		if slug in _debug_enemy_heroes:
+			_enemy_popup.set_item_checked(i, true)
+	if _debug_enemy_heroes.size() > 0:
+		enemy_dropdown.text = "Enemies: %d/3" % _debug_enemy_heroes.size()
+	_update_apply_button()
+
+func _toggle_enemy_popup():
+	if _enemy_popup == null:
+		return
+	if _enemy_popup.visible:
+		_enemy_popup.hide()
+	else:
+		_rebuild_enemy_popup()
+		var btn_rect = enemy_dropdown.get_global_rect()
+		_enemy_popup.position = Vector2i(int(btn_rect.position.x), int(btn_rect.end.y))
+		_enemy_popup.size = Vector2i(int(btn_rect.size.x), 0)
+		_enemy_popup.popup()
+
+func _on_enemy_popup_id_pressed(id: int):
+	var idx = _enemy_popup.get_item_index(id)
+	var slug: String = _enemy_popup.get_item_metadata(idx)
+	if _enemy_popup.is_item_checked(idx):
+		_enemy_popup.set_item_checked(idx, false)
+		_debug_enemy_heroes.erase(slug)
+	else:
+		if _debug_enemy_heroes.size() >= 3:
+			return
+		_enemy_popup.set_item_checked(idx, true)
+		_debug_enemy_heroes.append(slug)
+	# Update button text
+	if _debug_enemy_heroes.is_empty():
+		enemy_dropdown.text = "Enemies"
+	else:
+		enemy_dropdown.text = "Enemies: %d/3" % _debug_enemy_heroes.size()
+	_update_apply_button()
+
+func _update_apply_button():
+	if apply_enemies_btn == null:
+		return
+	# Enable only when exactly 3 selected AND different from current
+	var changed = _debug_enemy_heroes.size() == 3
+	if changed:
+		var sorted_new = _debug_enemy_heroes.duplicate()
+		sorted_new.sort()
+		var sorted_orig = _original_enemy_heroes.duplicate()
+		sorted_orig.sort()
+		changed = sorted_new != sorted_orig
+	apply_enemies_btn.disabled = not changed
+
+func _restart_training_with_enemies():
+	if _debug_enemy_heroes.size() != 3:
+		return
+	print("[Training] Changing enemies to: ", _debug_enemy_heroes)
+	_original_enemy_heroes = _debug_enemy_heroes.duplicate()
+	_update_apply_button()
+	GameState.send_json({
+		"type": "change_training_enemies",
+		"enemy_hero_1": _debug_enemy_heroes[0],
+		"enemy_hero_2": _debug_enemy_heroes[1],
+		"enemy_hero_3": _debug_enemy_heroes[2],
+	})
+
+func _clear_all_heroes_and_cards():
+	# Clear hand cards
 	for card in hand_cards:
-		if is_instance_valid(card) and not card.is_queued_for_deletion() and card.has_method("set_action_slug"):
-			card.set_action_slug(action_slug)
+		if is_instance_valid(card) and card.get_parent() == hand_container:
+			hand_container.remove_child(card)
+			card.queue_free()
+	hand_cards.clear()
+	_used_hand_keys.clear()
+	_prev_server_keys.clear()
+	# Clear heroes
+	for hero in my_heroes.values():
+		if is_instance_valid(hero):
+			hero.queue_free()
+	my_heroes.clear()
+	for hero in enemy_heroes.values():
+		if is_instance_valid(hero):
+			hero.queue_free()
+	enemy_heroes.clear()
+	_hero_targets.clear()
+	_last_known_hp.clear()
+	_is_first_state_update = true
 
 func _toggle_dev_panel():
 	if not _dev_panel:
