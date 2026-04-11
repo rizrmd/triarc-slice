@@ -394,6 +394,13 @@ func _load_pose_sprites():
 	var animap_scene = preload("res://scenes/animap_player.tscn")
 	_pose_animap = animap_scene.instantiate()
 	add_child(_pose_animap)
+	# Pose heroes are sized directly from gameplay layout boxes, so the child
+	# animap must not keep stretch anchors that would override manual sizing.
+	_pose_animap.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_pose_animap.offset_left = 0.0
+	_pose_animap.offset_top = 0.0
+	_pose_animap.offset_right = 0.0
+	_pose_animap.offset_bottom = 0.0
 	move_child(_pose_animap, 0)
 	_pose_animap.load_animap("pose-%s" % hero_slug)
 

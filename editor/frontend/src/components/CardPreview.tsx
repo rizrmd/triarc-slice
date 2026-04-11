@@ -45,22 +45,28 @@ interface CardPreviewProps {
   type?: 'hero' | 'action';
   transparent?: boolean;
   onAspectRatioLoaded?: (ratio: number) => void;
+  fillContainer?: boolean;
   showPoseBadge?: boolean;
   showSoundBadge?: boolean;
   showHoverName?: boolean;
 }
 
-export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge, showSoundBadge, showHoverName }: CardPreviewProps) {
+export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoaded, fillContainer, showPoseBadge, showSoundBadge, showHoverName }: CardPreviewProps) {
   const { ref: lazyRef, inView } = useInView();
 
   return (
-    <div ref={lazyRef} className={`h-full w-full ${transparent ? 'bg-transparent' : 'bg-[#1b1e25]'}`} style={{ aspectRatio: '2/3' }}>
+    <div
+      ref={lazyRef}
+      className={`h-full w-full ${transparent ? 'bg-transparent' : 'bg-[#1b1e25]'}`}
+      style={fillContainer ? undefined : { aspectRatio: '2/3' }}
+    >
       {inView && (
         <CardPreviewInner
           slug={slug}
           type={type}
           transparent={transparent}
           onAspectRatioLoaded={onAspectRatioLoaded}
+          fillContainer={fillContainer}
           showPoseBadge={showPoseBadge}
           showSoundBadge={showSoundBadge}
           showHoverName={showHoverName}
@@ -70,7 +76,7 @@ export function CardPreview({ slug, type = 'hero', transparent, onAspectRatioLoa
   );
 }
 
-function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoaded, showPoseBadge, showSoundBadge, showHoverName }: CardPreviewProps) {
+function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoaded, fillContainer, showPoseBadge, showSoundBadge, showHoverName }: CardPreviewProps) {
   const isAction = type === 'action';
   const [config, setConfig] = useState<CardConfig | null>(null);
   const [poseFileExists, setPoseFileExists] = useState(false);
@@ -469,16 +475,19 @@ function CardPreviewInner({ slug, type = 'hero', transparent, onAspectRatioLoade
       ref={containerRef}
       className={`group relative h-full w-full overflow-hidden ${transparent ? 'bg-transparent' : 'bg-[#1b1e25]'} flex items-center justify-center`}
     >
-      <div className="relative" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+      <div
+        className="relative h-full w-full"
+        style={fillContainer ? undefined : { maxWidth: '100%', maxHeight: '100%' }}
+      >
         <canvas
           ref={canvasRef}
           style={{
             display: 'block',
-            maxWidth: '100%',
-            maxHeight: '100%',
-            width: 'auto',
-            height: 'auto',
-            objectFit: 'contain'
+            maxWidth: fillContainer ? 'none' : '100%',
+            maxHeight: fillContainer ? 'none' : '100%',
+            width: fillContainer ? '100%' : 'auto',
+            height: fillContainer ? '100%' : 'auto',
+            objectFit: fillContainer ? 'fill' : 'contain'
           }}
         />
       </div>

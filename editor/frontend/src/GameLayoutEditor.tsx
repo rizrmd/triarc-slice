@@ -43,8 +43,9 @@ import { PropertiesSidebar } from '@/components/PropertiesSidebar';
 import { Slider } from '@/components/ui/slider';
 import { CardPreview } from '@/components/CardPreview';
 import { HeroPosePreview } from '@/components/HeroPosePreview';
+import { AnimapPreview } from '@/components/AnimapPreview';
 import { ASPECT_PRESETS, getViewportForAspect } from '@/lib/godot';
-import type { Box, GameLayout, AnimapConfig } from '@/types';
+import type { Box, GameLayout } from '@/types';
 import { GAME_SCENES } from '@/types';
 
 type ScreenAnchor =
@@ -75,34 +76,6 @@ const ANCHOR_FACTORS: Record<ScreenAnchor, { x: number; y: number }> = {
   'bottom-center': { x: 0.5, y: 1 },
   'bottom-right': { x: 1, y: 1 },
 };
-
-function AnimapBoxPreview({ slug, fill = 'contain' }: { slug: string; fill?: string }) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch(`/api/animap/${slug}`)
-      .then(res => res.json())
-      .then((config: AnimapConfig) => {
-        const firstImage = config.layers?.find(l => l.type === 'image' && l.visible);
-        if (firstImage) {
-          setPreviewUrl(`/api/animap-preview/${slug}/${firstImage.file}`);
-        }
-      })
-      .catch(() => {});
-  }, [slug]);
-
-  if (!previewUrl) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-        {slug}
-      </div>
-    );
-  }
-
-  // Map fill mode to CSS object-fit
-  const objectFit = fill === 'cover' ? 'object-cover' : fill === 'stretch' ? 'object-fill' : fill === 'none' ? 'object-none' : 'object-contain';
-  return <img src={previewUrl} className={`w-full h-full ${objectFit}`} alt={slug} />;
-}
 
 const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
   startup: [
@@ -153,6 +126,7 @@ const SCENE_DEFAULT_BOXES: Record<string, { id: string; label: string }[]> = {
 const ZOOM_STORAGE_KEY = 'game-layout-editor-zoom';
 
 const DEFAULT_ASPECT = '9-16';
+const DEFAULT_VIEWPORT = { width: 1080, height: 1920 };
 
 // Normalize a stored background value to just the base name (e.g. "cave"),
 // stripping any -wide/-narrow suffix and file extension.
@@ -174,6 +148,17 @@ function resolveBgVariant(name: string, aspectSlug: string): string {
 
 function getDefaultBoxDefs(sceneSlug: string) {
   return SCENE_DEFAULT_BOXES[sceneSlug] ?? SCENE_DEFAULT_BOXES.gameplay;
+}
+
+function isCardLikeBox(box: Box): boolean {
+  return !!(box.cardSlug || box.actionSlug || box.poseSlug);
+}
+
+function getReferenceAspectRatio(box: Box): number | null {
+  if (!isCardLikeBox(box)) {
+    return null;
+  }
+  return box.width > 0 && box.height > 0 ? box.height / box.width : null;
 }
 
 function makeDefaultBoxes(sceneSlug: string): Record<string, Box> {
@@ -225,7 +210,7 @@ function mergeWithDefaults(boxes: Record<string, Box>, sceneSlug: string): Recor
   const defaults = getDefaultBoxDefs(sceneSlug);
   const defaultIds = new Set(defaults.map(b => b.id));
   const merged: Record<string, Box> = {};
-  const defaultViewport = { width: 1080, height: 1920 };
+  const defaultViewport = DEFAULT_VIEWPORT;
   // Only keep boxes that are in the current defaults
   for (const [id, box] of Object.entries(boxes)) {
     if (defaultIds.has(id)) {
@@ -287,12 +272,12 @@ function migrateBackgrounds(backgrounds: Record<string, string>): Record<string,
 // Handles old flat format, old per-aspect format, and new multi-scene format.
 // Migrate old flat format { boxes: { enemy1: {...}, ... } }
 // to new per-aspect format { boxes: { "9-16": { enemy1: {...}, ... } } }
-function getSourceBoxes(data: any): Record<string, Box> {
+function getSourceBoxes(data: any): Record<string, Record<string, Box>> {
   const rawBoxes = data.boxes || {};
   const boxKeys = Object.keys(rawBoxes);
   const usesAspectMap = boxKeys.length > 0 && ASPECT_PRESETS.some(p => boxKeys.includes(p.slug));
-  if (!usesAspectMap) return rawBoxes;
-  return rawBoxes[DEFAULT_ASPECT] || rawBoxes[boxKeys[0]] || {};
+  if (!usesAspectMap) return { [DEFAULT_ASPECT]: rawBoxes };
+  return rawBoxes;
 }
 
 function getPivotPoint(box: Box): { x: number; y: number } {
@@ -332,11 +317,15 @@ function migrateBox(box: Box, viewport: { width: number; height: number }): Box 
 
 function migrateLayout(data: any): GameLayout {
   const backgrounds = data.backgrounds || {};
-  const sourceViewport = getViewportForAspect(DEFAULT_ASPECT) || { width: 1080, height: 1920 };
   const sourceBoxes = getSourceBoxes(data);
-  const boxes: Record<string, Box> = {};
-  Object.entries(sourceBoxes).forEach(([id, value]) => {
-    boxes[id] = migrateBox(value as Box, sourceViewport);
+  const boxes: Record<string, Record<string, Box>> = {};
+  Object.entries(sourceBoxes).forEach(([aspectKey, value]) => {
+    const aspectViewport = getViewportForAspect(aspectKey) || DEFAULT_VIEWPORT;
+    const aspectBoxes: Record<string, Box> = {};
+    Object.entries(value as Record<string, Box>).forEach(([id, boxValue]) => {
+      aspectBoxes[id] = migrateBox(boxValue as Box, aspectViewport);
+    });
+    boxes[aspectKey] = aspectBoxes;
   });
   const migratedBackgrounds = migrateBackgrounds(backgrounds);
   return {
@@ -374,12 +363,12 @@ export default function GameLayoutEditor() {
   );
 
   const getBoxes = useCallback((l: GameLayout): Record<string, Box> => {
-    return l.boxes || {};
-  }, []);
+    return l.boxes?.[aspectSlug] || {};
+  }, [aspectSlug]);
 
   const setBoxes = useCallback((l: GameLayout, boxes: Record<string, Box>): GameLayout => {
-    return { ...l, boxes };
-  }, []);
+    return { ...l, boxes: { ...l.boxes, [aspectSlug]: boxes } };
+  }, [aspectSlug]);
 
   const [layout, setLayout] = useState<GameLayout | null>(null);
   const [places, setPlaces] = useState<{ name: string; url: string }[]>([]);
@@ -396,6 +385,7 @@ export default function GameLayoutEditor() {
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [snapToCenter, setSnapToCenter] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
   const SNAP_THRESHOLD = 10; // pixels
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const [bgDimensions, setBgDimensions] = useState({ width: 0, height: 0 });
@@ -526,9 +516,12 @@ export default function GameLayoutEditor() {
     const width = box.width_percent != null
       ? Math.round(currentViewport.width * box.width_percent / 100)
       : box.width;
-    const height = box.height_percent != null
-      ? Math.round(currentViewport.height * box.height_percent / 100)
-      : box.height;
+    const referenceAspectRatio = getReferenceAspectRatio(box);
+    const height = referenceAspectRatio != null
+      ? Math.round(width * referenceAspectRatio)
+      : box.height_percent != null
+        ? Math.round(currentViewport.height * box.height_percent / 100)
+        : box.height;
     const anchorPoint = getAnchorPoint(box.screen_anchor, currentViewport);
     const pivotFactor = getPivotFactor(box.pivot);
     const pivotX = anchorPoint.x + (box.anchor_offset_x ?? box.x);
@@ -547,9 +540,11 @@ export default function GameLayoutEditor() {
     const nextX = Math.round(frame.x);
     const nextY = Math.round(frame.y);
     const pivotFactor = getPivotFactor(box.pivot);
-    const anchorPoint = getAnchorPoint(box.screen_anchor);
     const pivotX = nextX + nextWidth * pivotFactor.x;
     const pivotY = nextY + nextHeight * pivotFactor.y;
+    const anchorPoint = getAnchorPoint(box.screen_anchor);
+    const nextWidthPercent = +(nextWidth / viewport.width * 100).toFixed(1);
+    const nextHeightPercent = +(nextHeight / viewport.height * 100).toFixed(1);
 
     return {
       ...box,
@@ -559,8 +554,8 @@ export default function GameLayoutEditor() {
       height: nextHeight,
       anchor_offset_x: Math.round(pivotX - anchorPoint.x),
       anchor_offset_y: Math.round(pivotY - anchorPoint.y),
-      width_percent: +(nextWidth / viewport.width * 100).toFixed(1),
-      height_percent: +(nextHeight / viewport.height * 100).toFixed(1),
+      width_percent: nextWidthPercent,
+      height_percent: nextHeightPercent,
       nx: undefined,
       ny: undefined,
       screen_relative: true,
@@ -977,14 +972,15 @@ export default function GameLayoutEditor() {
       .then(res => res.json())
       .then(data => {
         const migrated = migrateLayout(data);
-
-        migrated.boxes = mergeWithDefaults(
-          Object.keys(migrated.boxes).length > 0 ? migrated.boxes : makeDefaultBoxes(sceneSlug),
+        const currentBoxes = migrated.boxes?.[aspectSlug] || {};
+        const merged = mergeWithDefaults(
+          Object.keys(currentBoxes).length > 0 ? currentBoxes : makeDefaultBoxes(sceneSlug),
           sceneSlug,
         );
-        Object.keys(migrated.boxes).forEach(key => {
-          migrated.boxes[key] = { ...migrated.boxes[key], ...resolveBoxFrame(migrated.boxes[key]) };
+        Object.keys(merged).forEach((key) => {
+          merged[key] = { ...merged[key], ...resolveBoxFrame(merged[key]) };
         });
+        migrated.boxes = { ...migrated.boxes, [aspectSlug]: merged };
 
         layoutRef.current = migrated;
         skipAutoSaveRef.current = true;
@@ -1101,14 +1097,12 @@ export default function GameLayoutEditor() {
           sharedUpdates[key] = (updates as Record<string, unknown>)[key];
         }
       }
-      if (Object.keys(sharedUpdates).length > 0 && result.boxes[id]) {
-        result = {
-          ...result,
-          boxes: {
-            ...result.boxes,
-            [id]: { ...result.boxes[id], ...sharedUpdates },
-          },
-        };
+      const updatedBoxes = getBoxes(result);
+      if (Object.keys(sharedUpdates).length > 0 && updatedBoxes[id]) {
+        result = setBoxes(result, {
+          ...updatedBoxes,
+          [id]: { ...updatedBoxes[id], ...sharedUpdates },
+        });
       }
 
       return result;
@@ -1204,6 +1198,19 @@ export default function GameLayoutEditor() {
               title="Toggle Center Pivot Line"
             >
               <AlignJustify className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={snapToGrid ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSnapToGrid(prev => !prev)}
+              title="Toggle Snap to Grid (10x10)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <rect x="2" y="2" width="4" height="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <rect x="10" y="2" width="4" height="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <rect x="2" y="10" width="4" height="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <rect x="10" y="10" width="4" height="4" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
             </Button>
             <Button
               variant={snapToCenter ? "default" : "outline"}
@@ -1396,15 +1403,31 @@ export default function GameLayoutEditor() {
                 </>
               )}
 
+              {/* Snap to grid indicator */}
+              {snapToGrid && (
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)
+                    `,
+                    backgroundSize: '10px 10px'
+                  }}
+                />
+              )}
+
               {Object.values(currentBoxes).map(box => (
                 (() => {
-                  const hasPreview = !!(box.cardSlug || box.actionSlug || box.poseSlug || box.animapSlug);
+                  const hasPreview = !!(box.cardSlug || box.actionSlug || box.poseSlug || box.animapSlug || box.asset);
                   return (
                     <Rnd
                       key={box.id}
                       size={{ width: box.width, height: box.height }}
                       position={{ x: box.x, y: box.y }}
                       scale={zoom}
+                      dragGrid={snapToGrid ? [10, 10] : [1, 1]}
+                      resizeGrid={snapToGrid ? [10, 10] : [1, 1]}
                       disableDragging={box.locked}
                       enableResizing={!box.locked}
                       onDragStop={(_e, d) => {
@@ -1531,36 +1554,7 @@ export default function GameLayoutEditor() {
                           <CardPreview
                             slug={box.cardSlug}
                             transparent
-                            onAspectRatioLoaded={(ratio) => {
-                              if (!box.locked) {
-                                const currentRatio = box.height / box.width;
-                                if (Math.abs(currentRatio - ratio) > 0.01) {
-                                  setTimeout(() => {
-                                    updateLayout(prev => {
-                                      const boxes = getBoxes(prev);
-                                      const currentBox = boxes[box.id];
-                                      if (!currentBox) return prev;
-
-                                      const targetHeight = Math.round(currentBox.width * ratio);
-                                      if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
-
-                                      const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
-                                      console.log(`[aspectRatio:card] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}, ratio=${ratio.toFixed(3)}`);
-
-                                      return setBoxes(prev, {
-                                        ...boxes,
-                                        [box.id]: updateBoxGeometry(currentBox, {
-                                          x: currentBox.x,
-                                          y: adjustedY,
-                                          width: currentBox.width,
-                                          height: targetHeight,
-                                        })
-                                      });
-                                    }, { recordHistory: false });
-                                  }, 0);
-                                }
-                              }
-                            }}
+                            fillContainer
                           />
                         </div>
                       )}
@@ -1571,49 +1565,25 @@ export default function GameLayoutEditor() {
                             slug={box.actionSlug}
                             type="action"
                             transparent
-                            onAspectRatioLoaded={(ratio) => {
-                              if (!box.locked) {
-                                const currentRatio = box.height / box.width;
-                                if (Math.abs(currentRatio - ratio) > 0.01) {
-                                  setTimeout(() => {
-                                    updateLayout(prev => {
-                                      const boxes = getBoxes(prev);
-                                      const currentBox = boxes[box.id];
-                                      if (!currentBox) return prev;
-
-                                      const targetHeight = Math.round(currentBox.width * ratio);
-                                      if (Math.abs(currentBox.height - targetHeight) <= 1) return prev;
-
-                                      const adjustedY = Math.round(currentBox.y - (targetHeight - currentBox.height) / 2);
-                                      console.log(`[aspectRatio:action] ${box.id}: h ${currentBox.height}→${targetHeight}, y ${currentBox.y}→${adjustedY}`);
-
-                                      return setBoxes(prev, {
-                                        ...boxes,
-                                        [box.id]: updateBoxGeometry(currentBox, {
-                                          x: currentBox.x,
-                                          y: adjustedY,
-                                          width: currentBox.width,
-                                          height: targetHeight,
-                                        })
-                                      });
-                                    }, { recordHistory: false });
-                                  }, 0);
-                                }
-                              }
-                            }}
+                            fillContainer
                           />
                         </div>
                       )}
 
                       {box.poseSlug && (
                         <div className="absolute inset-0 pointer-events-none select-none">
-                          <HeroPosePreview slug={box.poseSlug} />
+                          <HeroPosePreview slug={box.poseSlug} fill={box.fill || 'cover'} />
                         </div>
                       )}
 
                       {box.animapSlug && (
                         <div className="absolute inset-0 pointer-events-none select-none">
-                          <AnimapBoxPreview slug={box.animapSlug} fill={box.fill} />
+                          <AnimapPreview
+                            slug={box.animapSlug}
+                            fill={box.fill}
+                            fallbackLabel={box.animapSlug}
+                            runtimeBehavior={box.id === 'time_elapsed' ? 'gameplay-time' : undefined}
+                          />
                         </div>
                       )}
 

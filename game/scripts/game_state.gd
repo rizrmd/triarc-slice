@@ -56,6 +56,7 @@ func _ready():
 	_load_action_definitions()
 	_load_selected_heroes()
 	_load_saved_gameplay_aspect()
+	_apply_gameplay_content_scale()
 	apply_gameplay_window_aspect()
 
 func _input(event: InputEvent):
@@ -172,6 +173,7 @@ func clear_forced_gameplay_aspect():
 	gameplay_aspect_changed.emit(forced_gameplay_aspect_key)
 
 func apply_gameplay_window_aspect():
+	_apply_gameplay_content_scale()
 	if OS.get_name() in ["Android", "iOS"]:
 		return
 	var window := get_window()
@@ -245,6 +247,15 @@ func get_gameplay_min_window_size() -> Vector2i:
 	var min_width: int = int(round(float(min_height) * target_ratio))
 	return Vector2i(min_width, min_height)
 
+func _apply_gameplay_content_scale() -> void:
+	var root := get_tree().root
+	if root == null:
+		return
+	var target_size := get_gameplay_window_size()
+	if target_size == Vector2i.ZERO:
+		return
+	root.content_scale_size = target_size
+
 func _set_window_size(window: Window, size: Vector2i):
 	_is_adjusting_window_size = true
 	window.size = size
@@ -283,7 +294,10 @@ func resolve_box(box: Dictionary, viewport_size: Vector2, aspect_key: String = "
 	var h: float = float(box.get("height", 0))
 	if box.has("width_percent"):
 		w = viewport_size.x * float(box.get("width_percent", 0.0)) / 100.0
-	if box.has("height_percent"):
+	var reference_aspect := _get_card_like_reference_aspect(box)
+	if reference_aspect > 0.0:
+		h = w * reference_aspect
+	elif box.has("height_percent"):
 		h = viewport_size.y * float(box.get("height_percent", 0.0)) / 100.0
 	var px: float = float(box.get("x", 0))
 	var py: float = float(box.get("y", 0))
@@ -303,6 +317,25 @@ func resolve_box(box: Dictionary, viewport_size: Vector2, aspect_key: String = "
 		px = cx_norm * viewport_size.x - w / 2.0
 		py = cy_norm * viewport_size.y - h / 2.0
 	return {"x": px, "y": py, "width": w, "height": h}
+
+func _get_card_like_reference_aspect(box: Dictionary) -> float:
+	if not (box.has("cardSlug") or box.has("actionSlug") or box.has("poseSlug")):
+		return -1.0
+
+	var width_percent := float(box.get("width_percent", 0.0))
+	var height_percent := float(box.get("height_percent", 0.0))
+	if width_percent > 0.0 and height_percent > 0.0:
+		var ref_width := 1080.0 * width_percent / 100.0
+		var ref_height := 1920.0 * height_percent / 100.0
+		if ref_width > 0.0 and ref_height > 0.0:
+			return ref_height / ref_width
+
+	var width := float(box.get("width", 0.0))
+	var height := float(box.get("height", 0.0))
+	if width > 0.0 and height > 0.0:
+		return height / width
+
+	return -1.0
 
 ## Apply a layout box to a Control node — resolves position & size from the box data.
 ## Use this instead of manually setting position/size to avoid double-scaling bugs.
