@@ -20,7 +20,7 @@
       "name": "flag",
       "type": "video",
       "file": "flag.ogv",
-      "visible": true,
+      "visible": false,
       "opacity": 1,
       "x": 1219,
       "y": 965,
@@ -34,7 +34,7 @@
       "name": "flag-mask",
       "type": "mask",
       "file": "flag-mask.webp",
-      "visible": true,
+      "visible": false,
       "targets": [
         "layer-1773930763421"
       ]

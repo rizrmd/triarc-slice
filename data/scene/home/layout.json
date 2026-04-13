@@ -16,7 +16,7 @@
         "screen_relative": true,
         "width": 653,
         "width_percent": 42.5,
-        "x": 442,
+        "x": 443,
         "y": 723
       },
       "logout_button": {
@@ -72,7 +72,7 @@
     "9-16": {
       "find_match_button": {
         "anchor_offset_x": 1,
-        "anchor_offset_y": -168,
+        "anchor_offset_y": -239,
         "animapSlug": "find-match-button",
         "fill": "contain",
         "height": 250,
@@ -84,8 +84,8 @@
         "screen_relative": true,
         "width": 459,
         "width_percent": 42.5,
-        "x": 312,
-        "y": 667
+        "x": 311,
+        "y": 596
       },
       "logout_button": {
         "anchor_offset_x": 0,
@@ -120,7 +120,7 @@
         "y": 116
       },
       "training_button": {
-        "anchor_offset_x": 0,
+        "anchor_offset_x": 1,
         "anchor_offset_y": 156,
         "animapSlug": "training-button",
         "fill": "contain",

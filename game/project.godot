@@ -30,7 +30,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GodotGoogleSignIn/plugin.cfg", "res://addons/effekseer/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotGoogleSignIn/plugin.cfg")
 
 [gui]
 
@@ -38,7 +38,7 @@ theme/custom_font="res://fonts/Volkhov-Regular.ttf"
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
 textures/canvas_textures/default_texture_filter=2
+renderer/rendering_method="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)

@@ -12,6 +12,7 @@
   },
   "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
   "tint": "#fbb07e",
   "description": "Reinforce an ally with earthen resolve, hardening them against incoming pressure.",
   "cost": 3,
@@ -19,26 +20,24 @@
     "earth"
   ],
   "target_rule": "ally_single",
-  "visible_layers": {
-    "card": true,
-    "char-bg": true,
-    "name": true,
-    "mask-bg": true
-  },
   "targeting": {
     "side": "ally",
     "scope": "single",
     "selection": "manual",
-    "allow_self": true,
-    "allow_dead": false
+    "allow_self": true
   },
-  "text_shadow_size": 3,
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": true
+  },
   "gameplay": {
     "casting_time_ms": 1000,
     "effect_kind": "shield",
-    "base_power": 30,
-    "status_kind": null,
-    "status_duration_ms": 0,
-    "status_value": 0
+    "base_power": 30
   }
 }
