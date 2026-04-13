@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
 
 interface EffekseerLayerProps {
   file: string;
@@ -13,7 +12,6 @@ interface EffekseerLayerProps {
   selected: boolean;
   isMaskMode: boolean;
   locked: boolean;
-  // Called with the imperative handle (play/pause) when the layer mounts
   onLayerRef?: (handle: { play: () => void; pause: () => void; isPlaying: () => boolean } | null) => void;
 }
 
@@ -27,14 +25,13 @@ declare global {
 }
 
 interface EffekseerContext {
-  // init() returns undefined in effekseer.js — check nativeptr instead
   init: (gl: WebGLRenderingContext) => void;
   nativeptr: number | null;
   loadEffect: (url: string, scale: number, onLoad: () => void, onError?: (err: string) => void) => EffekseerEffect;
   update: (delta: number) => void;
   draw: () => void;
-  setProjectionMatrix: (m: number[]) => void;
-  setCameraMatrix: (m: number[]) => void;
+  setProjectionMatrix: (m: Float32Array | number[]) => void;
+  setCameraMatrix: (m: Float32Array | number[]) => void;
   setRestorationOfStatesFlag: (flag: boolean) => void;
   play: (effect: EffekseerEffect, x?: number, y?: number, z?: number) => EffekseerHandle;
 }
@@ -48,6 +45,136 @@ interface EffekseerHandle {
   setAllColor: (r: number, g: number, b: number, a: number) => void;
   setPaused: (paused: boolean) => void;
   stop: () => void;
+}
+
+// Per-slug shared state — one WebGL context + matrices for all layers in the same animap
+interface SharedState {
+  ctx: EffekseerContext;
+  gl: WebGLRenderingContext;
+  refcount: number;
+  // Perspective camera matrices (position: 20,20,20 looking at origin)
+  projectionMatrix: Float32Array;
+  cameraMatrix: Float32Array;
+  // Combined animation loop handle
+  rafHandle: number;
+  timerRef: { current: { update: (ts: number) => void; getDelta: () => number } };
+  effects: Set<{ handle: EffekseerHandle | null; paused: boolean }>;
+}
+
+const sharedStates = new Map<string, SharedState>();
+
+function makePerspectiveMatrix(fov: number, aspect: number, near: number, far: number): Float32Array {
+  const f = 1.0 / Math.tan(fov * Math.PI / 360);
+  const nf = 1 / (near - far);
+  return new Float32Array([
+    f / aspect, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, (far + near) * nf, -1,
+    0, 0, 2 * far * near * nf, 0,
+  ]);
+}
+
+// LookAt matrix: camera at eye looking at center
+function makeLookAtMatrix(eye: number[], center: number[], up: number[]): Float32Array {
+  const zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
+  let len = Math.sqrt(zx * zx + zy * zy + zz * zz);
+  const z = [zx / len, zy / len, zz / len];
+  const xx = up[1] * z[2] - up[2] * z[1];
+  const xy = up[2] * z[0] - up[0] * z[2];
+  const xz = up[0] * z[1] - up[1] * z[0];
+  len = Math.sqrt(xx * xx + xy * xy + xz * xz);
+  const x = [xx / len, xy / len, xz / len];
+  const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+
+  return new Float32Array([
+    x[0], y[0], z[0], 0,
+    x[1], y[1], z[1], 0,
+    x[2], y[2], z[2], 0,
+    -(x[0] * eye[0] + x[1] * eye[1] + x[2] * eye[2]),
+    -(y[0] * eye[0] + y[1] * eye[1] + y[2] * eye[2]),
+    -(z[0] * eye[0] + z[1] * eye[1] + z[2] * eye[2]),
+    1,
+  ]);
+}
+
+function getOrCreateSharedState(slug: string, canvas: HTMLCanvasElement): SharedState | null {
+  const existing = sharedStates.get(slug);
+  if (existing) {
+    existing.refcount++;
+    return existing;
+  }
+
+  if (!window.effekseer) return null;
+
+  const gl = canvas.getContext('webgl', {
+    alpha: true,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    powerPreference: 'low-power',
+    preserveDrawingBuffer: false,
+    desynchronized: true, // Reduce latency
+  });
+  if (!gl) return null;
+
+  const ctx = window.effekseer.createContext();
+  if (!ctx) return null;
+
+  ctx.init(gl);
+  if (!ctx.nativeptr) return null;
+  ctx.setRestorationOfStatesFlag(false);
+
+  // Perspective camera: FOV 30, aspect 1, near 1, far 1000, position (20,20,20) looking at origin
+  const projectionMatrix = makePerspectiveMatrix(30, 1, 1, 1000);
+  const cameraMatrix = makeLookAtMatrix([20, 20, 20], [0, 0, 0], [0, 1, 0]);
+
+  const timer = { current: { update: (_ts: number) => {}, getDelta: () => 0 } };
+  const lastTimestamp = { value: 0 };
+  timer.current.update = (ts: number) => { lastTimestamp.value = ts; };
+  timer.current.getDelta = () => {
+    const now = performance.now() / 1000;
+    const delta = Math.min(now - lastTimestamp.value, 0.1); // Cap at 100ms
+    return delta;
+  };
+
+  const effects = new Set<{ handle: EffekseerHandle | null; paused: boolean }>();
+
+  // Single RAF loop for the entire slug — iterates all active effects
+  let running = true;
+  const animate = (timestamp: number) => {
+    if (!running) return;
+    // Skip rendering when tab is hidden
+    if (!document.hidden) {
+      timer.current.update(timestamp);
+      const delta = timer.current.getDelta();
+      ctx.update(delta * 60.0);
+      ctx.setProjectionMatrix(projectionMatrix);
+      ctx.setCameraMatrix(cameraMatrix);
+      ctx.draw();
+    }
+    // Schedule next frame regardless of visibility (effects need update even when hidden)
+    requestAnimationFrame(animate);
+  };
+
+  const rafHandle = requestAnimationFrame(animate);
+
+  const state: SharedState = {
+    ctx, gl, refcount: 1,
+    projectionMatrix, cameraMatrix,
+    rafHandle, timerRef: timer, effects,
+  };
+  sharedStates.set(slug, state);
+  return state;
+}
+
+function releaseSharedState(slug: string) {
+  const state = sharedStates.get(slug);
+  if (!state) return;
+  state.refcount--;
+  if (state.refcount <= 0) {
+    cancelAnimationFrame(state.rafHandle);
+    sharedStates.delete(slug);
+  }
 }
 
 export function EffekseerLayer({
@@ -66,14 +193,10 @@ export function EffekseerLayer({
 }: EffekseerLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const effekseerCanvasRef = useRef<HTMLCanvasElement>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const contextRef = useRef<EffekseerContext | null>(null);
   const effectRef = useRef<EffekseerEffect | null>(null);
   const handleRef = useRef<EffekseerHandle | null>(null);
-  const timerRef = useRef(new THREE.Timer());
-  const animationRef = useRef<number>(0);
-  // Tracks runtime pause state (independent of config loop value)
+  const stateRef = useRef<SharedState | null>(null);
+  const effectEntryRef = useRef<{ handle: EffekseerHandle | null; paused: boolean } | null>(null);
   const pausedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,47 +205,38 @@ export function EffekseerLayer({
   const onLayerRefRef = useRef(onLayerRef);
   onLayerRefRef.current = onLayerRef;
 
-  // Expose imperative API to parent (AnimapPropertyPanel)
   const imperativeHandle = {
     play: () => {
-      if (!effectRef.current || !contextRef.current) return;
+      if (!effectRef.current || !stateRef.current) return;
       if (pausedRef.current) {
-        // Resume from paused state
         pausedRef.current = false;
-        if (handleRef.current) {
-          handleRef.current.setPaused(false);
-        }
+        if (handleRef.current) handleRef.current.setPaused(false);
+        if (effectEntryRef.current) effectEntryRef.current.paused = false;
       } else {
-        // Restart: stop any existing handle and create fresh one
-        if (handleRef.current) {
-          handleRef.current.stop();
-        }
-        handleRef.current = contextRef.current.play(effectRef.current, 0, 0, 0);
+        if (handleRef.current) handleRef.current.stop();
+        handleRef.current = stateRef.current.ctx.play(effectRef.current, 0, 0, 0);
+        if (effectEntryRef.current) effectEntryRef.current.handle = handleRef.current;
       }
     },
     pause: () => {
       if (!effectRef.current) return;
       pausedRef.current = true;
-      if (handleRef.current) {
-        handleRef.current.setPaused(true);
-      }
+      if (handleRef.current) handleRef.current.setPaused(true);
+      if (effectEntryRef.current) effectEntryRef.current.paused = true;
     },
-    isPlaying: () => {
-      return !pausedRef.current;
-    },
+    isPlaying: () => !pausedRef.current,
   };
 
-
-  // Notify parent of the imperative handle so AnimapCanvas can store it
   useEffect(() => {
     if (onLayerRefRef.current) onLayerRefRef.current(imperativeHandle);
     return () => { if (onLayerRefRef.current) onLayerRefRef.current(null); };
   }, []);
 
-  // Load Effekseer script once
+  // Load Effekseer script once globally
   useEffect(() => {
     if (window.effekseer) {
-      return; // Already loaded
+      setIsEffekseerReady(true);
+      return;
     }
 
     const script = document.createElement('script');
@@ -130,163 +244,78 @@ export function EffekseerLayer({
     script.async = true;
 
     script.onload = () => {
-      // Must call initRuntime to load the WASM before createContext works
       if (window.effekseer) {
-        console.log('[effekseer] script loaded, initRuntime with WASM at', '/effekseer/effekseer.wasm');
         window.effekseer.initRuntime(
           '/effekseer/effekseer.wasm',
-          () => {
-            console.log('[effekseer] WASM ready');
-            setIsEffekseerReady(true);
-          },
-          (err) => {
-            console.error('[effekseer] WASM init error:', err);
-            setError('Effekseer WASM failed to load: ' + err);
-          }
+          () => setIsEffekseerReady(true),
+          (err) => setError('Effekseer WASM failed to load: ' + err)
         );
       }
     };
-    script.onerror = () => {
-      console.error('[effekseer] script load failed — check if /effekseer/effekseer.min.js is served correctly');
-      setError('Failed to load Effekseer script');
-    };
+    script.onerror = () => setError('Failed to load Effekseer script');
     document.head.appendChild(script);
   }, []);
 
-  // Initialize Three.js + Effekseer
+  // Setup: shared state, load effect, register with the RAF loop
   useEffect(() => {
-    if (!canvasRef.current || !effekseerCanvasRef.current || !file || !isEffekseerReady) return;
+    if (!canvasRef.current || !file || !isEffekseerReady) return;
 
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!container) return;
+    const state = getOrCreateSharedState(slug, canvasRef.current);
+    if (!state) {
+      setError('Failed to create Effekseer context');
+      return;
+    }
+    stateRef.current = state;
 
-    const cleanup = () => {
-      cancelAnimationFrame(animationRef.current);
-      if (rendererRef.current) {
-        rendererRef.current.dispose();
-        rendererRef.current = null;
-      }
-      timerRef.current.dispose();
-      contextRef.current = null;
-      effectRef.current = null;
-      handleRef.current = null;
-    };
+    const effectEntry = { handle: null as EffekseerHandle | null, paused: false as boolean };
+    effectEntryRef.current = effectEntry;
+    state.effects.add(effectEntry);
 
-    const init = () => {
-      if (!window.effekseer) {
-        setError('Effekseer not loaded');
-        return;
-      }
+    const effectUrl = `/data/animap/${slug}/${file}?v=${fileVersion}`;
+    setIsLoading(true);
 
-      if (!effekseerCanvasRef.current) {
-        setError('Effekseer canvas not ready');
-        return;
-      }
-
-      // Three.js setup — own canvas so it owns its own WebGL context
-      const renderer = new THREE.WebGLRenderer({
-        canvas,
-        alpha: true,
-        antialias: true,
-      });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(256, 256);
-      rendererRef.current = renderer;
-
-      const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(30, 1, 1, 1000);
-      camera.position.set(20, 20, 20);
-      camera.lookAt(0, 0, 0);
-
-      // Initialize Effekseer with its own canvas + its own WebGL context
-      const effCtx = window.effekseer.createContext();
-      if (!effCtx) {
-        setError('Failed to create Effekseer context (WASM not initialized)');
-        return;
-      }
-      const gl2 = effekseerCanvasRef.current.getContext('webgl');
-      if (!gl2) {
-        setError('Failed to get WebGL context for Effekseer');
-        return;
-      }
-      // effekseer.init() returns undefined — nativeptr is the real success indicator
-      effCtx.init(gl2);
-      if (!effCtx.nativeptr) {
-        setError('Failed to initialize Effekseer core');
-        return;
-      }
-      effCtx.setRestorationOfStatesFlag(false);
-      contextRef.current = effCtx;
-
-      // Set projection/camera matrices
-      effCtx.setProjectionMatrix(camera.projectionMatrix.elements);
-      effCtx.setCameraMatrix(camera.matrixWorldInverse.elements);
-
-      // Load effect
-      const effectUrl = `/data/animap/${slug}/${file}?v=${fileVersion}`;
-      setIsLoading(true);
-      const onLoad = () => {
-        console.log('[effekseer] effect loaded:', effectUrl);
-        setIsLoading(false);
-        setIsReady(true);
-        if (effectRef.current) {
-          handleRef.current = effCtx.play(effectRef.current, 0, 0, 0);
-          if (!loop && handleRef.current) {
-            handleRef.current.setPaused(true);
-            pausedRef.current = true;
-          }
-        }
-      };
-      const onError = (err: string) => {
-        console.error('[effekseer] loadEffect error:', err, 'URL:', effectUrl);
-        setIsLoading(false);
-        // Give a more helpful message for common failure modes
-        let msg = 'Failed to load effect: ' + err;
-        if (err && (err.includes('404') || err.includes('Not Found') || err.includes('failed to fetch'))) {
-          msg = 'Effect file not found on server (404). Check if the file was saved correctly.';
-        } else if (err && err.toLowerCase().includes('version')) {
-          msg = 'Effect file version mismatch. Make sure the .efkefc was created with Effekseer v1.70.';
-        }
-        setError(msg);
-      };
+    const onLoad = () => {
+      setIsLoading(false);
+      setIsReady(true);
       if (effectRef.current) {
-        // already loaded from a previous render, just replay
-        onLoad();
-      } else {
-        console.log('[effekseer] loadEffect:', effectUrl);
-        effectRef.current = effCtx.loadEffect(effectUrl, 1.0, onLoad, onError);
+        handleRef.current = state.ctx.play(effectRef.current, 0, 0, 0);
+        effectEntry.handle = handleRef.current;
+        if (!loop && handleRef.current) {
+          handleRef.current.setPaused(true);
+          pausedRef.current = true;
+          effectEntry.paused = true;
+        }
       }
-
-      // Animation loop
-      const animate = (timestamp: number) => {
-        animationRef.current = requestAnimationFrame(animate);
-
-        timerRef.current.update(timestamp);
-        const delta = timerRef.current.getDelta();
-        effCtx.update(delta * 60.0);
-
-        renderer.render(scene, camera);
-
-        effCtx.setProjectionMatrix(camera.projectionMatrix.elements);
-        effCtx.setCameraMatrix(camera.matrixWorldInverse.elements);
-
-        effCtx.draw();
-
-      };
-      animationRef.current = requestAnimationFrame(animate);
+    };
+    const onError = (err: string) => {
+      setIsLoading(false);
+      setError('Failed to load effect: ' + err);
     };
 
-    // Effekseer is ready once initRuntime completes (WASM loaded)
-    init();
+    if (effectRef.current) {
+      onLoad();
+    } else {
+      effectRef.current = state.ctx.loadEffect(effectUrl, 1.0, onLoad, onError);
+    }
 
-    return cleanup;
+    return () => {
+      if (handleRef.current) {
+        handleRef.current.stop();
+        handleRef.current = null;
+      }
+      if (effectEntryRef.current) {
+        state.effects.delete(effectEntryRef.current);
+        effectEntryRef.current = null;
+      }
+      effectRef.current = null;
+      stateRef.current = null;
+      releaseSharedState(slug);
+    };
   }, [file, slug, fileVersion, isEffekseerReady]);
 
   // Update position
   useEffect(() => {
     if (!handleRef.current) return;
-    // Effekseer uses 3D coordinates, we center at (0,0) and scale
     handleRef.current.setLocation(0, 0, 0);
   }, [x, y]);
 
@@ -296,7 +325,7 @@ export function EffekseerLayer({
     handleRef.current.setScale(scale, scale, scale);
   }, [scale]);
 
-  // Update opacity (via color alpha)
+  // Update opacity
   useEffect(() => {
     if (!handleRef.current) return;
     handleRef.current.setAllColor(1, 1, 1, opacity);
@@ -308,7 +337,7 @@ export function EffekseerLayer({
   }, [loop]);
 
   return (
-      <div
+    <div
       ref={containerRef}
       style={{
         position: 'absolute',
@@ -322,19 +351,18 @@ export function EffekseerLayer({
         opacity: isReady ? 1 : 0.5,
       }}
     >
-      {/* Three.js canvas — owns its own WebGL context */}
+      {/* Single small canvas — shared WebGL context across all Effekseer layers in this slug */}
       <canvas
         ref={canvasRef}
-        width={256}
-        height={256}
-        style={{ display: 'block', background: 'transparent', position: 'absolute', inset: 0 }}
-      />
-      {/* Effekseer canvas — separate canvas + separate WebGL context */}
-      <canvas
-        ref={effekseerCanvasRef}
-        width={256}
-        height={256}
-        style={{ display: 'block', background: 'transparent', position: 'absolute', inset: 0 }}
+        width={128}
+        height={128}
+        style={{
+          display: 'block',
+          background: 'transparent',
+          position: 'absolute',
+          inset: 0,
+          imageRendering: 'auto',
+        }}
       />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
@@ -355,6 +383,6 @@ export function EffekseerLayer({
           <div className="text-[10px] text-muted-foreground mt-1 text-center px-1">Upload .efkefc or .zip (with textures)</div>
         </div>
       )}
-      </div>
-    );
+    </div>
+  );
 }
