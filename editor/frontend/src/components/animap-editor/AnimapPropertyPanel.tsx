@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, useEffect, type MutableRefObject } from 'react';
 import { createPortal } from 'react-dom';
-import { Upload, Brush, Eraser, RotateCcw, ChevronRight } from 'lucide-react';
+import { Upload, Brush, Eraser, RotateCcw, ChevronRight, Play, Pause } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -597,6 +597,11 @@ interface AnimapPropertyPanelProps {
   setBrushMode: (mode: 'paint' | 'erase') => void;
   convertProgress: number | null;
   activeVideoRef: MutableRefObject<HTMLVideoElement | null>;
+  effekseerLayerRefsRef: MutableRefObject<Record<string, {
+    play: () => void;
+    pause: () => void;
+    isPlaying: () => boolean;
+  } | null>>;
 }
 
 export function AnimapPropertyPanel({
@@ -619,6 +624,7 @@ export function AnimapPropertyPanel({
   setBrushMode,
   convertProgress,
   activeVideoRef,
+  effekseerLayerRefsRef,
 }: AnimapPropertyPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -660,11 +666,6 @@ export function AnimapPropertyPanel({
 
   return (
     <Card className="rounded-none border-0 h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">{selectedLayer.name}</CardTitle>
-        <p className="text-xs text-muted-foreground capitalize">{selectedLayer.type} layer</p>
-      </CardHeader>
-
       <CardContent className="space-y-4">
         {/* Name */}
         <div className="space-y-1">
@@ -720,6 +721,8 @@ export function AnimapPropertyPanel({
                     accept={
                       selectedLayer.type === 'video'
                         ? 'video/*,.ogv'
+                        : selectedLayer.type === 'effekseer'
+                        ? '.efkefc,.zip,application/zip'
                         : 'image/*'
                     }
                     onChange={(e) => {
@@ -734,6 +737,27 @@ export function AnimapPropertyPanel({
             {selectedLayer.file && (
               <p className="text-xs text-muted-foreground truncate">{selectedLayer.file}</p>
             )}
+            {selectedLayer.file && selectedLayer.type === 'effekseer' && (
+              <div className="mt-2 p-3 rounded border border-dashed bg-primary/5 space-y-2">
+                {/* Playback controls */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => effekseerLayerRefsRef.current[selectedLayer.id]?.play()}
+                    className="flex items-center justify-center h-8 w-8 rounded border bg-background hover:bg-muted transition-colors"
+                    title="Play"
+                  >
+                    <Play className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => effekseerLayerRefsRef.current[selectedLayer.id]?.pause()}
+                    className="flex items-center justify-center h-8 w-8 rounded border bg-background hover:bg-muted transition-colors"
+                    title="Pause"
+                  >
+                    <Pause className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
             {selectedLayer.file && selectedLayer.type === 'image' && (
               <img
                 src={fileUrl}
@@ -747,7 +771,7 @@ export function AnimapPropertyPanel({
           </div>
         )}
 
-        {(selectedLayer.type === 'image' || selectedLayer.type === 'video' || selectedLayer.type === 'text') && (
+        {(selectedLayer.type === 'image' || selectedLayer.type === 'video' || selectedLayer.type === 'text' || selectedLayer.type === 'effekseer') && (
           <>
             <PropertyRow
               label="X"

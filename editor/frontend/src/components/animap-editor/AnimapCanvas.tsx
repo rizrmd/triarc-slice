@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, type RefObject, type MutableRefObject, type PointerEvent as ReactPointerEvent } from 'react';
 import type { AnimapConfig, AnimapLayer } from '@/types';
+import { EffekseerLayer } from './EffekseerLayer';
 import { getEffectiveLayers, updateStateLayerOverride } from '@/lib/animap-state';
 
 function buildCssFilter(layer: AnimapLayer): string | undefined {
@@ -32,6 +33,11 @@ interface AnimapCanvasProps {
   maskCanvasRef: RefObject<HTMLCanvasElement | null>;
   setMaskDirty: (dirty: boolean) => void;
   activeVideoRef: MutableRefObject<HTMLVideoElement | null>;
+  effekseerLayerRefsRef: MutableRefObject<Record<string, {
+    play: () => void;
+    pause: () => void;
+    isPlaying: () => boolean;
+  } | null>>;
 }
 
 export function AnimapCanvas({
@@ -52,6 +58,7 @@ export function AnimapCanvas({
   maskCanvasRef,
   setMaskDirty,
   activeVideoRef,
+  effekseerLayerRefsRef,
 }: AnimapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
@@ -235,7 +242,7 @@ export function AnimapCanvas({
     // Layer dragging (skip if locked)
     if (e.button === 0 && selectedLayerId) {
       const layer = selectedLayer;
-      if (layer && !layer.locked && (layer.type === 'image' || layer.type === 'video' || layer.type === 'text')) {
+      if (layer && !layer.locked && (layer.type === 'image' || layer.type === 'video' || layer.type === 'text' || layer.type === 'effekseer')) {
         isDragging.current = true;
         dragLayerId.current = selectedLayerId;
         const scale = canvasZoom / 100;
@@ -461,6 +468,30 @@ export function AnimapCanvas({
           // Mask layers are not rendered visually as compositing elements
           // (they are applied to their targets via CSS mask-image)
           return null;
+        })}
+
+        {/* Effekseer layers — rendered via EffekseerForWebGL */}
+        {effectiveLayers.map((layer) => {
+          if (layer.type !== 'effekseer' || !layer.visible) return null;
+          return (
+            <EffekseerLayer
+              key={layer.id}
+              file={layer.file}
+              slug={slug}
+              x={layer.x ?? 0}
+              y={layer.y ?? 0}
+              scale={layer.scale ?? 1}
+              opacity={layer.opacity ?? 1}
+              loop={layer.loop ?? true}
+              fileVersion={fileVersion}
+              selected={selectedLayerId === layer.id}
+              isMaskMode={isMaskMode}
+              locked={!!layer.locked}
+              onLayerRef={(handle) => {
+                effekseerLayerRefsRef.current[layer.id] = handle;
+              }}
+            />
+          );
         })}
 
         {/* Mask canvas for painting — width/height set only in useEffect to avoid clearing on re-render */}

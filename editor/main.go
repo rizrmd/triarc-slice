@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -599,13 +600,39 @@ func main() {
 	// Serve card assets
 	// Since the binary is in root, we can serve directly from data/
 	cardsDir := resolvePath("./data")
-	http.Handle("/data/", http.StripPrefix("/data/", http.FileServer(http.Dir(cardsDir))))
+	http.Handle("/data/", http.StripPrefix("/data/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Clean(r.URL.Path)
+		localPath := filepath.Join(cardsDir, path)
+		if _, err := os.Stat(localPath); os.IsNotExist(err) {
+			// Effekseer texture not found in the requested path —
+			// search action VFX directories and serve if found.
+			// This handles .efkefc files that reference textures by filename
+			// (e.g. "Texture - Circle.png") but those textures live under
+			// data/action/{slug}/vfx/ rather than next to the .efkefc.
+			if strings.Contains(filepath.Base(path), "Texture") ||
+				strings.HasSuffix(filepath.Base(path), ".png") ||
+				strings.HasSuffix(filepath.Base(path), ".jpg") ||
+				strings.HasSuffix(filepath.Base(path), ".jpeg") ||
+				strings.HasSuffix(filepath.Base(path), ".tga") ||
+				strings.HasSuffix(filepath.Base(path), ".bmp") {
+				fileName := filepath.Base(path)
+				found := tryServeFromActionDirs(cardsDir, fileName, w, r)
+				if found {
+					return
+				}
+			}
+			http.NotFound(w, r)
+			return
+		}
+		http.FileServer(http.Dir(cardsDir)).ServeHTTP(w, r)
+	})))
 
 	// API endpoints
 	http.HandleFunc("/api/cards", listCardsHandler)
 	http.HandleFunc("/api/card/", cardHandler) // Handles both GET and POST for specific card
 	http.HandleFunc("/api/actions", listActionsHandler)
 	http.HandleFunc("/api/action/", actionHandler)
+	http.HandleFunc("/api/server-action-stats", serverActionStatsHandler)
 	http.HandleFunc("/api/card-mask/", cardMaskHandler)
 	http.HandleFunc("/api/action-mask/", actionMaskHandler)
 	http.HandleFunc("/api/card-char/", cardCharHandler)
@@ -967,6 +994,8 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 		// Detect if video by content type or file extension
 		ext := strings.ToLower(filepath.Ext(header.Filename))
 		isVideo := ext == ".ogv" || ext == ".mp4" || ext == ".webm" || ext == ".mov" || ext == ".avi" || ext == ".mkv"
+		isZip := ext == ".zip"
+		isEffekseer := ext == ".efkefc"
 		contentType := http.DetectContentType(data)
 		if strings.HasPrefix(contentType, "video/") {
 			isVideo = true
@@ -1020,6 +1049,57 @@ func animapLayerHandler(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{"status": "converting", "task": taskID})
 			}
+		} else if isZip {
+			// ZIP — extract to animapDir (for Effekseer effects with textures, or bundled assets)
+			zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+			if err != nil {
+				http.Error(w, "Failed to read ZIP: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			var foundEfkefc string
+			for _, f := range zipReader.File {
+				// Skip directories and paths with traversal attempts
+				if f.FileInfo().IsDir() || strings.Contains(f.Name, "..") {
+					continue
+				}
+				dest := filepath.Join(animapDir, filepath.Base(f.Name))
+				src, err := f.Open()
+				if err != nil {
+					continue
+				}
+				out, err := os.Create(dest)
+				if err != nil {
+					src.Close()
+					continue
+				}
+				_, err = io.Copy(out, src)
+				src.Close()
+				out.Close()
+				if err != nil {
+					continue
+				}
+				if strings.ToLower(filepath.Ext(f.Name)) == ".efkefc" {
+					foundEfkefc = filepath.Base(f.Name)
+				}
+			}
+			if foundEfkefc == "" {
+				http.Error(w, "No .efkefc file found in ZIP", http.StatusBadRequest)
+				return
+			}
+			syncAnimapToGame(slug)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": foundEfkefc})
+		} else if isEffekseer {
+			// Effekseer effect — save as-is (standalone, no textures bundled)
+			target := filepath.Join(animapDir, baseName+".efkefc")
+			if err := os.WriteFile(target, data, 0644); err != nil {
+				http.Error(w, "Failed to save effekseer file: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			// Sync to game/data/ for game.exe
+			syncAnimapToGame(slug)
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"status": "saved", "file": baseName + ".efkefc"})
 		} else {
 			// Image/mask — convert to webp
 			target := filepath.Join(animapDir, baseName+".webp")
@@ -1547,6 +1627,118 @@ func actionHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// serverActionStatsHandler reads vg-server/src/vg/actions.gleam and returns
+// action gameplay stats as JSON. This is the authoritative balance data —
+// the editor displays it read-only; balance is owned by the server repo.
+func serverActionStatsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	gleamPath := filepath.Join(resolvePath("../vg-server/src/vg"), "actions.gleam")
+	data, err := os.ReadFile(gleamPath)
+	if err != nil {
+		log.Printf("[serverActionStatsHandler] Failed to read %s: %v", gleamPath, err)
+		http.Error(w, "Failed to read actions.gleam (is vg-server repo present?)", http.StatusInternalServerError)
+		return
+	}
+
+	stats := parseActionStatsFromGleam(string(data))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// parseActionStatsFromGleam extracts action gameplay stats from actions.gleam source.
+func parseActionStatsFromGleam(content string) map[string]map[string]interface{} {
+	result := make(map[string]map[string]interface{})
+
+	// Match function blocks like: fn fireball() -> ActionDef { ... }
+	// We match the whole body including multiline.
+	re := regexp.MustCompile(`fn\s+\w+\(\)\s*->\s*ActionDef\s*\{([\s\S]*?)\n\}`)
+	matches := re.FindAllStringSubmatch(content, -1)
+
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		block := match[1] // captured group: the ActionDef(...) call
+		slug := extractField(block, `slug:\s*"([^"]+)"`)
+		if slug == "" {
+			continue
+		}
+
+		displayName := extractField(block, `display_name:\s*"([^"]+)"`)
+		elementRaw := extractField(block, `element:\s*(\w+)`)
+		targetRuleRaw := extractField(block, `target_rule:\s*(\w+)`)
+		energyCost := extractIntField(block, `energy_cost:\s*(\d+)`)
+		castingTime := extractIntField(block, `casting_time_ms:\s*(\d+)`)
+		effectKindRaw := extractField(block, `effect_kind:\s*(\w+)`)
+		basePower := extractIntField(block, `base_power:\s*([-\d]+)`)
+		statusKindRaw := extractField(block, `status_kind:\s*(\w+)`)
+		statusDuration := extractIntField(block, `status_duration_ms:\s*(\d+)`)
+		statusValue := extractIntField(block, `status_value:\s*([-\d]+)`)
+
+		element := toSnakeCase(elementRaw)
+		effectKind := toSnakeCase(effectKindRaw)
+		targetRule := toSnakeCase(targetRuleRaw)
+
+		statusKind := ""
+		if statusKindRaw != "" {
+			statusKind = toSnakeCase(statusKindRaw)
+		}
+
+		result[slug] = map[string]interface{}{
+			"display_name":       displayName,
+			"element":            element,
+			"target_rule":        targetRule,
+			"energy_cost":        energyCost,
+			"casting_time_ms":    castingTime,
+			"effect_kind":        effectKind,
+			"base_power":         basePower,
+			"status_kind":        statusKind,
+			"status_duration_ms": statusDuration,
+			"status_value":       statusValue,
+		}
+	}
+
+	return result
+}
+
+func extractField(block, pattern string) string {
+	re := regexp.MustCompile(pattern)
+	m := re.FindStringSubmatch(block)
+	if len(m) > 1 {
+		return m[1]
+	}
+	return ""
+}
+
+func extractIntField(block, pattern string) int {
+	s := extractField(block, pattern)
+	if s == "" {
+		return 0
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+func toSnakeCase(s string) string {
+	// Convert CamelCase/HTTPStyle to snake_case
+	// e.g. "EnemySingle" -> "enemy_single", "Some(Stun)" -> "some_stun"
+	s = strings.TrimPrefix(s, "Some(")
+	s = strings.TrimSuffix(s, ")")
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteByte('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
 }
 
 func heroAudioHandler(w http.ResponseWriter, r *http.Request) {
@@ -2319,4 +2511,32 @@ func cardHandler(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// tryServeFromActionDirs searches data/action/{slug}/vfx/ for a texture file
+// matching fileName and serves it if found. Returns true if served, false otherwise.
+// This resolves Effekseer .efkefc files that reference textures by filename
+// (e.g. "Texture - Circle.png") when those textures live under action directories
+// rather than next to the .efkefc.
+func tryServeFromActionDirs(dataDir, fileName string, w http.ResponseWriter, r *http.Request) bool {
+	actionDir := filepath.Join(dataDir, "action")
+	entries, err := os.ReadDir(actionDir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		// Check common VFX subdirectories
+		for _, sub := range []string{"vfx", "VFX", "img", "Img"} {
+			vfxDir := filepath.Join(actionDir, entry.Name(), sub)
+			candidate := filepath.Join(vfxDir, fileName)
+			if _, err := os.Stat(candidate); err == nil {
+				http.ServeFile(w, r, candidate)
+				return true
+			}
+		}
+	}
+	return false
 }

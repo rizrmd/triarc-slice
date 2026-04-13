@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
@@ -25,6 +25,7 @@ interface HeroPoseAnimapTabProps {
 export function HeroPoseAnimapTab({ heroSlug, onHeaderActionsChange }: HeroPoseAnimapTabProps) {
   const animapSlug = `pose-${heroSlug}`;
   const editor = useAnimapEditor(animapSlug);
+  const effekseerLayerRefsRef = useRef<Record<string, { play: () => void; pause: () => void; isPlaying: () => boolean } | null>>({});
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -152,6 +153,7 @@ export function HeroPoseAnimapTab({ heroSlug, onHeaderActionsChange }: HeroPoseA
           maskCanvasRef={editor.maskCanvasRef}
           setMaskDirty={editor.setMaskDirty}
           activeVideoRef={editor.activeVideoRef}
+          effekseerLayerRefsRef={effekseerLayerRefsRef}
         />
       </div>
 
@@ -176,6 +178,7 @@ export function HeroPoseAnimapTab({ heroSlug, onHeaderActionsChange }: HeroPoseA
           setBrushMode={editor.setBrushMode}
           convertProgress={editor.convertProgress}
           activeVideoRef={editor.activeVideoRef}
+          effekseerLayerRefsRef={effekseerLayerRefsRef}
         />
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,8 @@ export default function AnimapEditor() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const editor = useAnimapEditor(slug);
+  // Map of layerId -> EffekseerLayer imperative handle
+  const effekseerLayerRefsRef = useRef<Record<string, { play: () => void; pause: () => void; isPlaying: () => boolean } | null>>({});
 
   if (editor.loading) {
     return (
@@ -178,6 +181,7 @@ export default function AnimapEditor() {
         {/* Center: Canvas */}
         <div className="flex-1 overflow-hidden">
           <AnimapCanvas
+            effekseerLayerRefsRef={effekseerLayerRefsRef}
             slug={editor.slug}
             config={config}
             selectedStateId={editor.selectedStateId}
@@ -220,6 +224,7 @@ export default function AnimapEditor() {
             setBrushMode={editor.setBrushMode}
             convertProgress={editor.convertProgress}
             activeVideoRef={editor.activeVideoRef}
+            effekseerLayerRefsRef={effekseerLayerRefsRef}
           />
         </div>
       </div>

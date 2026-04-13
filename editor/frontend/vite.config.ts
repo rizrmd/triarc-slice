@@ -28,17 +28,18 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:8080",
+        target: "http://localhost:5690",
         changeOrigin: true,
       },
       "/assets": {
-        target: "http://localhost:8080",
+        target: "http://localhost:5690",
         changeOrigin: true,
       },
       "/data": {
-        target: "http://localhost:8080",
+        target: "http://localhost:5690",
         changeOrigin: true,
       },
     },
