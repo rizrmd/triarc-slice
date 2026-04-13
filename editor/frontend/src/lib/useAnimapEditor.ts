@@ -272,8 +272,16 @@ export function useAnimapEditor(slug: string | undefined): UseAnimapEditorReturn
 
   // Auto-save: debounce 1s after config or mask changes
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitialLoadRef = useRef(true); // Skip first-run so we don't save on load
   useEffect(() => {
     if (!config || !slug || loading) return;
+
+    // Skip the auto-save on initial load — we only want to save user changes
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      return;
+    }
+
     const configChanged = initialConfig && JSON.stringify(config) !== JSON.stringify(initialConfig);
     if (!configChanged && !maskDirty) return;
 

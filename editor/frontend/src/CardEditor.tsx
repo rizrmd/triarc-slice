@@ -6,7 +6,7 @@ import { normalizeTargeting, targetingToTargetRule } from '@/lib/targeting';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Redo2, Save, Undo2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Redo2, Undo2 } from 'lucide-react';
 
 import { LayerControls } from '@/components/card-editor/LayerControls';
 import { CardCanvas } from '@/components/card-editor/CardCanvas';
@@ -1656,7 +1656,6 @@ export default function CardEditor({ mode }: CardEditorProps) {
   }
 
   const showingPoseHeader = !isAction && currentTab === 'pose';
-  const activeSaveError = showingPoseHeader ? poseHeaderActions?.saveError : saveError;
 
   return (
     <div className="h-dvh overflow-hidden bg-background">
@@ -1690,7 +1689,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
                 variant="secondary"
                 size="icon"
                 onClick={poseHeaderActions?.handleUndo}
-                disabled={!poseHeaderActions?.canUndo || poseHeaderActions.saving}
+                disabled={!poseHeaderActions?.canUndo}
                 title="Undo (Ctrl+Z)"
               >
                 <Undo2 className="h-4 w-4" />
@@ -1700,23 +1699,10 @@ export default function CardEditor({ mode }: CardEditorProps) {
                 variant="secondary"
                 size="icon"
                 onClick={poseHeaderActions?.handleRedo}
-                disabled={!poseHeaderActions?.canRedo || poseHeaderActions.saving}
+                disabled={!poseHeaderActions?.canRedo}
                 title="Redo (Ctrl+Shift+Z)"
               >
                 <Redo2 className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void poseHeaderActions?.handleSave()}
-                disabled={!poseHeaderActions || poseHeaderActions.saving}
-              >
-                {poseHeaderActions?.saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save
               </Button>
             </div>
           ) : (
@@ -1734,9 +1720,9 @@ export default function CardEditor({ mode }: CardEditorProps) {
             </div>
           )}
         </header>
-        {activeSaveError && (
+        {saveError && (
           <div className="shrink-0 px-1 text-xs text-red-500">
-            Gagal menyimpan: {activeSaveError}
+            Gagal menyimpan: {saveError}
           </div>
         )}
 

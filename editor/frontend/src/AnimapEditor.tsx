@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, Redo2, Save, Undo2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Redo2, Undo2 } from 'lucide-react';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
 import { AnimapCanvas } from '@/components/animap-editor/AnimapCanvas';
 import { AnimapPropertyPanel } from '@/components/animap-editor/AnimapPropertyPanel';
@@ -123,11 +123,6 @@ export default function AnimapEditor() {
               </div>
             )}
           </div>
-          {editor.hasUnsavedChanges && (
-            <Badge variant="outline" className="text-xs text-yellow-500 border-yellow-500">
-              Unsaved
-            </Badge>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -148,15 +143,6 @@ export default function AnimapEditor() {
           >
             <Redo2 className="h-4 w-4" />
           </Button>
-          <Button
-            size="sm"
-            onClick={editor.handleSave}
-            disabled={editor.saving}
-          >
-            {editor.saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save
-          </Button>
-          {editor.saveError && <span className="text-xs text-destructive">{editor.saveError}</span>}
         </div>
       </header>
 

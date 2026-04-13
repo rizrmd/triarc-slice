@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { AnimapLayerPanel } from '@/components/animap-editor/AnimapLayerPanel';
 import { AnimapCanvas } from '@/components/animap-editor/AnimapCanvas';
@@ -9,12 +10,8 @@ import { useAnimapEditor } from '@/lib/useAnimapEditor';
 export interface HeroPoseHeaderActions {
   canUndo: boolean;
   canRedo: boolean;
-  saving: boolean;
-  saveError: string | null;
-  hasUnsavedChanges: boolean;
   handleUndo: () => void;
   handleRedo: () => void;
-  handleSave: () => Promise<void>;
 }
 
 interface HeroPoseAnimapTabProps {
@@ -41,12 +38,8 @@ export function HeroPoseAnimapTab({ heroSlug, onHeaderActionsChange }: HeroPoseA
     onHeaderActionsChange({
       canUndo: editor.undoStack.length > 0,
       canRedo: editor.redoStack.length > 0,
-      saving: editor.saving,
-      saveError: editor.saveError,
-      hasUnsavedChanges: editor.hasUnsavedChanges,
       handleUndo: editor.handleUndo,
       handleRedo: editor.handleRedo,
-      handleSave: editor.handleSave,
     });
 
     return () => onHeaderActionsChange(null);
