@@ -191,6 +191,17 @@ func _input(event: InputEvent):
 				_clear_selected_hero()
 				get_viewport().set_input_as_handled()
 				return
+			# Click-outside dismisses the hero detail pane. Runs in _input so
+			# clicks absorbed by UI controls (hand cards, buttons) still dismiss.
+			if _selected_hero != null and is_instance_valid(_selected_hero):
+				var world_pos := get_global_mouse_position()
+				var on_detail := hero_detail_placeholder != null \
+					and hero_detail_placeholder.visible \
+					and hero_detail_placeholder.get_global_rect().has_point(event.position)
+				var on_any_hero := _get_my_hero_at_point(world_pos) != null \
+					or _get_enemy_hero_at_point(world_pos) != null
+				if not on_detail and not on_any_hero:
+					_clear_selected_hero()
 		elif _dragging_info:
 			_finish_info_drag()
 			get_viewport().set_input_as_handled()
