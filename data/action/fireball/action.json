@@ -37,5 +37,18 @@
     "pose-frame": false,
     "pose-mask-fg": false,
     "pose-shadow": false
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Fire Ball.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -70
+    },
+    "scale_multiplier": 9.0
   }
 }

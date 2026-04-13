@@ -1,1 +1,0 @@
-var e=[{slug:`startup`,label:`Startup`,desc:`Logo intro & loading`},{slug:`login`,label:`Login / Register`,desc:`Auth screens`},{slug:`home`,label:`Home`,desc:`Main menu & navigation`},{slug:`gameplay`,label:`Gameplay`,desc:`In-game battle layout`},{slug:`postgame`,label:`Post Game`,desc:`Results & rewards`}];export{e as t};

@@ -1,22 +1,23 @@
 {
-  "full_name": "Frostbolt",
+  "full_name": "Laser Kuning",
   "frame_image": "/assets/ui/action-frame.webp",
   "char_bg_pos": {
     "x": 0,
-    "y": -15
+    "y": 0
   },
-  "char_bg_scale": 134,
+  "char_bg_scale": 100,
   "name_pos": {
     "x": 0,
     "y": 500
   },
   "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
-  "tint": "#4770cb",
-  "description": "Launch a sharp bolt of frost that hits fast and chills the target.",
+  "text_shadow_size": 3,
+  "tint": "#ffd700",
+  "description": "Fire a powerful yellow laser beam at the enemy.",
   "cost": 2,
   "element": [
-    "ice"
+    "light"
   ],
   "target_rule": "enemy_single",
   "visible_layers": {
@@ -28,29 +29,23 @@
   "targeting": {
     "side": "enemy",
     "scope": "single",
-    "selection": "manual",
-    "allow_self": false,
-    "allow_dead": false
+    "selection": "manual"
   },
-  "text_shadow_size": 3,
   "gameplay": {
     "casting_time_ms": 1000,
     "effect_kind": "damage",
-    "base_power": 15,
-    "status_kind": null,
-    "status_duration_ms": 0,
-    "status_value": 0
+    "base_power": 20
   },
   "vfx": {
     "enabled": true,
-    "effect_file": "Card Action VFX - Icebolt.efkefc",
+    "effect_file": "Card Action VFX - Laser Kuning.efkefc",
     "targets": {
       "caster": false,
       "target": true
     },
     "position_offset": {
       "x": 0,
-      "y": -60
+      "y": -70
     },
     "scale_multiplier": 9.0
   }

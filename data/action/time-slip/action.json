@@ -41,5 +41,18 @@
     "status_kind": "attack_buff",
     "status_duration_ms": 5000,
     "status_value": 18
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Time Slip.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -80
+    },
+    "scale_multiplier": 9.0
   }
 }

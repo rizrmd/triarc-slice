@@ -15,7 +15,9 @@
   "tint": "#f28d4a",
   "description": "Swing through the target with a broad brutal strike meant to overwhelm armor and posture.",
   "cost": 3,
-  "element": ["fire"],
+  "element": [
+    "fire"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,
@@ -38,5 +40,18 @@
     "status_kind": null,
     "status_duration_ms": 0,
     "status_value": 0
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Cleave.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -70
+    },
+    "scale_multiplier": 9.0
   }
 }

@@ -537,9 +537,16 @@ func _update_casting_indicators(casts: Array):
 
 		var total_ms = resolves_at - started_at
 		var action_slug = cast.get("action_slug", "")
-		var hero = _find_hero_by_instance_id(caster_id)
-		if hero:
-			hero._show_casting(cast_id, total_ms, action_slug)
+		var caster_hero = _find_hero_by_instance_id(caster_id)
+		
+		# Find target hero from cast data
+		var target_hero: Hero = null
+		var target_id = cast.get("target_hero_instance_id", "")
+		if not target_id.is_empty():
+			target_hero = _find_hero_by_instance_id(target_id)
+		
+		if caster_hero:
+			caster_hero._show_casting(cast_id, total_ms, action_slug, target_hero)
 
 ## Cleanup expired casts from tracking
 func _cleanup_expired_casts():
@@ -574,7 +581,8 @@ func _process_queued_casts():
 	for queued in _queued_casts:
 		var action_slug = queued.get("action_slug", "")
 		var hero: Hero = queued.get("hero")
-		
+		var target_hero: Hero = queued.get("target_hero")
+
 		# Check if this hero is still casting (check BOTH tracking dict AND _current_cast_id for desync safety)
 		if _casting_heroes.has(hero.hero_instance_id) or hero._current_cast_id != "":
 			remaining_queue.append(queued)  # Hero still busy
@@ -591,8 +599,8 @@ func _process_queued_casts():
 			_casting_heroes[hero.hero_instance_id] = action_slug
 			if not action_slug in _casting_action_slugs:
 				_casting_action_slugs.append(action_slug)
-			hero._show_casting(cast_id, cast_duration_ms, action_slug)
-	
+			hero._show_casting(cast_id, cast_duration_ms, action_slug, target_hero)
+
 	_queued_casts = remaining_queue
 
 func _find_hero_by_instance_id(instance_id: String) -> Node:
@@ -605,29 +613,29 @@ func _find_hero_by_instance_id(instance_id: String) -> Node:
 	return null
 
 ## Show casting indicator on hero (wrapper for hero._show_casting)
-func _show_casting_indicator(hero: Hero, action_slug: String):
+func _show_casting_indicator(caster_hero: Hero, action_slug: String, target_hero: Hero = null):
 	# Check if this hero is already casting (check BOTH tracking dict AND _current_cast_id for desync safety)
 	# This prevents starting a new cast when server busy state is active but _casting_heroes wasn't updated
-	if _casting_heroes.has(hero.hero_instance_id) or hero._current_cast_id != "":
-		_queued_casts.append({"hero": hero, "action_slug": action_slug, "timestamp": Time.get_ticks_msec()})
+	if _casting_heroes.has(caster_hero.hero_instance_id) or caster_hero._current_cast_id != "":
+		_queued_casts.append({"hero": caster_hero, "action_slug": action_slug, "target_hero": target_hero, "timestamp": Time.get_ticks_msec()})
 		return
 	
 	# Clear cooldown when starting new cast
-	_hero_cooldown_until.erase(hero.hero_instance_id)
+	_hero_cooldown_until.erase(caster_hero.hero_instance_id)
 	
 	var cast_duration_ms = 1500  # 1.5 detik cast time
 	var cast_id = "cast_%s_%d" % [action_slug, Time.get_ticks_msec()]
 	# Track local cast to prevent server updates from overwriting
 	_local_cast_cast_id = cast_id
-	_local_cast_hero_id = hero.hero_instance_id
+	_local_cast_hero_id = caster_hero.hero_instance_id
 	_local_cast_skip_until_ms = Time.get_ticks_msec() + 2000  # Skip server casts for 2 seconds
 	# Track by hero to support multiple simultaneous casts
-	_casting_by_hero[hero.hero_instance_id] = {"action_slug": action_slug, "until_ms": Time.get_ticks_msec() + cast_duration_ms}
-	_casting_heroes[hero.hero_instance_id] = action_slug
+	_casting_by_hero[caster_hero.hero_instance_id] = {"action_slug": action_slug, "until_ms": Time.get_ticks_msec() + cast_duration_ms}
+	_casting_heroes[caster_hero.hero_instance_id] = action_slug
 	# Track action slug to block same action being cast twice
 	if not action_slug in _casting_action_slugs:
 		_casting_action_slugs.append(action_slug)
-	hero._show_casting(cast_id, cast_duration_ms, action_slug)
+	caster_hero._show_casting(cast_id, cast_duration_ms, action_slug, target_hero)
 
 func _on_card_drag_started(_card):
 	# Cleanup expired casts first
@@ -676,11 +684,16 @@ func _on_card_drop_invalid(card: Control, attempted_hero: Control):
 func _cast_action_with_preset_target(caster_hero: Hero, card: Control):
 	var target_slot = _get_hero_target(caster_hero.slot_index)
 	
+	# Find the target hero node
+	var target_hero: Hero = null
+	if target_slot >= 0 and enemy_heroes.has(target_slot):
+		target_hero = enemy_heroes[target_slot]
+	
 	# Get the actual action to send - use card's action_slug (already overridden if pool/override active)
 	var action_to_send = card.action_slug
 	
-	# Show casting indicator on the caster hero
-	_show_casting_indicator(caster_hero, action_to_send)
+	# Show casting indicator on the caster hero with target reference for VFX
+	_show_casting_indicator(caster_hero, action_to_send, target_hero)
 	
 	# Track the used card so state_update won't recreate it
 	_used_hand_keys.append("%s:%d" % [action_to_send, card.slot_index])
@@ -882,6 +895,7 @@ func _hydrate_hero_targets_from_server(server_targets) -> void:
 	_hero_targets = new_targets
 	_update_target_indicators()
 	_update_target_warning()
+
 
 
 ## Set target for a hero slot

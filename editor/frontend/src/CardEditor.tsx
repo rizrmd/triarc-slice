@@ -19,6 +19,7 @@ import { HeroStatsTab } from '@/components/card-editor/HeroStatsTab';
 import { ActionStatsTab } from '@/components/card-editor/ActionStatsTab';
 import { HeroAudioTab } from '@/components/card-editor/HeroAudioTab';
 import { HeroPoseAnimapTab, type HeroPoseHeaderActions } from '@/components/card-editor/HeroPoseAnimapTab';
+import { ActionVFXTab } from '@/components/card-editor/ActionVFXTab';
 
 const frameImage = '/assets/ui/hero-frame.webp';
 const actionFrameImage = '/assets/ui/action-frame.webp';
@@ -1663,6 +1664,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
             <TabsTrigger value="card">Card</TabsTrigger>
             {!isAction && <TabsTrigger value="pose">Pose</TabsTrigger>}
             <TabsTrigger value="stats">Stats</TabsTrigger>
+            {isAction && <TabsTrigger value="vfx">VFX</TabsTrigger>}
             {!isAction && <TabsTrigger value="info">Info</TabsTrigger>}
             {!isAction && <TabsTrigger value="audio">Audio</TabsTrigger>}
           </TabsList>
@@ -1839,6 +1841,12 @@ export default function CardEditor({ mode }: CardEditorProps) {
               <HeroStatsTab config={config as HeroConfig} onChange={commitConfig as any} />
             )}
           </TabsContent>
+
+          {isAction && (
+            <TabsContent value="vfx" forceMount className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
+              <ActionVFXTab config={config as unknown as ActionConfig} onChange={commitConfig as any} slug={slug || ''} />
+            </TabsContent>
+          )}
 
           {!isAction && (
             <TabsContent value="info">

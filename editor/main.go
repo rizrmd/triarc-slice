@@ -115,6 +115,7 @@ type ActionConfig struct {
 	Targeting       *ActionTargeting `json:"targeting,omitempty"`
 	VisibleLayers   map[string]bool  `json:"visible_layers,omitempty"`
 	Gameplay        *ActionGameplay   `json:"gameplay,omitempty"`
+	VFX             *ActionVFX        `json:"vfx,omitempty"`
 }
 
 type ActionGameplay struct {
@@ -132,6 +133,24 @@ type ActionTargeting struct {
 	Selection string `json:"selection"`
 	AllowSelf bool   `json:"allow_self,omitempty"`
 	AllowDead bool   `json:"allow_dead,omitempty"`
+}
+
+type ActionVFXPositionOffset struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type ActionVFXTargets struct {
+	Caster bool `json:"caster"`
+	Target bool `json:"target"`
+}
+
+type ActionVFX struct {
+	Enabled         bool                `json:"enabled"`
+	EffectFile      string              `json:"effect_file"`
+	Targets        ActionVFXTargets     `json:"targets"`
+	PositionOffset  ActionVFXPositionOffset `json:"position_offset"`
+	ScaleMultiplier float64             `json:"scale_multiplier"`
 }
 
 type HeroActionOverride struct {
@@ -594,6 +613,7 @@ func main() {
 	http.HandleFunc("/api/card-audio/", heroAudioHandler)
 	http.HandleFunc("/api/card-char-select/", cardCharSelectHandler)
 	http.HandleFunc("/api/action-bg-select/", actionBgSelectHandler)
+	http.HandleFunc("/api/action-vfx/", actionVFXHandler)
 	http.HandleFunc("/api/rename-card", renameCardHandler)
 	http.HandleFunc("/api/animaps", listAnimapsHandler)
 	http.HandleFunc("/api/animap-categories", animapCategoriesHandler)
@@ -2008,6 +2028,60 @@ func actionBgSelectHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "saved"})
+}
+
+func actionVFXHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract slug from URL path: /api/action-vfx/{slug}
+	slug := strings.TrimPrefix(r.URL.Path, "/api/action-vfx/")
+	if slug == "" {
+		http.Error(w, "Missing action slug", http.StatusBadRequest)
+		return
+	}
+
+	// Sanitize slug to prevent directory traversal
+	if strings.Contains(slug, "..") || strings.Contains(slug, "/") || strings.Contains(slug, "\\") {
+		http.Error(w, "Invalid slug", http.StatusBadRequest)
+		return
+	}
+
+	// Only allow GET method
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Scan the vfx folder for .efkefc files
+	vfxDir := filepath.Join(resolvePath("./data"), "action", slug, "vfx")
+	entries, err := os.ReadDir(vfxDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No vfx folder exists
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{"effects": []interface{}{}})
+			return
+		}
+		log.Printf("[actionVFXHandler] Failed to read vfx directory: %v", err)
+		http.Error(w, "Failed to scan vfx folder", http.StatusInternalServerError)
+		return
+	}
+
+	effects := make([]map[string]string, 0)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasSuffix(strings.ToLower(name), ".efkefc") {
+			effects = append(effects, map[string]string{
+				"name":      strings.TrimSuffix(name, filepath.Ext(name)),
+				"filename":  name,
+				"path":      filepath.Join(vfxDir, name),
+			})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"effects": effects})
 }
 
 // deduplicatePlaces strips -wide/-narrow suffixes and extensions, deduplicating

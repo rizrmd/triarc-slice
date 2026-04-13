@@ -15,7 +15,9 @@
   "tint": "#5c5c5c",
   "description": "Deliver a ruthless finishing blow designed to punish weakened enemies.",
   "cost": 4,
-  "element": ["shadow"],
+  "element": [
+    "shadow"
+  ],
   "target_rule": "enemy_single",
   "visible_layers": {
     "card": true,
@@ -38,5 +40,18 @@
     "status_kind": null,
     "status_duration_ms": 0,
     "status_value": 0
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Execute.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -40
+    },
+    "scale_multiplier": 9.0
   }
 }

@@ -16,7 +16,9 @@
   "tint": "#6b1802",
   "description": "Lash the target with a heavy chain, dealing blunt physical damage and disrupting momentum.",
   "cost": 2,
-  "element": ["ice"],
+  "element": [
+    "ice"
+  ],
   "target_rule": "enemy_single",
   "targeting": {
     "side": "enemy",
@@ -45,5 +47,18 @@
     "status_kind": "attack_buff",
     "status_duration_ms": 3000,
     "status_value": -8
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Chain.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -60
+    },
+    "scale_multiplier": 9.0
   }
 }

@@ -15,7 +15,9 @@
   "tint": "#e66b6b",
   "description": "Punish an opening with a precise counterattack after absorbing or avoiding pressure.",
   "cost": 2,
-  "element": ["wind"],
+  "element": [
+    "wind"
+  ],
   "target_rule": "self",
   "visible_layers": {
     "card": true,
@@ -38,5 +40,18 @@
     "status_kind": "shield",
     "status_duration_ms": 3000,
     "status_value": 12
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Double Sword.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -50
+    },
+    "scale_multiplier": 9.0
   }
 }

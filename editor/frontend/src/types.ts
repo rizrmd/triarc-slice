@@ -71,6 +71,7 @@ export interface ActionConfig {
   targeting?: ActionTargeting;
   gameplay?: ActionGameplay;
   visible_layers?: Partial<VisibleLayers>;
+  vfx?: ActionVFXConfig;
 }
 
 export interface ActionTargeting {
@@ -264,3 +265,25 @@ export const GAME_SCENES: { slug: GameSceneSlug; label: string; desc: string }[]
   { slug: 'gameplay', label: 'Gameplay', desc: 'In-game battle layout' },
   { slug: 'postgame', label: 'Post Game', desc: 'Results & rewards' },
 ];
+
+// VFX Configuration
+
+export interface ActionVFXConfig {
+  enabled: boolean;
+  effect_file: string;
+  targets: {
+    caster: boolean;
+    target: boolean;
+  };
+  position_offset: {
+    x: number;
+    y: number;
+  };
+  scale_multiplier: number;
+}
+
+export interface VFXFile {
+  name: string;
+  filename: string;
+  path: string;
+}

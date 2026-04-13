@@ -53,6 +53,10 @@ var _target_tween: Tween = null
 var _target_info_panel: PanelContainer = null
 var _target_name_label: Label = null
 
+# VFX system - track current casting action
+var _current_casting_action: String = ""
+var _casting_target_hero: Hero = null  # Reference to the target hero for VFX playback
+
 func _ready():
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	hp_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -726,11 +730,14 @@ func _resize_cast_indicator(pie_size: float):
 		_cast_action_label.size = Vector2(_cast_indicator.size.x - label_x, pie_size)
 		_cast_action_label.add_theme_font_size_override("font_size", max(8, int(pie_size * 0.5)))
 
-func _show_casting(cast_id: String, duration_ms: int, action_slug: String = ""):
+func _show_casting(cast_id: String, duration_ms: int, action_slug: String = "", target_hero: Hero = null):
 	# Skip if already animating this same cast
 	if cast_id == _current_cast_id and _tween_cast and _tween_cast.is_valid():
 		return
 	_current_cast_id = cast_id
+	# Store the action slug and target for VFX playback on cast complete
+	_current_casting_action = action_slug
+	_casting_target_hero = target_hero
 	if _tween_cast and _tween_cast.is_valid():
 		_tween_cast.kill()
 	_cast_indicator.visible = true
@@ -764,6 +771,129 @@ func _set_cast_progress(value: float):
 func _hide_cast_indicator():
 	_cast_indicator.visible = false
 	_current_cast_id = ""
+	# Play VFX on cast complete - play on the TARGET hero
+	if not _current_casting_action.is_empty():
+		if is_instance_valid(_casting_target_hero):
+			# Play VFX on the target hero
+			_casting_target_hero._play_action_vfx(_current_casting_action, true)
+		else:
+			# Fallback: play on self if no target
+			_play_action_vfx(_current_casting_action, true)
+	_current_casting_action = ""
+	_casting_target_hero = null
+
+## Play action VFX on this hero
+## is_target: true if this hero is the target of the action, false if caster
+func _play_action_vfx(action_slug: String, is_target: bool):
+	var normalized = action_slug.replace("_", "-")
+	
+	# Load action config to check VFX settings
+	var cfg_path = "res://data/action/%s/action.json" % normalized
+	var file = FileAccess.open(cfg_path, FileAccess.READ)
+	if not file:
+		return
+	
+	var json = JSON.new()
+	if json.parse(file.get_as_text()) != OK or not json.data is Dictionary:
+		return
+	
+	var config = json.data as Dictionary
+	var vfx_config = config.get("vfx", {})
+	
+	# Check if VFX is enabled
+	if not vfx_config.has("enabled") or not vfx_config["enabled"]:
+		return
+	
+	# Check if this hero type should receive the VFX
+	if is_target:
+		if not vfx_config.get("targets", {}).get("target", false):
+			return
+	else:
+		if not vfx_config.get("targets", {}).get("caster", false):
+			return
+	
+	# Get effect file path
+	var effect_file = vfx_config.get("effect_file", "")
+	if effect_file.is_empty():
+		return
+	
+	# Try both lowercase and uppercase VFX directory names
+	var vfx_dir = "res://data/action/%s/vfx" % normalized
+	var effect_path = "%s/%s" % [vfx_dir, effect_file]
+	if not ResourceLoader.exists(effect_path):
+		# Try uppercase VFX directory
+		vfx_dir = "res://data/action/%s/VFX" % normalized
+		effect_path = "%s/%s" % [vfx_dir, effect_file]
+	
+	# Check if effect file exists
+	if not ResourceLoader.exists(effect_path):
+		print("[Hero] VFX effect file not found: %s" % effect_path)
+		return
+	
+	# Check if EffekseerEmitter2D is available
+	if not ClassDB.can_instantiate("EffekseerEmitter2D"):
+		print("[Hero] EffekseerEmitter2D not available")
+		return
+	
+	# Load and play the effect
+	var effect_res = load(effect_path)
+	if not effect_res:
+		print("[Hero] Failed to load VFX effect: %s" % effect_path)
+		return
+	
+	# Create emitter as child of this hero for proper positioning
+	var emitter = ClassDB.instantiate("EffekseerEmitter2D")
+	if not emitter:
+		print("[Hero] Failed to create EffekseerEmitter2D")
+		return
+	
+	# Position at the center of the hero (VFX should appear on the hero's center)
+	var hero_center = size / 2.0
+	var offset = vfx_config.get("position_offset", {"x": 0, "y": -50})
+	
+	# Determine visual center based on hero type
+	var visual_center = hero_center
+	if is_enemy and _pose_animap:
+		# For enemy heroes, center on the pose animap (which fills the hero area)
+		visual_center = hero_center  # Use hero center for pose
+	elif floating_text_origin:
+		# For ally heroes, use the floating text origin position
+		visual_center = floating_text_origin.position
+	
+	# Apply offset from the visual center
+	emitter.position = visual_center + Vector2(float(offset.get("x", 0)), float(offset.get("y", 0)))
+	
+	# Configure emitter scale - ensure VFX is visible
+	var scale_mult = float(vfx_config.get("scale_multiplier", 1.5))
+	# Use a minimum base scale of 2.0 to ensure VFX is always visible
+	var base_scale = maxf(2.0, minf(size.x, size.y) / 150.0)
+	emitter.scale = Vector2(scale_mult * base_scale, scale_mult * base_scale)
+	
+	print("[Hero] VFX position: %s, scale: %s (base_scale: %.1f, config_scale: %.1f)" % [emitter.position, emitter.scale, base_scale, scale_mult])
+	
+	# Set effect and add to hero's parent to avoid clip_children clipping
+	# Use global position for proper placement
+	emitter.effect = effect_res
+	emitter.name = "ActionVFX"
+	# Position emitter at global position + local offset
+	var global_pos = get_global_position()
+	var local_pos = emitter.position
+	# Add to parent (HeroesContainer) instead of hero to avoid clipping
+	get_parent().add_child(emitter)
+	# Set global position for correct placement
+	emitter.set_global_position(global_pos + local_pos)
+	
+	# Play the effect
+	emitter.play()
+	
+	# Auto-cleanup after effect finishes (use a timer as fallback)
+	var cleanup_timer = get_tree().create_timer(5.0)
+	cleanup_timer.timeout.connect(func():
+		if is_instance_valid(emitter):
+			emitter.queue_free()
+	)
+	
+	print("[Hero] Playing VFX %s on %s (is_target=%s)" % [effect_file, hero_slug, is_target])
 
 func add_status_icon(status_kind: String):
 	# TODO: Add status effect icons (stun, shield, buff, etc.)

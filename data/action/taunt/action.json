@@ -15,7 +15,9 @@
   "tint": "#fe9286",
   "description": "Provoke the enemy into focusing attention on the caster.",
   "cost": 2,
-  "element": ["fire"],
+  "element": [
+    "fire"
+  ],
   "target_rule": "self",
   "visible_layers": {
     "card": true,
@@ -38,5 +40,18 @@
     "status_kind": "shield",
     "status_duration_ms": 4000,
     "status_value": 18
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Terompet.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -70
+    },
+    "scale_multiplier": 9.0
   }
 }

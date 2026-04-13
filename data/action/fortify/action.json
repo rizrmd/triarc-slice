@@ -39,5 +39,18 @@
     "casting_time_ms": 1000,
     "effect_kind": "shield",
     "base_power": 30
+  },
+  "vfx": {
+    "enabled": true,
+    "effect_file": "Card Action VFX - Fortify.efkefc",
+    "targets": {
+      "caster": false,
+      "target": true
+    },
+    "position_offset": {
+      "x": 0,
+      "y": -50
+    },
+    "scale_multiplier": 9.0
   }
 }
