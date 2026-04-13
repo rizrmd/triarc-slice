@@ -47,22 +47,6 @@ interface EffekseerHandle {
   stop: () => void;
 }
 
-// Per-slug shared state — one WebGL context + matrices for all layers in the same animap
-interface SharedState {
-  ctx: EffekseerContext;
-  gl: WebGLRenderingContext;
-  refcount: number;
-  // Perspective camera matrices (position: 20,20,20 looking at origin)
-  projectionMatrix: Float32Array;
-  cameraMatrix: Float32Array;
-  // Combined animation loop handle
-  rafHandle: number;
-  timerRef: { current: { update: (ts: number) => void; getDelta: () => number } };
-  effects: Set<{ handle: EffekseerHandle | null; paused: boolean }>;
-}
-
-const sharedStates = new Map<string, SharedState>();
-
 function makePerspectiveMatrix(fov: number, aspect: number, near: number, far: number): Float32Array {
   const f = 1.0 / Math.tan(fov * Math.PI / 360);
   const nf = 1 / (near - far);
@@ -74,7 +58,6 @@ function makePerspectiveMatrix(fov: number, aspect: number, near: number, far: n
   ]);
 }
 
-// LookAt matrix: camera at eye looking at center
 function makeLookAtMatrix(eye: number[], center: number[], up: number[]): Float32Array {
   const zx = eye[0] - center[0], zy = eye[1] - center[1], zz = eye[2] - center[2];
   let len = Math.sqrt(zx * zx + zy * zy + zz * zz);
@@ -85,7 +68,6 @@ function makeLookAtMatrix(eye: number[], center: number[], up: number[]): Float3
   len = Math.sqrt(xx * xx + xy * xy + xz * xz);
   const x = [xx / len, xy / len, xz / len];
   const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
-
   return new Float32Array([
     x[0], y[0], z[0], 0,
     x[1], y[1], z[1], 0,
@@ -97,85 +79,45 @@ function makeLookAtMatrix(eye: number[], center: number[], up: number[]): Float3
   ]);
 }
 
-function getOrCreateSharedState(slug: string, canvas: HTMLCanvasElement): SharedState | null {
-  const existing = sharedStates.get(slug);
-  if (existing) {
-    existing.refcount++;
-    return existing;
+// Shared Effekseer runtime init (one-time WASM load)
+let effekseerReady = false;
+let effekseerError: string | null = null;
+const effekseerReadyListeners: ((ready: boolean) => void)[] = [];
+
+function initEffekseer() {
+  if (window.effekseer) {
+    effekseerReady = true;
+    effekseerReadyListeners.forEach(l => l(true));
+    return;
   }
+  if (effekseerError) return;
 
-  if (!window.effekseer) return null;
-
-  const gl = canvas.getContext('webgl', {
-    alpha: true,
-    antialias: false,
-    depth: false,
-    stencil: false,
-    powerPreference: 'low-power',
-    preserveDrawingBuffer: false,
-    desynchronized: true, // Reduce latency
-  });
-  if (!gl) return null;
-
-  const ctx = window.effekseer.createContext();
-  if (!ctx) return null;
-
-  ctx.init(gl);
-  if (!ctx.nativeptr) return null;
-  ctx.setRestorationOfStatesFlag(false);
-
-  // Perspective camera: FOV 30, aspect 1, near 1, far 1000, position (20,20,20) looking at origin
-  const projectionMatrix = makePerspectiveMatrix(30, 1, 1, 1000);
-  const cameraMatrix = makeLookAtMatrix([20, 20, 20], [0, 0, 0], [0, 1, 0]);
-
-  const timer = { current: { update: (_ts: number) => {}, getDelta: () => 0 } };
-  const lastTimestamp = { value: 0 };
-  timer.current.update = (ts: number) => { lastTimestamp.value = ts; };
-  timer.current.getDelta = () => {
-    const now = performance.now() / 1000;
-    const delta = Math.min(now - lastTimestamp.value, 0.1); // Cap at 100ms
-    return delta;
-  };
-
-  const effects = new Set<{ handle: EffekseerHandle | null; paused: boolean }>();
-
-  // Single RAF loop for the entire slug — iterates all active effects
-  let running = true;
-  const animate = (timestamp: number) => {
-    if (!running) return;
-    // Skip rendering when tab is hidden
-    if (!document.hidden) {
-      timer.current.update(timestamp);
-      const delta = timer.current.getDelta();
-      ctx.update(delta * 60.0);
-      ctx.setProjectionMatrix(projectionMatrix);
-      ctx.setCameraMatrix(cameraMatrix);
-      ctx.draw();
+  const script = document.createElement('script');
+  script.src = '/effekseer/effekseer.min.js';
+  script.async = true;
+  script.onload = () => {
+    if (window.effekseer) {
+      window.effekseer.initRuntime(
+        '/effekseer/effekseer.wasm',
+        () => {
+          effekseerReady = true;
+          effekseerReadyListeners.forEach(l => l(true));
+        },
+        (err) => {
+          effekseerError = 'Effekseer WASM failed: ' + err;
+          effekseerReadyListeners.forEach(l => l(false));
+        }
+      );
     }
-    // Schedule next frame regardless of visibility (effects need update even when hidden)
-    requestAnimationFrame(animate);
   };
-
-  const rafHandle = requestAnimationFrame(animate);
-
-  const state: SharedState = {
-    ctx, gl, refcount: 1,
-    projectionMatrix, cameraMatrix,
-    rafHandle, timerRef: timer, effects,
+  script.onerror = () => {
+    effekseerError = 'Failed to load Effekseer script';
+    effekseerReadyListeners.forEach(l => l(false));
   };
-  sharedStates.set(slug, state);
-  return state;
+  document.head.appendChild(script);
 }
 
-function releaseSharedState(slug: string) {
-  const state = sharedStates.get(slug);
-  if (!state) return;
-  state.refcount--;
-  if (state.refcount <= 0) {
-    cancelAnimationFrame(state.rafHandle);
-    sharedStates.delete(slug);
-  }
-}
+initEffekseer();
 
 export function EffekseerLayer({
   file,
@@ -193,36 +135,33 @@ export function EffekseerLayer({
 }: EffekseerLayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contextRef = useRef<EffekseerContext | null>(null);
+  const glRef = useRef<WebGLRenderingContext | null>(null);
   const effectRef = useRef<EffekseerEffect | null>(null);
   const handleRef = useRef<EffekseerHandle | null>(null);
-  const stateRef = useRef<SharedState | null>(null);
-  const effectEntryRef = useRef<{ handle: EffekseerHandle | null; paused: boolean } | null>(null);
+  const animationRef = useRef<number>(0);
   const pausedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isEffekseerReady, setIsEffekseerReady] = useState(false);
   const onLayerRefRef = useRef(onLayerRef);
   onLayerRefRef.current = onLayerRef;
 
   const imperativeHandle = {
     play: () => {
-      if (!effectRef.current || !stateRef.current) return;
+      if (!effectRef.current || !contextRef.current) return;
       if (pausedRef.current) {
         pausedRef.current = false;
         if (handleRef.current) handleRef.current.setPaused(false);
-        if (effectEntryRef.current) effectEntryRef.current.paused = false;
       } else {
         if (handleRef.current) handleRef.current.stop();
-        handleRef.current = stateRef.current.ctx.play(effectRef.current, 0, 0, 0);
-        if (effectEntryRef.current) effectEntryRef.current.handle = handleRef.current;
+        handleRef.current = contextRef.current.play(effectRef.current, 0, 0, 0);
       }
     },
     pause: () => {
       if (!effectRef.current) return;
       pausedRef.current = true;
       if (handleRef.current) handleRef.current.setPaused(true);
-      if (effectEntryRef.current) effectEntryRef.current.paused = true;
     },
     isPlaying: () => !pausedRef.current,
   };
@@ -232,45 +171,52 @@ export function EffekseerLayer({
     return () => { if (onLayerRefRef.current) onLayerRefRef.current(null); };
   }, []);
 
-  // Load Effekseer script once globally
+  // Wait for Effekseer runtime
   useEffect(() => {
-    if (window.effekseer) {
-      setIsEffekseerReady(true);
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = '/effekseer/effekseer.min.js';
-    script.async = true;
-
-    script.onload = () => {
-      if (window.effekseer) {
-        window.effekseer.initRuntime(
-          '/effekseer/effekseer.wasm',
-          () => setIsEffekseerReady(true),
-          (err) => setError('Effekseer WASM failed to load: ' + err)
-        );
-      }
+    if (effekseerError) { setError(effekseerError); return; }
+    if (effekseerReady) return;
+    const listener = (ready: boolean) => {
+      if (!ready && effekseerError) setError(effekseerError);
     };
-    script.onerror = () => setError('Failed to load Effekseer script');
-    document.head.appendChild(script);
+    effekseerReadyListeners.push(listener);
+    return () => {
+      const idx = effekseerReadyListeners.indexOf(listener);
+      if (idx >= 0) effekseerReadyListeners.splice(idx, 1);
+    };
   }, []);
 
-  // Setup: shared state, load effect, register with the RAF loop
+  // Setup WebGL context + Effekseer + animation loop
   useEffect(() => {
-    if (!canvasRef.current || !file || !isEffekseerReady) return;
+    if (!canvasRef.current || !file || !effekseerReady) return;
 
-    const state = getOrCreateSharedState(slug, canvasRef.current);
-    if (!state) {
-      setError('Failed to create Effekseer context');
-      return;
-    }
-    stateRef.current = state;
+    const canvas = canvasRef.current;
 
-    const effectEntry = { handle: null as EffekseerHandle | null, paused: false as boolean };
-    effectEntryRef.current = effectEntry;
-    state.effects.add(effectEntry);
+    const gl = canvas.getContext('webgl', {
+      alpha: true,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      powerPreference: 'low-power',
+      preserveDrawingBuffer: false,
+      desynchronized: true,
+    });
+    if (!gl) { setError('WebGL not available'); return; }
+    glRef.current = gl;
 
+    const ctx = window.effekseer!.createContext();
+    if (!ctx) { setError('Failed to create Effekseer context'); return; }
+    ctx.init(gl);
+    if (!ctx.nativeptr) { setError('Effekseer init failed'); return; }
+    ctx.setRestorationOfStatesFlag(false);
+    contextRef.current = ctx;
+
+    // Camera matrices
+    const projectionMatrix = makePerspectiveMatrix(30, 1, 1, 1000);
+    const cameraMatrix = makeLookAtMatrix([20, 20, 20], [0, 0, 0], [0, 1, 0]);
+    ctx.setProjectionMatrix(projectionMatrix);
+    ctx.setCameraMatrix(cameraMatrix);
+
+    // Load effect
     const effectUrl = `/data/animap/${slug}/${file}?v=${fileVersion}`;
     setIsLoading(true);
 
@@ -278,12 +224,10 @@ export function EffekseerLayer({
       setIsLoading(false);
       setIsReady(true);
       if (effectRef.current) {
-        handleRef.current = state.ctx.play(effectRef.current, 0, 0, 0);
-        effectEntry.handle = handleRef.current;
+        handleRef.current = ctx.play(effectRef.current, 0, 0, 0);
         if (!loop && handleRef.current) {
           handleRef.current.setPaused(true);
           pausedRef.current = true;
-          effectEntry.paused = true;
         }
       }
     };
@@ -295,23 +239,40 @@ export function EffekseerLayer({
     if (effectRef.current) {
       onLoad();
     } else {
-      effectRef.current = state.ctx.loadEffect(effectUrl, 1.0, onLoad, onError);
+      effectRef.current = ctx.loadEffect(effectUrl, 1.0, onLoad, onError);
     }
 
-    return () => {
-      if (handleRef.current) {
-        handleRef.current.stop();
-        handleRef.current = null;
+    // RAF loop
+    let lastTime = performance.now();
+    let running = true;
+    const animate = (timestamp: number) => {
+      if (!running) return;
+      animationRef.current = requestAnimationFrame(animate);
+
+      // Skip GPU work when hidden (save CPU/GPU)
+      if (!document.hidden) {
+        const delta = Math.min((timestamp - lastTime) / 1000, 0.1);
+        lastTime = timestamp;
+        ctx.update(delta * 60.0);
+        ctx.setProjectionMatrix(projectionMatrix);
+        ctx.setCameraMatrix(cameraMatrix);
+        ctx.draw();
+      } else {
+        // Still advance time when hidden so effects don't freeze
+        lastTime = timestamp;
       }
-      if (effectEntryRef.current) {
-        state.effects.delete(effectEntryRef.current);
-        effectEntryRef.current = null;
-      }
-      effectRef.current = null;
-      stateRef.current = null;
-      releaseSharedState(slug);
     };
-  }, [file, slug, fileVersion, isEffekseerReady]);
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(animationRef.current);
+      if (handleRef.current) { handleRef.current.stop(); handleRef.current = null; }
+      effectRef.current = null;
+      if (contextRef.current) { contextRef.current = null; }
+      if (glRef.current) { glRef.current = null; }
+    };
+  }, [file, slug, fileVersion, effekseerReady]);
 
   // Update position
   useEffect(() => {
@@ -351,18 +312,11 @@ export function EffekseerLayer({
         opacity: isReady ? 1 : 0.5,
       }}
     >
-      {/* Single small canvas — shared WebGL context across all Effekseer layers in this slug */}
       <canvas
         ref={canvasRef}
-        width={128}
-        height={128}
-        style={{
-          display: 'block',
-          background: 'transparent',
-          position: 'absolute',
-          inset: 0,
-          imageRendering: 'auto',
-        }}
+        width={256}
+        height={256}
+        style={{ display: 'block', background: 'transparent', position: 'absolute', inset: 0 }}
       />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded">
