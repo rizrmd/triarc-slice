@@ -1,10 +1,14 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -43,6 +47,9 @@ func main() {
 	fmt.Printf("Found Godot: %s\n", godotExe)
 
 	setupLinks(gameDir)
+
+	// Ensure Effekseer plugin native binaries are present
+	ensureEffekseerPlugin(gameDir)
 
 	// Clean stale Android build artifacts that cause UID duplicate warnings
 	cleanAndroidBuildArtifacts(gameDir)
@@ -368,6 +375,116 @@ func removeImportedFiles(importFile string, importedDir string) {
 			md5File := filepath.Join(importedDir, strings.TrimSuffix(base, filepath.Ext(base))+".md5")
 			os.Remove(md5File)
 		}
+	}
+}
+
+const effekseerVersion = "1.70e.10"
+
+// effekseerBinaryPath returns the expected native library path for the current platform.
+func effekseerBinaryPath(gameDir string) string {
+	base := filepath.Join(gameDir, "addons", "effekseer", "bin")
+	switch runtime.GOOS {
+	case "darwin":
+		return filepath.Join(base, "macos", "libeffekseer.framework")
+	case "windows":
+		switch runtime.GOARCH {
+		case "arm64":
+			return filepath.Join(base, "windows", "libeffekseer.arm64.dll")
+		case "386":
+			return filepath.Join(base, "windows", "libeffekseer.x86_32.dll")
+		default:
+			return filepath.Join(base, "windows", "libeffekseer.x86_64.dll")
+		}
+	case "linux":
+		if runtime.GOARCH == "386" {
+			return filepath.Join(base, "linux", "libeffekseer.x86_32.so")
+		}
+		return filepath.Join(base, "linux", "libeffekseer.x86_64.so")
+	}
+	return filepath.Join(base, "unknown")
+}
+
+func ensureEffekseerPlugin(gameDir string) {
+	binPath := effekseerBinaryPath(gameDir)
+	if _, err := os.Stat(binPath); err == nil {
+		return // already installed
+	}
+
+	fmt.Println("Effekseer plugin binaries not found, downloading...")
+
+	// Version "1.70e.10" -> zip slug "170e_10" (drop first dot, replace rest with _)
+	slug := strings.Replace(effekseerVersion, ".", "", 1) // "170e.10"
+	slug = strings.ReplaceAll(slug, ".", "_")              // "170e_10"
+	zipName := "EffekseerForGodot4-" + slug + ".zip"
+	url := "https://github.com/effekseer/EffekseerForGodot4/releases/download/" + effekseerVersion + "/" + zipName
+
+	fmt.Printf("Downloading from %s\n", url)
+	resp, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("Error downloading Effekseer plugin: %v\n", err)
+		fmt.Println("The game may not render particle effects correctly.")
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Printf("Error downloading Effekseer plugin: HTTP %d\n", resp.StatusCode)
+		fmt.Println("The game may not render particle effects correctly.")
+		return
+	}
+
+	zipData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading Effekseer download: %v\n", err)
+		return
+	}
+
+	zipReader, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		fmt.Printf("Error opening Effekseer zip: %v\n", err)
+		return
+	}
+
+	// Extract files under addons/effekseer/bin/ into gameDir/addons/effekseer/bin/
+	extracted := 0
+	for _, f := range zipReader.File {
+		// Zip entries look like "addons/effekseer/bin/macos/..." or similar
+		idx := strings.Index(f.Name, "addons/effekseer/bin/")
+		if idx < 0 {
+			continue
+		}
+		relPath := f.Name[idx:] // "addons/effekseer/bin/..."
+		targetPath := filepath.Join(gameDir, relPath)
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(targetPath, 0755)
+			continue
+		}
+
+		os.MkdirAll(filepath.Dir(targetPath), 0755)
+		rc, err := f.Open()
+		if err != nil {
+			fmt.Printf("Error extracting %s: %v\n", relPath, err)
+			continue
+		}
+
+		out, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, f.Mode())
+		if err != nil {
+			rc.Close()
+			fmt.Printf("Error creating %s: %v\n", targetPath, err)
+			continue
+		}
+
+		io.Copy(out, rc)
+		out.Close()
+		rc.Close()
+		extracted++
+	}
+
+	if extracted > 0 {
+		fmt.Printf("Effekseer plugin installed (%d files extracted).\n", extracted)
+	} else {
+		fmt.Println("Warning: No Effekseer binary files found in the downloaded archive.")
 	}
 }
 
