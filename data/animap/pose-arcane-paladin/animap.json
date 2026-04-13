@@ -12,9 +12,9 @@
       "opacity": 1,
       "x": 1.2,
       "y": 67.17,
-      "scale": 0.98,
       "width": 320,
-      "height": 517
+      "height": 517,
+      "scale": 0.98
     },
     {
       "id": "char-fg",
@@ -25,9 +25,21 @@
       "opacity": 1,
       "x": 0,
       "y": 63,
-      "scale": 1,
       "width": 320,
-      "height": 517
+      "height": 517,
+      "scale": 1
+    },
+    {
+      "id": "layer-1776096803991",
+      "name": "bolabiru",
+      "type": "effekseer",
+      "file": "bolabiru.efkefc",
+      "visible": true,
+      "opacity": 1,
+      "x": 189,
+      "y": 111,
+      "scale": 0.6269921874999999,
+      "loop": true
     }
   ],
   "states": [

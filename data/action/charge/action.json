@@ -33,14 +33,6 @@
     "allow_dead": false
   },
   "text_shadow_size": 3,
-  "gameplay": {
-    "casting_time_ms": 1000,
-    "effect_kind": "damage_and_status",
-    "base_power": 22,
-    "status_kind": "stun",
-    "status_duration_ms": 1500,
-    "status_value": 0
-  },
   "vfx": {
     "enabled": true,
     "effect_file": "Card Action VFX - Charge.efkefc",

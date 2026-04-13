@@ -33,14 +33,6 @@
     "allow_dead": false
   },
   "text_shadow_size": 3,
-  "gameplay": {
-    "casting_time_ms": 2000,
-    "effect_kind": "damage",
-    "base_power": 40,
-    "status_kind": null,
-    "status_duration_ms": 0,
-    "status_value": 0
-  },
   "vfx": {
     "enabled": true,
     "effect_file": "Card Action VFX - Execute.efkefc",

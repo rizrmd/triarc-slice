@@ -164,6 +164,8 @@ func _build_layers() -> void:
 				node = _create_video_layer(layer)
 			"text":
 				node = _create_text_layer(layer)
+			"effekseer":
+				node = _create_effekseer_layer(layer)
 			"mask":
 				continue
 			_:
@@ -248,6 +250,88 @@ func _create_text_layer(layer: Dictionary) -> Control:
 	node.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	return node
 
+func _create_effekseer_layer(layer: Dictionary) -> Control:
+	# Effekseer layers are controlled separately - we create a Control container
+	# The actual EffekseerEmitter2D is managed via the layer's effect file
+	var container := Control.new()
+	container.position = Vector2.ZERO
+	container.size = Vector2(128, 128)  # Default size, actual scale controlled by animap layer
+
+	var effect_file := String(layer.get("file", ""))
+	if effect_file.is_empty():
+		push_warning("Animap effekseer missing effect file for '%s/%s'" % [animap_slug, String(layer.get("id", ""))])
+		return container
+
+	# Check if EffekseerEmitter2D is available
+	if not ClassDB.can_instantiate("EffekseerEmitter2D"):
+		push_warning("Animap effekseer: EffekseerEmitter2D not available for '%s/%s'" % [animap_slug, String(layer.get("id", ""))])
+		return container
+
+	# Resolve effect path
+	var effect_path := _resolve_effekseer_path(effect_file)
+	if effect_path.is_empty():
+		push_warning("Animap effekseer: could not resolve effect path for '%s'" % effect_file)
+		return container
+
+	if not ResourceLoader.exists(effect_path):
+		push_warning("Animap effekseer: effect file not found at '%s'" % effect_path)
+		return container
+
+	# Create and configure the emitter
+	var emitter = ClassDB.instantiate("EffekseerEmitter2D")
+	if emitter == null:
+		push_warning("Animap effekseer: failed to instantiate EffekseerEmitter2D")
+		return container
+
+	emitter.name = "EffekseerEmitter"
+	var effect_res: Resource = load(effect_path)
+	if effect_res == null:
+		push_warning("Animap effekseer: failed to load effect resource '%s'" % effect_path)
+		emitter.queue_free()
+		return container
+
+	emitter.effect = effect_res
+
+	# Position at center of container (relative to parent)
+	emitter.position = container.size / 2.0
+
+	# Apply scale from layer config
+	var layer_scale: float = float(layer.get("scale", 1.0))
+	emitter.scale = Vector2.ONE * layer_scale
+
+	# Track the emitter for state changes
+	var layer_id := String(layer.get("id", ""))
+	if not _effekseer_layers.has(layer_id):
+		_effekseer_layers[layer_id] = {}
+	_effekseer_layers[layer_id]["emitter"] = emitter
+	_effekseer_layers[layer_id]["layer"] = layer.duplicate(true)
+
+	container.add_child(emitter)
+
+	# Auto-play if visible
+	if bool(layer.get("visible", true)):
+		emitter.play()
+
+	return container
+
+func _resolve_effekseer_path(file_name: String) -> String:
+	if file_name.is_empty():
+		return ""
+	# Effekseer effects can be .efkefc or other Effekseer formats
+	var candidates: Array[String] = []
+	candidates.append("res://data/animap/%s/%s" % [animap_slug, file_name])
+	# Also check VFX subdirectory
+	candidates.append("res://data/animap/%s/VFX/%s" % [animap_slug, file_name])
+	candidates.append("res://data/action/%s/VFX/%s" % [animap_slug, file_name])
+	candidates.append("res://data/hero/%s/VFX/%s" % [animap_slug, file_name])
+
+	for path in candidates:
+		if ResourceLoader.exists(path):
+			return path
+	return ""
+
+var _effekseer_layers: Dictionary = {}
+
 func _make_video_player(stream: VideoStream) -> VideoStreamPlayer:
 	var p := VideoStreamPlayer.new()
 	p.expand = true
@@ -284,6 +368,7 @@ func _apply_state(state_id: String, animate: bool, transition: Dictionary = {}) 
 		_apply_layer_static(node, layer)
 		_apply_layer_shader(material, layer, mask_map.get(layer_id, []))
 		_apply_video_state(layer)
+		_apply_effekseer_state(layer)
 
 		if animate and _transition_tween:
 			var duration: float = maxf(float(transition.get("duration_ms", 0)) / 1000.0, 0.0)
@@ -352,6 +437,35 @@ func _apply_video_state(layer: Dictionary) -> void:
 		standby.visible = false
 		standby.paused = true
 		standby.stream_position = loop_start
+
+func _apply_effekseer_state(layer: Dictionary) -> void:
+	var layer_id := String(layer.get("id", ""))
+	if not _effekseer_layers.has(layer_id):
+		return
+
+	var effekseer_state: Dictionary = _effekseer_layers[layer_id]
+	var emitter = effekseer_state.get("emitter")
+	if emitter == null:
+		return
+
+	# Update stored layer config
+	effekseer_state["layer"] = layer.duplicate(true)
+	_effekseer_layers[layer_id] = effekseer_state
+
+	# Update emitter scale
+	var layer_scale: float = float(layer.get("scale", 1.0))
+	emitter.scale = Vector2.ONE * layer_scale
+
+	# Handle visibility - play/pause based on visible state
+	var visible := bool(layer.get("visible", true))
+	if visible:
+		# If not currently playing, start playing
+		if not emitter.is_playing():
+			emitter.play()
+	else:
+		# Stop the effect when not visible
+		if emitter.is_playing():
+			emitter.stop()
 
 func _apply_layer_shader(material: ShaderMaterial, layer: Dictionary, mask_textures: Array) -> void:
 	material.set_shader_parameter("animap_size", Vector2(float(animap_data.get("width", 0)), float(animap_data.get("height", 0))))
@@ -485,6 +599,7 @@ func _clear_layers() -> void:
 	_layer_nodes.clear()
 	_layer_materials.clear()
 	_video_layers.clear()
+	_effekseer_layers.clear()
 
 func _resolve_text_alignment(value: String) -> HorizontalAlignment:
 	match value:

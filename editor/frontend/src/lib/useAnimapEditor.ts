@@ -80,7 +80,9 @@ export function useAnimapEditor(slug: string | undefined): UseAnimapEditorReturn
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(() => {
+    return localStorage.getItem(`animap-editor-selected-layer-${slug}`);
+  });
   const [selectedStateId, setSelectedStateId] = useState(DEFAULT_STATE_ID);
   const [fileVersion, setFileVersion] = useState(0);
   const [convertProgress, setConvertProgress] = useState<number | null>(null);
@@ -165,7 +167,10 @@ export function useAnimapEditor(slug: string | undefined): UseAnimapEditorReturn
         const normalized = normalizeAnimapConfig(data);
         setConfig(normalized);
         setInitialConfig(cloneConfig(normalized));
-        if (normalized.layers.length > 0) {
+        // Only auto-select first layer if saved layer doesn't exist in config
+        const savedLayerId = localStorage.getItem(`animap-editor-selected-layer-${slug}`);
+        const savedLayerExists = normalized.layers.some((l) => l.id === savedLayerId);
+        if (normalized.layers.length > 0 && !savedLayerExists) {
           setSelectedLayerId(normalized.layers[0].id);
         }
         setSelectedStateId(DEFAULT_STATE_ID);
@@ -324,6 +329,15 @@ export function useAnimapEditor(slug: string | undefined): UseAnimapEditorReturn
   useEffect(() => {
     localStorage.setItem(panStorageKey, JSON.stringify(canvasPan));
   }, [canvasPan]);
+
+  // Persist selected layer
+  useEffect(() => {
+    if (selectedLayerId) {
+      localStorage.setItem(`animap-editor-selected-layer-${slug}`, selectedLayerId);
+    } else {
+      localStorage.removeItem(`animap-editor-selected-layer-${slug}`);
+    }
+  }, [selectedLayerId, slug]);
 
   const handleLayerUpload = async (layerId: string, file: File) => {
     if (!slug || !config) return;

@@ -19,3 +19,8 @@ node_modules/
 
 # Misc
 UI_Bug/
+editor/game
+editor/triarc*
+editor/editor
+editor/game*
+editor/editor*

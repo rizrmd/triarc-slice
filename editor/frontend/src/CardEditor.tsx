@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import type { ActionConfig, CardConfig, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers, HeroConfig } from '@/types';
+import type { ActionConfig, ActionGameplay, CardConfig, CharLayer, MaskLayer, TextLayer, BarLayer, CharProperty, LayerId, AssetPickerTarget, AssetItem, VisibleLayers, HeroConfig } from '@/types';
 import { normalizeTargeting, targetingToTargetRule } from '@/lib/targeting';
 
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
   const [redoStack, setRedoStack] = useState<{ config: CardConfig; masks: { 'mask-bg': string; 'mask-fg': string } }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [serverActionStats, setServerActionStats] = useState<Record<string, ActionGameplay>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   const [activeLayer, setActiveLayer] = useState<LayerId>(isAction ? 'char-bg' : 'char-fg');
   const getDefaultVisibleLayers = (): VisibleLayers => ({
@@ -401,6 +402,18 @@ export default function CardEditor({ mode }: CardEditorProps) {
         setLoading(false);
       });
   }, [getDefaultNamePos, getDefaultNameScale, getDefaultTextShadowSize, isAction, slug]);
+
+  // Fetch server-owned action stats (balance data — read-only in editor)
+  useEffect(() => {
+    if (!isAction) return;
+    fetch('/api/server-action-stats')
+      .then((res) => {
+        if (!res.ok) return {} as Record<string, ActionGameplay>;
+        return res.json() as Promise<Record<string, ActionGameplay>>;
+      })
+      .then(setServerActionStats)
+      .catch(() => {});
+  }, [isAction]);
 
   const handleRename = (newName: string) => {
     if (!slug) return;
@@ -1647,8 +1660,8 @@ export default function CardEditor({ mode }: CardEditorProps) {
 
   return (
     <div className="h-dvh overflow-hidden bg-background">
-      <Tabs value={currentTab} onValueChange={handleTabChange} className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col gap-4 overflow-hidden p-4 md:p-6">
-        <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-4 shrink-0">
+      <Tabs value={currentTab} onValueChange={handleTabChange} className="mx-auto flex h-full min-h-0 w-full max-w-[1600px] flex-col overflow-hidden">
+        <header className="flex flex-wrap items-center justify-between gap-2 bg-card p-3 shrink-0">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" asChild>
               <Link to={isAction ? '/?tab=actions' : '/?tab=heroes'}>
@@ -1836,7 +1849,7 @@ export default function CardEditor({ mode }: CardEditorProps) {
 
           <TabsContent value="stats" forceMount className="mt-0 flex-1 min-h-0 data-[state=active]:flex data-[state=active]:flex-col data-[state=inactive]:hidden">
             {isAction ? (
-              <ActionStatsTab config={config as unknown as ActionConfig} onChange={commitConfig as any} />
+              <ActionStatsTab config={config as unknown as ActionConfig} onChange={commitConfig as any} serverStats={slug ? serverActionStats[slug] : undefined} />
             ) : (
               <HeroStatsTab config={config as HeroConfig} onChange={commitConfig as any} />
             )}

@@ -1,4 +1,4 @@
-import { Image, Film, Layers, Type, Plus, Trash2, ChevronUp, ChevronDown, Lock, LockOpen, Eye, EyeOff } from 'lucide-react';
+import { Image, Film, Layers, Type, Sparkles, Plus, Trash2, ChevronUp, ChevronDown, Lock, LockOpen, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ const typeIcons = {
   video: Film,
   mask: Layers,
   text: Type,
+  effekseer: Sparkles,
 };
 
 export function AnimapLayerPanel({
@@ -42,7 +43,7 @@ export function AnimapLayerPanel({
 }: AnimapLayerPanelProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [newLayerName, setNewLayerName] = useState('');
-  const [newLayerType, setNewLayerType] = useState<'image' | 'video' | 'mask' | 'text'>('image');
+  const [newLayerType, setNewLayerType] = useState<'image' | 'video' | 'mask' | 'text' | 'effekseer'>('image');
   const [newStateName, setNewStateName] = useState('');
   const states = normalizeAnimapConfig(config).states ?? [];
 
@@ -61,6 +62,7 @@ export function AnimapLayerPanel({
       ...(newLayerType === 'text' ? { text: newLayerName, font_size: 96, color: '#ffffff', text_align: 'left', width: 480, height: 160 } : {}),
       ...(newLayerType === 'video' ? { loop: true, loop_start: 0, loop_end: 0 } : {}),
       ...(newLayerType === 'mask' ? { targets: [] } : {}),
+      ...(newLayerType === 'effekseer' ? { loop: true } : {}),
     };
     commitConfig((prev) => ({
       ...prev,
@@ -220,7 +222,7 @@ export function AnimapLayerPanel({
             </Button>
           </div>
           <div className="grid grid-cols-2 gap-1">
-            {(['image', 'video', 'mask', 'text'] as const).map((t) => {
+            {(['image', 'video', 'mask', 'text', 'effekseer'] as const).map((t) => {
               const Icon = typeIcons[t];
               return (
                 <Button
@@ -254,7 +256,7 @@ export function AnimapLayerPanel({
                   ? 'bg-primary/15 border-l-2 border-l-primary'
                   : 'hover:bg-muted/40'
               } ${!layer.visible ? 'opacity-50' : ''}`}
-              onClick={() => setSelectedLayerId(layer.id)}
+              onClick={() => setSelectedLayerId(isSelected ? null : layer.id)}
             >
               {/* Eye toggle */}
               <button

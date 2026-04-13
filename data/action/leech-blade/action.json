@@ -33,14 +33,6 @@
     "allow_dead": false
   },
   "text_shadow_size": 3,
-  "gameplay": {
-    "casting_time_ms": 1400,
-    "effect_kind": "damage_and_status",
-    "base_power": 20,
-    "status_kind": "hot",
-    "status_duration_ms": 4000,
-    "status_value": 8
-  },
   "vfx": {
     "enabled": true,
     "effect_file": "Card Action VFX - Leech Blade.efkefc",

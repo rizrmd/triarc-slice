@@ -33,14 +33,6 @@
     "allow_dead": false
   },
   "text_shadow_size": 3,
-  "gameplay": {
-    "casting_time_ms": 900,
-    "effect_kind": "damage_and_status",
-    "base_power": 12,
-    "status_kind": "shield",
-    "status_duration_ms": 4000,
-    "status_value": -10
-  },
   "vfx": {
     "enabled": true,
     "effect_file": "Card Action VFX - Cursed Card.efkefc",

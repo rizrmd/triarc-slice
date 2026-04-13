@@ -188,7 +188,7 @@ export type GameSceneSlug = 'startup' | 'login' | 'home' | 'gameplay' | 'postgam
 export interface AnimapLayer {
   id: string;
   name: string;
-  type: 'image' | 'video' | 'mask' | 'text';
+  type: 'image' | 'video' | 'mask' | 'text' | 'effekseer';
   file: string;
   visible: boolean;
   locked?: boolean;

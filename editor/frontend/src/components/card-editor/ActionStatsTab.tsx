@@ -1,4 +1,4 @@
-import { type ActionConfig, type ActionGameplay, type ActionTargeting, type EffectKind, type StatusKind, type TargetScope, type TargetSelection, type TargetSide } from '@/types';
+import { type ActionConfig, type ActionGameplay, type ActionTargeting, type TargetScope, type TargetSelection, type TargetSide } from '@/types';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,6 +8,8 @@ import { normalizeTargeting, targetingToTargetRule } from '@/lib/targeting';
 interface ActionStatsTabProps {
   config: ActionConfig;
   onChange: (updater: (prev: ActionConfig) => ActionConfig) => void;
+  /** Server-owned balance data — displayed read-only, cannot be edited here */
+  serverStats?: ActionGameplay;
 }
 
 const ELEMENTS = [
@@ -19,35 +21,25 @@ const ELEMENTS = [
   { key: 'shadow', label: 'Shadow', color: 'bg-purple-500', text: 'text-purple-500', border: 'border-purple-500' },
 ] as const;
 
-const EFFECT_KINDS: { value: EffectKind; label: string }[] = [
-  { value: 'damage', label: 'Damage' },
-  { value: 'heal', label: 'Heal' },
-  { value: 'shield', label: 'Shield' },
-  { value: 'status', label: 'Status' },
-  { value: 'damage_and_status', label: 'Damage + Status' },
-  { value: 'cleanse', label: 'Cleanse' },
-];
-
-const STATUS_KINDS: { value: StatusKind | ''; label: string }[] = [
-  { value: '', label: 'None' },
-  { value: 'stun', label: 'Stun' },
-  { value: 'shield', label: 'Shield Buff' },
-  { value: 'attack_buff', label: 'Attack Buff' },
-  { value: 'defense_buff', label: 'Defense Buff' },
-  { value: 'dot', label: 'Damage over Time' },
-  { value: 'hot', label: 'Heal over Time' },
-];
-
-const DEFAULT_GAMEPLAY: ActionGameplay = {
-  casting_time_ms: 1000,
-  effect_kind: 'damage',
-  base_power: 10,
-  status_kind: null,
-  status_duration_ms: 0,
-  status_value: 0,
+const EFFECT_KIND_LABELS: Record<string, string> = {
+  damage: 'Damage',
+  heal: 'Heal',
+  shield: 'Shield',
+  status: 'Status',
+  damage_and_status: 'Damage + Status',
+  cleanse: 'Cleanse',
 };
 
-export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
+const STATUS_KIND_LABELS: Record<string, string> = {
+  stun: 'Stun',
+  shield: 'Shield Buff',
+  attack_buff: 'Attack Buff',
+  defense_buff: 'Defense Buff',
+  dot: 'Damage over Time',
+  hot: 'Heal over Time',
+};
+
+export function ActionStatsTab({ config, onChange, serverStats }: ActionStatsTabProps) {
   const updateField = <K extends keyof ActionConfig>(key: K, value: ActionConfig[K]) => {
     onChange((prev) => ({
       ...prev,
@@ -67,19 +59,8 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
     }));
   };
 
-  const gameplay = { ...DEFAULT_GAMEPLAY, ...config.gameplay };
-
-  const updateGameplay = <K extends keyof ActionGameplay>(key: K, value: ActionGameplay[K]) => {
-    onChange((prev) => ({
-      ...prev,
-      gameplay: { ...DEFAULT_GAMEPLAY, ...prev.gameplay, [key]: value },
-    }));
-  };
-
   const selectedElements = Array.isArray(config.element) ? config.element : [];
   const targeting = normalizeTargeting(config.targeting, config.target_rule);
-
-  const hasStatus = gameplay.effect_kind === 'status' || gameplay.effect_kind === 'damage_and_status';
 
   const toggleElement = (elementKey: string) => {
     const nextElements = selectedElements.includes(elementKey)
@@ -88,6 +69,10 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
 
     updateField('element', nextElements);
   };
+
+  const hasStatus = serverStats
+    ? serverStats.status_kind !== null
+    : false;
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -223,106 +208,74 @@ export function ActionStatsTab({ config, onChange }: ActionStatsTabProps) {
           </CardContent>
         </Card>
 
-        {/* Gameplay Stats */}
+        {/* Gameplay Stats — READ-ONLY, sourced from server */}
         <Card className="md:col-span-2">
           <CardContent className="pt-6">
-            <Label className="text-base font-semibold mb-4 block">Gameplay</Label>
-            <div className="grid gap-6 md:grid-cols-3">
-              {/* Effect Kind */}
-              <label className="space-y-2">
-                <span className="text-xs uppercase text-muted-foreground">Effect Kind</span>
-                <select
-                  value={gameplay.effect_kind}
-                  onChange={(e) => updateGameplay('effect_kind', e.target.value as EffectKind)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {EFFECT_KINDS.map((ek) => (
-                    <option key={ek.value} value={ek.value}>{ek.label}</option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Base Power */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs uppercase text-muted-foreground">Base Power</span>
-                  <span className="text-lg font-bold text-primary">{gameplay.base_power}</span>
-                </div>
-                <Slider
-                  value={[gameplay.base_power]}
-                  min={0}
-                  max={100}
-                  step={1}
-                  onValueChange={([val]) => updateGameplay('base_power', val)}
-                  className="py-2"
-                />
-              </div>
-
-              {/* Casting Time */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs uppercase text-muted-foreground">Casting Time</span>
-                  <span className="text-lg font-bold text-primary">{(gameplay.casting_time_ms / 1000).toFixed(1)}s</span>
-                </div>
-                <Slider
-                  value={[gameplay.casting_time_ms]}
-                  min={0}
-                  max={5000}
-                  step={100}
-                  onValueChange={([val]) => updateGameplay('casting_time_ms', val)}
-                  className="py-2"
-                />
-              </div>
-
-              {/* Status Kind */}
-              <label className="space-y-2">
-                <span className="text-xs uppercase text-muted-foreground">Status Kind</span>
-                <select
-                  value={gameplay.status_kind || ''}
-                  onChange={(e) => updateGameplay('status_kind', (e.target.value || null) as StatusKind | null)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  {STATUS_KINDS.map((sk) => (
-                    <option key={sk.value} value={sk.value}>{sk.label}</option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Status Duration */}
-              {hasStatus && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase text-muted-foreground">Status Duration</span>
-                    <span className="text-lg font-bold text-primary">{(gameplay.status_duration_ms / 1000).toFixed(1)}s</span>
-                  </div>
-                  <Slider
-                    value={[gameplay.status_duration_ms]}
-                    min={0}
-                    max={10000}
-                    step={500}
-                    onValueChange={([val]) => updateGameplay('status_duration_ms', val)}
-                    className="py-2"
-                  />
-                </div>
-              )}
-
-              {/* Status Value */}
-              {hasStatus && (
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs uppercase text-muted-foreground">Status Value</span>
-                    <span className="text-lg font-bold text-primary">{gameplay.status_value}</span>
-                  </div>
-                  <input
-                    type="number"
-                    value={gameplay.status_value}
-                    onChange={(e) => updateGameplay('status_value', parseInt(e.target.value) || 0)}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">Negative values debuff the target.</p>
-                </div>
-              )}
+            <div className="flex items-center justify-between mb-4">
+              <Label className="text-base font-semibold">Gameplay</Label>
+              <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded">
+                Server-managed — not editable in editor
+              </span>
             </div>
+            {serverStats ? (
+              <div className="grid gap-6 md:grid-cols-3">
+                {/* Effect Kind */}
+                <label className="space-y-2">
+                  <span className="text-xs uppercase text-muted-foreground">Effect Kind</span>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm">
+                    {EFFECT_KIND_LABELS[serverStats.effect_kind] ?? serverStats.effect_kind}
+                  </div>
+                </label>
+
+                {/* Base Power */}
+                <label className="space-y-2">
+                  <span className="text-xs uppercase text-muted-foreground">Base Power</span>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm font-bold">
+                    {serverStats.base_power}
+                  </div>
+                </label>
+
+                {/* Casting Time */}
+                <label className="space-y-2">
+                  <span className="text-xs uppercase text-muted-foreground">Casting Time</span>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm">
+                    {(serverStats.casting_time_ms / 1000).toFixed(1)}s
+                  </div>
+                </label>
+
+                {/* Status Kind */}
+                <label className="space-y-2">
+                  <span className="text-xs uppercase text-muted-foreground">Status Kind</span>
+                  <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm">
+                    {serverStats.status_kind ? STATUS_KIND_LABELS[serverStats.status_kind] ?? serverStats.status_kind : 'None'}
+                  </div>
+                </label>
+
+                {/* Status Duration */}
+                {hasStatus && (
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase text-muted-foreground">Status Duration</span>
+                    <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm">
+                      {(serverStats.status_duration_ms / 1000).toFixed(1)}s
+                    </div>
+                  </label>
+                )}
+
+                {/* Status Value */}
+                {hasStatus && (
+                  <label className="space-y-2">
+                    <span className="text-xs uppercase text-muted-foreground">Status Value</span>
+                    <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm font-bold">
+                      {serverStats.status_value > 0 ? '+' : ''}{serverStats.status_value}
+                    </div>
+                  </label>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">
+                No server stats available (is vg-server repo present?).
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>

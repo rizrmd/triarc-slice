@@ -132,14 +132,24 @@ export function EffekseerLayer({
     script.onload = () => {
       // Must call initRuntime to load the WASM before createContext works
       if (window.effekseer) {
+        console.log('[effekseer] script loaded, initRuntime with WASM at', '/effekseer/effekseer.wasm');
         window.effekseer.initRuntime(
           '/effekseer/effekseer.wasm',
-          () => setIsEffekseerReady(true),
-          (err) => setError('Effekseer WASM failed to load: ' + err)
+          () => {
+            console.log('[effekseer] WASM ready');
+            setIsEffekseerReady(true);
+          },
+          (err) => {
+            console.error('[effekseer] WASM init error:', err);
+            setError('Effekseer WASM failed to load: ' + err);
+          }
         );
       }
     };
-    script.onerror = () => setError('Failed to load Effekseer script');
+    script.onerror = () => {
+      console.error('[effekseer] script load failed — check if /effekseer/effekseer.min.js is served correctly');
+      setError('Failed to load Effekseer script');
+    };
     document.head.appendChild(script);
   }, []);
 
@@ -217,6 +227,7 @@ export function EffekseerLayer({
       const effectUrl = `/data/animap/${slug}/${file}?v=${fileVersion}`;
       setIsLoading(true);
       const onLoad = () => {
+        console.log('[effekseer] effect loaded:', effectUrl);
         setIsLoading(false);
         setIsReady(true);
         if (effectRef.current) {
@@ -228,13 +239,22 @@ export function EffekseerLayer({
         }
       };
       const onError = (err: string) => {
+        console.error('[effekseer] loadEffect error:', err, 'URL:', effectUrl);
         setIsLoading(false);
-        setError('Failed to load effect: ' + err);
+        // Give a more helpful message for common failure modes
+        let msg = 'Failed to load effect: ' + err;
+        if (err && (err.includes('404') || err.includes('Not Found') || err.includes('failed to fetch'))) {
+          msg = 'Effect file not found on server (404). Check if the file was saved correctly.';
+        } else if (err && err.toLowerCase().includes('version')) {
+          msg = 'Effect file version mismatch. Make sure the .efkefc was created with Effekseer v1.70.';
+        }
+        setError(msg);
       };
       if (effectRef.current) {
         // already loaded from a previous render, just replay
         onLoad();
       } else {
+        console.log('[effekseer] loadEffect:', effectUrl);
         effectRef.current = effCtx.loadEffect(effectUrl, 1.0, onLoad, onError);
       }
 

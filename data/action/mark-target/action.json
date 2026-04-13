@@ -33,14 +33,6 @@
     "allow_dead": false
   },
   "text_shadow_size": 3,
-  "gameplay": {
-    "casting_time_ms": 800,
-    "effect_kind": "status",
-    "base_power": 0,
-    "status_kind": "shield",
-    "status_duration_ms": 5000,
-    "status_value": -12
-  },
   "vfx": {
     "enabled": true,
     "effect_file": "Card Action VFX - Target.efkefc",
