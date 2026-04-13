@@ -252,11 +252,12 @@ func _update_game_state(data: Dictionary):
 		_server_match_started_at_ms = match_started_at
 		_update_time_elapsed(0.0)
 	
-	# Update team energy
+	# Update team energy + hero targets (server is source of truth)
 	for team_state in team_states:
 		if team_state.get("team") == GameState.current_team:
 			_tween_energy(team_state.get("energy", 0))
 			max_energy = team_state.get("energy_max", 10)
+			_hydrate_hero_targets_from_server(team_state.get("hero_targets", {}))
 	
 	# Update heroes - with HP filtering to prevent random small damage
 	for hero_data in heroes_data:
@@ -866,6 +867,21 @@ func _clear_highlights():
 func _get_hero_target(hero_slot: int) -> int:
 	return _hero_targets.get(hero_slot, -1)  # -1 means no target set
 
+## Replace local target cache with server-authoritative state.
+## Server sends keys as JSON strings ("1"/"2"/"3"); convert back to ints.
+func _hydrate_hero_targets_from_server(server_targets) -> void:
+	if server_targets == null:
+		return
+	var new_targets: Dictionary = {}
+	for key in server_targets.keys():
+		var caster_slot := int(key)
+		var enemy_slot := int(server_targets[key])
+		new_targets[caster_slot] = enemy_slot
+	if new_targets == _hero_targets:
+		return
+	_hero_targets = new_targets
+	_update_target_indicators()
+	_update_target_warning()
 
 
 ## Set target for a hero slot
@@ -876,6 +892,14 @@ func _set_hero_target(hero_slot: int, enemy_slot: int):
 	if _target_warning_hero_slot == hero_slot:
 		_fade_out_target_warning()
 	_update_target_warning()  # Hide warning if all targets are now set
+	# Persist target server-side so it survives client restart / reconnect
+	if not GameState.current_match_id.is_empty():
+		GameState.send_json({
+			"type": "set_hero_target",
+			"match_id": GameState.current_match_id,
+			"caster_slot": hero_slot,
+			"target_slot": enemy_slot,
+		})
 
 ## Update target indicators on all enemy heroes - show ALL set targets, persist even when deselected
 func _update_target_indicators():
