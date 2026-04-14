@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -588,13 +589,43 @@ func main() {
 		frontendDist = "./editor/frontend/dist"
 	}
 
-	fs := http.FileServer(http.Dir(frontendDist))
+	mime.AddExtensionType(".css", "text/css")
+	mime.AddExtensionType(".js", "application/javascript")
+
 	http.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Prevent caching index.html so rebuilds are picked up without hard refresh
-		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+		cleanedPath := filepath.Clean(r.URL.Path)
+		if cleanedPath == "/" {
+			cleanedPath = "/index.html"
+		}
+
+		if strings.Contains(cleanedPath, "..") {
+			http.Error(w, "Invalid path", http.StatusBadRequest)
+			return
+		}
+
+		// Remove leading slash for joining with relative dist path
+		cleanedPath = strings.TrimPrefix(cleanedPath, "/")
+		path := filepath.Join(frontendDist, cleanedPath)
+
+		// Don't serve index.html for API requests
+		if strings.HasPrefix(cleanedPath, "api/") {
+			http.NotFound(w, r)
+			return
+		}
+
+		info, err := os.Stat(path)
+		if os.IsNotExist(err) || info.IsDir() {
+			// Prevent caching index.html so rebuilds are picked up without hard refresh
+			w.Header().Set("Cache-Control", "no-cache")
+			http.ServeFile(w, r, filepath.Join(frontendDist, "index.html"))
+			return
+		}
+
+		if cleanedPath == "index.html" {
 			w.Header().Set("Cache-Control", "no-cache")
 		}
-		fs.ServeHTTP(w, r)
+
+		http.ServeFile(w, r, path)
 	}))
 
 	// Serve card assets
