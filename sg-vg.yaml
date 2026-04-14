@@ -1,0 +1,35 @@
+http:
+  routers:
+    sg-vg-http:
+      entryPoints:
+        - http
+      service: sg-vg
+      rule: Host(`sg.vangambit.com`)
+    sg-vg-https:
+      entryPoints:
+        - https
+      service: sg-vg
+      rule: Host(`sg.vangambit.com`)
+      tls:
+        certresolver: letsencrypt
+    sg-vg-ws:
+      entryPoints:
+        - http
+      service: sg-vg-ws
+      rule: Host(`sg.vangambit.com`) && Path(`/ws`)
+    sg-vg-wss:
+      entryPoints:
+        - https
+      service: sg-vg-ws
+      rule: Host(`sg.vangambit.com`) && Path(`/ws`)
+      tls:
+        certresolver: letsencrypt
+  services:
+    sg-vg:
+      loadBalancer:
+        servers:
+          - url: "http://10.0.1.21:3000"
+    sg-vg-ws:
+      loadBalancer:
+        servers:
+          - url: "http://10.0.1.21:3000"

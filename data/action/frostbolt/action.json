@@ -12,6 +12,7 @@
   },
   "name_scale": 122,
   "text_shadow_color": "rgba(0, 0, 0, 0.5)",
+  "text_shadow_size": 3,
   "tint": "#4770cb",
   "description": "Launch a sharp bolt of frost that hits fast and chills the target.",
   "cost": 2,
@@ -19,20 +20,20 @@
     "ice"
   ],
   "target_rule": "enemy_single",
-  "visible_layers": {
-    "card": true,
-    "char-bg": true,
-    "name": true,
-    "mask-bg": true
-  },
   "targeting": {
     "side": "enemy",
     "scope": "single",
-    "selection": "manual",
-    "allow_self": false,
-    "allow_dead": false
+    "selection": "manual"
   },
-  "text_shadow_size": 3,
+  "visible_layers": {
+    "card": true,
+    "char-bg": true,
+    "char-fg": false,
+    "hp-bar": false,
+    "mask-bg": true,
+    "mask-fg": false,
+    "name": true
+  },
   "vfx": {
     "enabled": true,
     "effect_file": "Card Action VFX - Icebolt.efkefc",
@@ -44,6 +45,6 @@
       "x": 0,
       "y": -60
     },
-    "scale_multiplier": 9.0
+    "scale_multiplier": 9
   }
 }
