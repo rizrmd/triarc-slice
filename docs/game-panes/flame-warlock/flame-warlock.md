@@ -1,42 +1,47 @@
 Malachar, the Flame Warlock - Pyre Engine
 
-## Resource Utama
+## Konsep Inti
 
-### Heat (Maksimum 6)
-Heat naik ketika:
-- Card Fire = +2 Heat
-- Card Wind = +1 Heat
-- Memberi burn ke musuh = +1 Heat
+Malachar tidak punya skill aktif. Seluruh identitasnya ada di **Pyre Engine**: sebuah meter Heat pasif yang menentukan seberapa menyakitkan setiap serangannya.
 
-Heat turun ketika:
-- Terkena Ice = Heat berkurang
-- **Vent Heat** = Turunkan Heat sedikit tanpa skill besar
+**Satu aturan:** Api menumpuk Heat. Es meredakannya. Makin panas Malachar, makin sakit semua seranganya.
 
-## Tahapan Pyre Engine
+## Resource: Heat (0–6)
 
-| Heat Level | Tahap | Efek |
-|------------|-------|------|
-| 1-2 | 🔥 Kindled | Serangan mulai memberi burn kecil. Fase tekanan awal. |
-| 3-4 | 🔥🔥 Blazing | Spell lebih cepat / lebih luas. Fase pressure stabil terbaik. |
-| 5-6 | 🔥🔥🔥 Wildfire | Damage sangat tinggi, efek sulit dikendalikan (splash besar, target acak, self-burn ringan). Fase risiko tinggi, hasil tinggi. |
+### Heat naik 🔥
+- Main kartu **Fire** → +2 Heat
+- Main kartu **Wind** → +1 Heat
+- Memberi burn ke musuh → +1 Heat
 
-## Pelepasan Api (Heat Skills)
+### Heat turun ❄️
+- Terkena serangan **Ice** dari lawan → −1 Heat
+- Main kartu **Ice** sendiri → −1 Heat
 
-| Skill | Heat | Efek |
-|-------|------|------|
-| Flashburn | 2 | Ledakan api cepat ke satu target. Tempo singkat tanpa menunggu lama. |
-| Cinderstorm | 4 | Bakar area kecil atau beberapa musuh. Saat lawan menumpuk / fase Blazing. |
-| Infernal Surge | 5 | Dua aksi serang berikutnya: bonus burn besar + cast lebih cepat. Pertahankan tekanan agresif. |
-| Ashfall | 6 | Ledakkan seluruh Pyre Engine untuk burst besar ke battlefield, lalu Heat kembali ke 0. Payoff terbesar dan paling berbahaya. |
+Heat tidak turun dengan sendirinya per turn — stabil sampai ada interaksi es.
 
-## Keputusan Pemain
+## Efek Pasif Heat
 
-1. **Flashburn (2 Heat)**: Burst ringan cepat
-2. **Cinderstorm (4 Heat)**: Pressure stabil saat fase Blazing
-3. **Infernal Surge (5 Heat)**: Mode agresif berkelanjutan
-4. **Ashfall (6 Heat)**: Payoff maksimum, lalu reset
-5. **Vent Heat**: Turunkan Heat untuk hindari Wildfire terlalu cepat
+Tidak ada tombol. Tidak ada cast. Heat secara otomatis memberi **+1 bonus damage per level Heat** ke seluruh serangan Malachar.
 
-## Inti Gameplay
+| Heat | Tahap | Bonus Damage |
+|------|-------|-------------|
+| 1–2 | 🔥 Kindled | +1 / +2 |
+| 3–4 | 🔥🔥 Blazing | +3 / +4 |
+| 5–6 | 🔥🔥🔥 Wildfire | +5 / +6 |
 
-Pyre Engine membuat Malachar seperti living inferno yang terus naik suhunya. Semakin lama api dibiarkan hidup, semakin besar ancamannya, tapi semakin besar juga risiko jika pemain tidak tahu kapan melepas atau meredakannya.
+Tidak ada risiko self-burn di Wildfire — Heat 6 murni reward. Dilemanya bukan "apakah berani push ke Wildfire", melainkan "bisakah kamu mempertahankan Heat tinggi di tengah tekanan kartu Ice lawan".
+
+## Dinamika Gameplay
+
+**Tug-of-war elemental:**
+Malachar adalah hero yang secara natural di-counter oleh deck Ice. Setiap hit es menurunkan Heat, dan dengan itu menurunkan seluruh damage profile-nya. Ini menciptakan momentum swing alami dalam pertandingan.
+
+**Dilema deck building:**
+Kartu Ice di tangan Malachar adalah pedang bermata dua — berguna sebagai utility, tapi merusak engine-nya sendiri. Pemain harus memutuskan kapan mengorbankan Heat untuk efek Ice.
+
+**Tempo bertahan di puncak:**
+Mencapai Heat 6 bukan tujuan akhir — tantangan sebenarnya adalah **bertahan** di Heat tinggi selama mungkin. Setiap kartu Ice yang masuk menurunkan Heat 1 per tick, sehingga pemain harus terus meng-counter dengan kartu Fire/Wind untuk menjaga suhu.
+
+## Inti
+
+Pyre Engine membuat Malachar seperti living inferno yang suhunya naik-turun dinamis selama pertandingan. Semakin lama api dibiarkan hidup, semakin besar ancamannya — tapi satu hit es bisa meredakannya dan memaksa pemain membangun ulang dari awal.

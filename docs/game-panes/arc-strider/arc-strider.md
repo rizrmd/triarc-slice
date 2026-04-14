@@ -2,10 +2,9 @@ Untuk Kaelen, the Arc Strider, dia punya sistem energi khusus yang namanya Stati
 
 Static Charge akan bertambah saat:
 
-Kaelen terkena serangan
-Kaelen menggunakan card action
+Kaelen terkena serangan atau menggunakan card action
 
-Pemain lalu bisa memilih satu skill di hero pane Kaelen. Skill itu akan menunggu sampai jumlah Static Charge yang dibutuhkan terpenuhi. Setelah cukup, skill akan aktif otomatis, lalu semua Static Charge habis.
+Pemain lalu bisa memilih satu skill di hero panel. Skill itu akan menunggu sampai jumlah Static Charge yang dibutuhkan terpenuhi. Setelah cukup, skill akan aktif otomatis, lalu semua Static Charge habis.
 
 Berikut penjelasan skill Kaelen beserta charge yang dibutuhkan:
 
